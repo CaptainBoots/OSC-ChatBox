@@ -12,15 +12,15 @@ INSTALL INTRUCTTIONS
 
 5 / Run The Package Install Commands:
 
-                                      Python -m pip install --upgrade pip
+    Python -m pip install --upgrade pip
                                       
-                                      Python -m pip install pyinstaller
+    Python -m pip install pyinstaller
                                       
-                                      Python -m pip install psutil
+    Python -m pip install psutil
                                       
-                                      Python -m pip install python-osc
+    Python -m pip install python-osc
                                       
-                                      Python -m pip install winrt-Windows.Media.Control
+    Python -m pip install winrt-Windows.Media.Control
 
 6 / Run Code
 
