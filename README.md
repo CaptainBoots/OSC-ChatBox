@@ -1,4 +1,11 @@
 # OSC VRC Chatbox
 
 hi people 
-I made this in 6 hours so i probly wont work on your computer but ill update it to work on more computers later
+I made this in 6 hours so i probly wont work on your computer but it shou work if you run this command:
+python -m pip install psutil python-osc scipy setuptools typing-extensions wheel winrt-runtime winrt-Windows-Foundation winrt-Windows-Media-Control
+
+and to custemise the textbox edit this 
+<img width="609" height="451" alt="image" src="https://github.com/user-attachments/assets/3bbe15e9-c0db-4d59-a491-d3e93f68bbf5" />
+
+and to edit the ip, port and download/upload measuring interface edit this
+<img width="271" height="106" alt="image" src="https://github.com/user-attachments/assets/71981e09-226c-4b76-9a22-def2af9c9f1f" />
