@@ -1,14 +1,22 @@
 # OSC VRC Chatbox
 
-run these commands to install packages:
+INSTALL INTRUCTTIONS
 
-Python -m pip install --upgrade pip
+1 / Install Pycharm
 
-Python -m pip install pyinstaller
+2 / Extract OSC Folder
 
-Python -m pip install psutil
+3 / Open OSC Folder In Pycharm
 
-Python -m pip install python-osc
+4 / Open Most Recent File
 
-Python -m pip install winrt-Windows.Media.Control
+5 / Run The Package Install Commands:
+                                      Python -m pip install --upgrade pip
+                                      Python -m pip install pyinstaller
+                                      Python -m pip install psutil
+                                      Python -m pip install python-osc
+                                      Python -m pip install winrt-Windows.Media.Control
+
+
+
 
