@@ -4,7 +4,6 @@ import subprocess
 import threading
 import time
 import tkinter as tk
-
 import psutil
 import winrt.windows.media.control as wmc
 from pythonosc.udp_client import SimpleUDPClient
@@ -16,6 +15,8 @@ SWITCH_INTERVAL = 30
 
 client = None
 running = False
+page1_line1_text = "-enter text-"
+page2_line1_text = "-enter text-"
 
 
 def fmt(bps):
@@ -34,7 +35,7 @@ def get_gpu_load():
         result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
         values = [float(v) for v in result.strip().split('\n') if v.strip()]
         return int(max(values)) if values else 0
-    except:
+    except (subprocess.CalledProcessError, ValueError, IndexError):
         return 0
 
 
@@ -53,8 +54,8 @@ def detect_cpu():
             stderr=subprocess.DEVNULL
         ).strip()
         return _clean_name(cpu_name)
-    except:
-        return "CPU Unknown"
+    except (subprocess.CalledProcessError, ValueError, IndexError):
+        return 0
 
 
 def detect_gpu():
@@ -65,7 +66,7 @@ def detect_gpu():
             stderr=subprocess.DEVNULL
         ).strip()
         return _clean_name(gpu_name)
-    except:
+    except (subprocess.CalledProcessError, UnicodeDecodeError):
         return "GPU Unknown"
 
 
@@ -87,12 +88,12 @@ async def get_media_info():
             pos = timeline.position.total_seconds() * 1000
             dur = timeline.end_time.total_seconds() * 1000
             return props.title, props.artist, pos, dur
-    except:
-        pass
+    except (OSError, AttributeError, RuntimeError):
+            pass
     return None, None, 0, 0
 
 
-def clean_title(raw_title, artist=None):
+def clean_title(raw_title,):
     if not raw_title:
         return ""
 
@@ -120,7 +121,7 @@ def get_network_usage(prev, prev_time):
         up = (cur.bytes_sent - prev.bytes_sent) / elapsed
         down = (cur.bytes_recv - prev.bytes_recv) / elapsed
         return cur, up, down, now
-    except:
+    except (KeyError, ZeroDivisionError):
         return prev, 0, 0, now
 
 
@@ -145,7 +146,7 @@ def run_osc_loop():
 
     while running:
         song, artist, pos, dur = asyncio.run(get_media_info())
-        clean_song = clean_title(song, artist)
+        clean_song = clean_title(song)  # Remove the artist parameter
 
         cpu = psutil.cpu_percent()
         gpu = get_gpu_load()
@@ -178,7 +179,7 @@ def run_osc_loop():
                 f"{display_song} {display_artist}"
             )
 
-        client.send_message("/chatbox/input", [text, True])
+        client.send_message("/chatbox/input", [text, True])  # type: ignore
         time.sleep(1.6)
 
 
