@@ -8,10 +8,13 @@ python -m pip install psutil python-osc scipy setuptools typing-extensions wheel
 
 To customize the textbox edit this:
 
-<img width="609" height="451" alt="image" src="https://github.com/user-attachments/assets/3bbe15e9-c0db-4d59-a491-d3e93f68bbf5" />
+<img width="976" height="419" alt="image" src="https://github.com/user-attachments/assets/872db040-604a-4c92-9c5f-64d695bcc00c" />
+
 
 
 To edit the ip, port and download/upload measuring interface edit this:
 
-<img width="271" height="106" alt="image" src="https://github.com/user-attachments/assets/71981e09-226c-4b76-9a22-def2af9c9f1f" />
+
+<img width="1074" height="93" alt="image" src="https://github.com/user-attachments/assets/eef21cf9-f96d-4753-89e2-1bfad9d36dbd" />
+
 
