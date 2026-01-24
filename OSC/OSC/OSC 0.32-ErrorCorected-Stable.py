@@ -157,6 +157,19 @@ def run_osc_loop():
     print(gpu_detect)
     print("Sending live data to VRChat...")
 
+    def build_page(header, cur_time, stats_line1, stats_line2, bar, track, performer):
+        display_artist = f"-{performer}" if performer else ""
+        display_song = f"🎵 {track}" if track else ""
+
+        return (
+            f"{header}\n"
+            f"{cur_time}\n"
+            f"{stats_line1}\n"
+            f"{stats_line2}\n"
+            f"{bar}\n"
+            f"{display_song} {display_artist}"
+        )
+
     while True:
         song, artist, _, pos, dur = asyncio.run(get_media_info())
         clean_song = clean_title(song, artist)
@@ -167,32 +180,33 @@ def run_osc_loop():
 
         cur_time_str = time.strftime("%I:%M %p")
         progress_bar = create_progress_bar(pos, dur)
-        display_artist = f"-{artist}" if artist else ""
-        display_song = f"🎵 {clean_song}" if clean_song else ""
 
         page_index = int((prev_time // SWITCH_INTERVAL) % 2)
 
-        if page_index == 0: #Page 1
-            text = (
-                f"Im running this shit with python\n" #Edit this text for the top status on page
-                f"{cur_time_str}\n" #The time
-                f"Download {fmt(down_raw)}\n" #Download usage
-                f"Upload {fmt(up_raw)}\n" #Upload usage
-                f"{progress_bar}\n" #Media progress bar
-                f"{display_song} {display_artist}" #Song and artist
+        if page_index == 0:
+            text = build_page(
+                "Im running this shit with python",
+                cur_time_str,
+                f"Download {fmt(down_raw)}",
+                f"Upload {fmt(up_raw)}",
+                progress_bar,
+                clean_song,
+                artist
             )
         else:
-            text = ( #Page 2
-                f"Blasting Music\n" #Edit this text for the top status on page 2
-                f"{cur_time_str}\n" #The time
-                f"{cpu_detect} {cpu}%\n" #Cpu usage
-                f"{gpu_detect} {gpu}%\n" #Gpu usage
-                f"{progress_bar}\n" #Media progress bar
-                f"{display_song} {display_artist}" #Song and artist
+            text = build_page(
+                "Blasting Music",
+                cur_time_str,
+                f"{cpu_detect} {cpu}%",
+                f"{gpu_detect} {gpu}%",
+                progress_bar,
+                clean_song,
+                artist
             )
 
         client.send_message("/chatbox/input", [text, True])
         time.sleep(1.6)
+
 
 if __name__ == "__main__":
     run_osc_loop()
