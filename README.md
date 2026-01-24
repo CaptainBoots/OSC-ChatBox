@@ -6,7 +6,7 @@ I made this in 6 hours so i might wont work on your computer but it should work 
 python -m pip install psutil python-osc scipy setuptools typing-extensions wheel winrt-runtime winrt-Windows-Foundation winrt-Windows-Media-Control
 
 
-To custemise the textbox edit this:
+To customize the textbox edit this:
 
 <img width="609" height="451" alt="image" src="https://github.com/user-attachments/assets/3bbe15e9-c0db-4d59-a491-d3e93f68bbf5" />
 
