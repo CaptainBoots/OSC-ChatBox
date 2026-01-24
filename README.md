@@ -21,7 +21,10 @@ INSTALL INTRUCTTIONS
                                       Python -m pip install python-osc
                                       
                                       Python -m pip install winrt-Windows.Media.Control
-                                      
+
+6 / Run Code
+
+7 / Customize The Options In The UI
 
 
 
