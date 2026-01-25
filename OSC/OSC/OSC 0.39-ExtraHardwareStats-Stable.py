@@ -72,7 +72,6 @@ def get_gpu_load():
 
 
 def get_cpu_temp():
-    """Get CPU temperature using OpenHardwareMonitor or WMI"""
     try:
         cmd = (
             'Get-WmiObject -Namespace "root/OpenHardwareMonitor" -Class Sensor | '
@@ -83,14 +82,12 @@ def get_cpu_temp():
         temp = float(result.strip())
         return int(temp)
     except (subprocess.CalledProcessError, ValueError):
-        # Fallback method using MSAcpi_ThermalZoneTemperature
         try:
             cmd = (
                 'Get-WmiObject MSAcpi_ThermalZoneTemperature -Namespace "root/wmi" | '
                 'Select-Object -First 1 -ExpandProperty CurrentTemperature'
             )
             result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
-            # Convert from tenths of Kelvin to Celsius
             temp_kelvin = float(result.strip()) / 10.0
             temp_celsius = temp_kelvin - 273.15
             return int(temp_celsius)
@@ -99,7 +96,6 @@ def get_cpu_temp():
 
 
 def get_cpu_wattage():
-    """Get CPU power consumption"""
     try:
         cmd = (
             'Get-WmiObject -Namespace "root/OpenHardwareMonitor" -Class Sensor | '
@@ -114,7 +110,6 @@ def get_cpu_wattage():
 
 
 def get_gpu_temp():
-    """Get GPU temperature"""
     try:
         cmd = (
             'Get-WmiObject -Namespace "root/OpenHardwareMonitor" -Class Sensor | '
@@ -129,7 +124,6 @@ def get_gpu_temp():
 
 
 def get_gpu_wattage():
-    """Get GPU power consumption"""
     try:
         cmd = (
             'Get-WmiObject -Namespace "root/OpenHardwareMonitor" -Class Sensor | '
@@ -257,7 +251,6 @@ def run_osc_loop():
         cpu = psutil.cpu_percent()
         gpu = get_gpu_load()
 
-        # Update temperature and wattage values
         cpu_temp = get_cpu_temp()
         cpu_wattage = get_cpu_wattage()
         gpu_temp = get_gpu_temp()
