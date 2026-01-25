@@ -40,6 +40,9 @@ https://www.jetbrains.com/pycharm/download/?section=windows
                                       
     Python -m pip install winrt-Windows.Media.Control
 
+    python -m pip install psutil python-osc scipy setuptools typing-extensions wheel winrt-runtime winrt-Windows-Foundation winrt-Windows-Media-Control
+
+
 
 
 6 / Run Code
