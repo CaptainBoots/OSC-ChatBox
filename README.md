@@ -53,3 +53,7 @@ https://www.jetbrains.com/pycharm/download/?section=windows
 <img width="402" height="392" alt="image" src="https://github.com/user-attachments/assets/d40b7610-296f-4f15-8afc-9045c3da365f" />
 
 
+
+8 / For Version 0.39 And Later Install And Run Open Hardware Monitor
+
+<img width="167" height="34" alt="image" src="https://github.com/user-attachments/assets/5e1b807c-5cc4-4077-b25c-fb83b2be1401" />
