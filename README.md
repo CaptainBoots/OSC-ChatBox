@@ -20,7 +20,10 @@ https://www.jetbrains.com/pycharm/download/?section=windows
 
 
 
-4 / Open Most Recent File
+4 / Open Most Recent file withe the only descipter of -Stable
+
+<img width="372" height="23" alt="image" src="https://github.com/user-attachments/assets/d45df7cf-adb9-4449-bf02-a3ddfec1d94e" />
+
 
 
 
