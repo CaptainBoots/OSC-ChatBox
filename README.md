@@ -1,4 +1,4 @@
-# OSC VRC Chatbox
+# OSCCB
 
 INSTALL INTRUCTTIONS
 
