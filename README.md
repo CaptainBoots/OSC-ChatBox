@@ -1,6 +1,31 @@
 # OSC VRC Chatbox
 
-hi people 
-I made this in 6 hours so i might wont work on your computer but it should work if you run this command:
+INSTALL INTRUCTTIONS
 
-python -m pip install psutil python-osc scipy setuptools typing-extensions wheel winrt-runtime winrt-Windows-Foundation winrt-Windows-Media-Control
+1 / Install Pycharm
+
+2 / Extract OSC Folder
+
+3 / Open OSC Folder In Pycharm
+
+4 / Open Most Recent File
+
+5 / Run The Package Install Commands:
+
+    Python -m pip install --upgrade pip
+                                      
+    Python -m pip install pyinstaller
+                                      
+    Python -m pip install psutil
+                                      
+    Python -m pip install python-osc
+                                      
+    Python -m pip install winrt-Windows.Media.Control
+
+6 / Run Code
+
+7 / Customize The Options In The UI
+
+
+
+
