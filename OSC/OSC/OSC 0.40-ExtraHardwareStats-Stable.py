@@ -57,6 +57,89 @@ def _clean_name(name: str):
 # HARDWARE MONITORING
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+#════════════════════════════════════════════════════Cpu══════════════════════════════════════════════════════════════#
+
+def detect_cpu():
+    try:
+        cpu_name = subprocess.check_output(
+            ["powershell", "-Command", "(Get-CimInstance Win32_Processor).Name"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL
+        ).strip()
+        return _clean_name(cpu_name)
+    except (subprocess.CalledProcessError, UnicodeDecodeError):
+        return "CPU Unknown"
+
+def get_cpu_wattage():
+    """Get CPU power consumption from OpenHardwareMonitor or WMI"""
+    # Method 1: Try OpenHardwareMonitor (most reliable)
+    try:
+        cmd = (
+            'Get-WmiObject -Namespace "root/OpenHardwareMonitor" -Class Sensor | '
+            'Where-Object {$_.SensorType -eq "Power" -and $_.Name -like "*CPU*"} | '
+            'Select-Object -ExpandProperty Value | Select-Object -First 1'
+        )
+        result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
+        if result.strip():
+            wattage = float(result.strip())
+            return int(wattage)
+    except (subprocess.CalledProcessError, ValueError):
+        pass
+
+    # Method 2: Try WMI Power consumption
+    try:
+        cmd = (
+            'Get-WmiObject -Namespace "root/cimv2" -Class Win32_PerfFormattedData_Counters_ProcessorInformation | '
+            'Select-Object -First 1 -ExpandProperty "C2 Transitions/sec"'
+        )
+        result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
+        if result.strip():
+            value = float(result.strip())
+            # Rough conversion based on C-state transitions
+            return int(max(30, min(150, value / 10)))
+    except (subprocess.CalledProcessError, ValueError):
+        pass
+
+    # Fallback: estimation based on load
+    try:
+        cpu_percent = psutil.cpu_percent(interval=0.05)
+        estimated_watts = int((cpu_percent / 100) * 150)
+        return estimated_watts
+    except:
+        pass
+
+    return 0
+
+def get_cpu_temp():
+    try:
+        cmd = (
+            'Get-WmiObject -Namespace "root/cimv2" -Class Win32_PerfFormattedData_Counters_ThermalZoneInformation | '
+            'Select-Object -First 1 -ExpandProperty HighPrecisionTemperature'
+        )
+        result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
+        if result.strip():
+            # Temperature is in tenths of Kelvin
+            temp_kelvin = float(result.strip()) / 10.0
+            temp_celsius = temp_kelvin - 273.15
+            return int(temp_celsius)
+    except (subprocess.CalledProcessError, ValueError):
+        pass
+
+    return 0
+
+#════════════════════════════════════════════════════Gpu══════════════════════════════════════════════════════════════#
+
+def detect_gpu():
+    try:
+        gpu_name = subprocess.check_output(
+            ["powershell", "-Command", "(Get-CimInstance Win32_VideoController).Name"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL
+        ).strip()
+        return _clean_name(gpu_name)
+    except (subprocess.CalledProcessError, UnicodeDecodeError):
+        return "GPU Unknown"
+
 def get_gpu_load():
     try:
         cmd = (
@@ -70,51 +153,47 @@ def get_gpu_load():
     except (subprocess.CalledProcessError, ValueError, IndexError):
         return 0
 
-
-def get_cpu_temp():
-    """Get CPU temperature using OpenHardwareMonitor or WMI"""
+def get_gpu_wattage():
+    """Get GPU power consumption from OpenHardwareMonitor or estimation"""
+    # Method 1: Try OpenHardwareMonitor (most reliable)
     try:
         cmd = (
             'Get-WmiObject -Namespace "root/OpenHardwareMonitor" -Class Sensor | '
-            'Where-Object {$_.SensorType -eq "Temperature" -and $_.Name -like "*CPU Package*"} | '
-            'Select-Object -ExpandProperty Value'
+            'Where-Object {$_.SensorType -eq "Power" -and ($_.Name -like "*GPU*" -or $_.Name -like "*3D*")} | '
+            'Select-Object -ExpandProperty Value | Select-Object -First 1'
         )
         result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
-        temp = float(result.strip())
-        return int(temp)
+        if result.strip():
+            wattage = float(result.strip())
+            return int(wattage)
     except (subprocess.CalledProcessError, ValueError):
-        # Fallback method using MSAcpi_ThermalZoneTemperature
-        try:
-            cmd = (
-                'Get-WmiObject MSAcpi_ThermalZoneTemperature -Namespace "root/wmi" | '
-                'Select-Object -First 1 -ExpandProperty CurrentTemperature'
-            )
-            result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
-            # Convert from tenths of Kelvin to Celsius
-            temp_kelvin = float(result.strip()) / 10.0
-            temp_celsius = temp_kelvin - 273.15
-            return int(temp_celsius)
-        except (subprocess.CalledProcessError, ValueError):
-            return 0
+        pass
 
-
-def get_cpu_wattage():
-    """Get CPU power consumption"""
+    # Method 2: Try WMI GPU performance data
     try:
         cmd = (
-            'Get-WmiObject -Namespace "root/OpenHardwareMonitor" -Class Sensor | '
-            'Where-Object {$_.SensorType -eq "Power" -and $_.Name -like "*CPU Package*"} | '
-            'Select-Object -ExpandProperty Value'
+            'Get-WmiObject -Namespace "root/cimv2" -Class Win32_PerfFormattedData_Counters_GPUEngine | '
+            'Select-Object -First 1 -ExpandProperty "Utilization Percentage"'
         )
         result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
-        wattage = float(result.strip())
-        return int(wattage)
+        if result.strip():
+            gpu_util = float(result.strip())
+            estimated_watts = int((gpu_util / 100) * 300)
+            return estimated_watts
     except (subprocess.CalledProcessError, ValueError):
-        return 0
+        pass
 
+    # Fallback: estimation based on GPU load
+    try:
+        gpu_load = get_gpu_load()
+        estimated_watts = int((gpu_load / 100) * 300)
+        return estimated_watts
+    except:
+        pass
+
+    return 0
 
 def get_gpu_temp():
-    """Get GPU temperature"""
     try:
         cmd = (
             'Get-WmiObject -Namespace "root/OpenHardwareMonitor" -Class Sensor | '
@@ -126,45 +205,6 @@ def get_gpu_temp():
         return int(temp)
     except (subprocess.CalledProcessError, ValueError):
         return 0
-
-
-def get_gpu_wattage():
-    """Get GPU power consumption"""
-    try:
-        cmd = (
-            'Get-WmiObject -Namespace "root/OpenHardwareMonitor" -Class Sensor | '
-            'Where-Object {$_.SensorType -eq "Power" -and $_.Name -like "*GPU Package*"} | '
-            'Select-Object -ExpandProperty Value'
-        )
-        result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
-        wattage = float(result.strip())
-        return int(wattage)
-    except (subprocess.CalledProcessError, ValueError):
-        return 0
-
-
-def detect_cpu():
-    try:
-        cpu_name = subprocess.check_output(
-            ["powershell", "-Command", "(Get-CimInstance Win32_Processor).Name"],
-            encoding="utf-8",
-            stderr=subprocess.DEVNULL
-        ).strip()
-        return _clean_name(cpu_name)
-    except (subprocess.CalledProcessError, UnicodeDecodeError):
-        return "CPU Unknown"
-
-
-def detect_gpu():
-    try:
-        gpu_name = subprocess.check_output(
-            ["powershell", "-Command", "(Get-CimInstance Win32_VideoController).Name"],
-            encoding="utf-8",
-            stderr=subprocess.DEVNULL
-        ).strip()
-        return _clean_name(gpu_name)
-    except (subprocess.CalledProcessError, UnicodeDecodeError):
-        return "GPU Unknown"
 
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # NETWORK MONITORING
@@ -257,7 +297,6 @@ def run_osc_loop():
         cpu = psutil.cpu_percent()
         gpu = get_gpu_load()
 
-        # Update temperature and wattage values
         cpu_temp = get_cpu_temp()
         cpu_wattage = get_cpu_wattage()
         gpu_temp = get_gpu_temp()
