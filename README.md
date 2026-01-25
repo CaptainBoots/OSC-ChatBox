@@ -40,6 +40,9 @@ https://www.jetbrains.com/pycharm/download/?section=windows
 
 6 / Run Code
 
+<img width="287" height="88" alt="image" src="https://github.com/user-attachments/assets/921fed1f-6e2a-4196-bbec-e07213e563e2" />
+
+
 
 
 7 / Customize The Options In The UI
