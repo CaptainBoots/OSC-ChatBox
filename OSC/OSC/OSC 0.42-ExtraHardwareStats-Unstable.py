@@ -1,3 +1,4 @@
+
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 #                                              OSC Python Script                                                      #
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -71,61 +72,44 @@ def detect_cpu():
         return "CPU Unknown"
 
 def get_cpu_wattage():
-    """Get CPU power consumption from OpenHardwareMonitor or WMI"""
-    # Method 1: Try OpenHardwareMonitor (most reliable)
     try:
         cmd = (
-            'Get-WmiObject -Namespace "root/OpenHardwareMonitor" -Class Sensor | '
-            'Where-Object {$_.SensorType -eq "Power" -and $_.Name -like "*CPU*"} | '
-            'Select-Object -ExpandProperty Value | Select-Object -First 1'
+            'Get-WmiObject -Namespace "root/LibreHardwareMonitor" -Class Sensor | '
+            'Where-Object { $_.SensorType -eq "Power" -and $_.Name -match "CPU Package" } | '
+            'Select-Object -ExpandProperty Value'
         )
-        result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
-        if result.strip():
-            wattage = float(result.strip())
-            return int(wattage)
-    except (subprocess.CalledProcessError, ValueError):
-        pass
+        result = subprocess.check_output(
+            ["powershell", "-NoProfile", "-Command", cmd],
+            encoding="utf-8", stderr=subprocess.DEVNULL
+        ).strip()
 
-    # Method 2: Try WMI Power consumption
-    try:
-        cmd = (
-            'Get-WmiObject -Namespace "root/cimv2" -Class Win32_PerfFormattedData_Counters_ProcessorInformation | '
-            'Select-Object -First 1 -ExpandProperty "C2 Transitions/sec"'
-        )
-        result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
-        if result.strip():
-            value = float(result.strip())
-            # Rough conversion based on C-state transitions
-            return int(max(30, min(150, value / 10)))
-    except (subprocess.CalledProcessError, ValueError):
-        pass
-
-    # Fallback: estimation based on load
-    try:
-        cpu_percent = psutil.cpu_percent(interval=0.05)
-        estimated_watts = int((cpu_percent / 100) * 150)
-        return estimated_watts
+        if result:
+            return int(float(result))
     except:
         pass
 
     return 0
 
+
 def get_cpu_temp():
     try:
         cmd = (
-            'Get-WmiObject -Namespace "root/cimv2" -Class Win32_PerfFormattedData_Counters_ThermalZoneInformation | '
-            'Select-Object -First 1 -ExpandProperty HighPrecisionTemperature'
+            'Get-WmiObject -Namespace "root/LibreHardwareMonitor" -Class Sensor | '
+            'Where-Object { $_.SensorType -eq "Temperature" -and $_.Name -match "CPU Package" } | '
+            'Select-Object -ExpandProperty Value'
         )
-        result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
-        if result.strip():
-            # Temperature is in tenths of Kelvin
-            temp_kelvin = float(result.strip()) / 10.0
-            temp_celsius = temp_kelvin - 273.15
-            return int(temp_celsius)
-    except (subprocess.CalledProcessError, ValueError):
+        result = subprocess.check_output(
+            ["powershell", "-NoProfile", "-Command", cmd],
+            encoding="utf-8", stderr=subprocess.DEVNULL
+        ).strip()
+
+        if result:
+            return int(float(result))
+    except:
         pass
 
     return 0
+
 
 #════════════════════════════════════════════════════Gpu══════════════════════════════════════════════════════════════#
 
@@ -154,40 +138,19 @@ def get_gpu_load():
         return 0
 
 def get_gpu_wattage():
-    """Get GPU power consumption from OpenHardwareMonitor or estimation"""
-    # Method 1: Try OpenHardwareMonitor (most reliable)
     try:
         cmd = (
-            'Get-WmiObject -Namespace "root/OpenHardwareMonitor" -Class Sensor | '
-            'Where-Object {$_.SensorType -eq "Power" -and ($_.Name -like "*GPU*" -or $_.Name -like "*3D*")} | '
-            'Select-Object -ExpandProperty Value | Select-Object -First 1'
+            'Get-WmiObject -Namespace "root/LibreHardwareMonitor" -Class Sensor | '
+            'Where-Object { $_.SensorType -eq "Power" -and $_.Name -match "GPU Power" } | '
+            'Select-Object -ExpandProperty Value'
         )
-        result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
-        if result.strip():
-            wattage = float(result.strip())
-            return int(wattage)
-    except (subprocess.CalledProcessError, ValueError):
-        pass
+        result = subprocess.check_output(
+            ["powershell", "-NoProfile", "-Command", cmd],
+            encoding="utf-8", stderr=subprocess.DEVNULL
+        ).strip()
 
-    # Method 2: Try WMI GPU performance data
-    try:
-        cmd = (
-            'Get-WmiObject -Namespace "root/cimv2" -Class Win32_PerfFormattedData_Counters_GPUEngine | '
-            'Select-Object -First 1 -ExpandProperty "Utilization Percentage"'
-        )
-        result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
-        if result.strip():
-            gpu_util = float(result.strip())
-            estimated_watts = int((gpu_util / 100) * 300)
-            return estimated_watts
-    except (subprocess.CalledProcessError, ValueError):
-        pass
-
-    # Fallback: estimation based on GPU load
-    try:
-        gpu_load = get_gpu_load()
-        estimated_watts = int((gpu_load / 100) * 300)
-        return estimated_watts
+        if result:
+            return int(float(result))
     except:
         pass
 
@@ -196,15 +159,21 @@ def get_gpu_wattage():
 def get_gpu_temp():
     try:
         cmd = (
-            'Get-WmiObject -Namespace "root/OpenHardwareMonitor" -Class Sensor | '
-            'Where-Object {$_.SensorType -eq "Temperature" -and $_.Name -like "*GPU Core*"} | '
+            'Get-WmiObject -Namespace "root/LibreHardwareMonitor" -Class Sensor | '
+            'Where-Object { $_.SensorType -eq "Temperature" -and $_.Name -match "GPU Core" } | '
             'Select-Object -ExpandProperty Value'
         )
-        result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
-        temp = float(result.strip())
-        return int(temp)
-    except (subprocess.CalledProcessError, ValueError):
-        return 0
+        result = subprocess.check_output(
+            ["powershell", "-NoProfile", "-Command", cmd],
+            encoding="utf-8", stderr=subprocess.DEVNULL
+        ).strip()
+
+        if result:
+            return int(float(result))
+    except:
+        pass
+
+    return 0
 
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # NETWORK MONITORING
