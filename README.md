@@ -18,12 +18,13 @@ https://www.jetbrains.com/pycharm/download/?section=windows
 
 3 / Open OSC Folder In Pycharm
 
+<img width="723" height="743" alt="image" src="https://github.com/user-attachments/assets/9c5cfee2-f32c-4b10-8201-b9a8990964b7" />
+
 
 
 4 / Open Most Recent file with the only descriptor of -Stable
 
 <img width="372" height="23" alt="image" src="https://github.com/user-attachments/assets/d45df7cf-adb9-4449-bf02-a3ddfec1d94e" />
-
 
 
 
@@ -47,11 +48,8 @@ https://www.jetbrains.com/pycharm/download/?section=windows
 
 
 
-
 7 / Customize The Options In The UI
 
 <img width="402" height="392" alt="image" src="https://github.com/user-attachments/assets/d40b7610-296f-4f15-8afc-9045c3da365f" />
-
-
 
 
