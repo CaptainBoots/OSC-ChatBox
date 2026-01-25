@@ -40,11 +40,11 @@ https://www.jetbrains.com/pycharm/download/?section=windows
 
 6 / Run Code
 
-<img width="402" height="392" alt="image" src="https://github.com/user-attachments/assets/d40b7610-296f-4f15-8afc-9045c3da365f" />
-
 
 
 7 / Customize The Options In The UI
+
+<img width="402" height="392" alt="image" src="https://github.com/user-attachments/assets/d40b7610-296f-4f15-8afc-9045c3da365f" />
 
 
 
