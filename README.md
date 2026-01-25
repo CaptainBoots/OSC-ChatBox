@@ -1,4 +1,4 @@
-# OSC CB
+# OSC ChatBox
 OSC Chatbox
 
 INSTALL INTRUCTTIONS
