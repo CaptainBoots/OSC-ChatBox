@@ -276,7 +276,7 @@ def run_osc_loop():
         cur_time_str = time.strftime("%I:%M %p")
         progress_bar = create_progress_bar(pos, dur)
 
-        display_artist = f"-{artist}" if artist else ""
+        display_artist = f"- {artist}" if artist else ""
         display_song = f"🎵 {clean_song}" if clean_song else ""
 
         page_index = int((time.time() // SWITCH_INTERVAL) % 2)
