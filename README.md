@@ -1,4 +1,5 @@
-# OSC VRC Chatbox
+# OSC ChatBox
+OSC Chatbox
 
 INSTALL INTRUCTTIONS
 
