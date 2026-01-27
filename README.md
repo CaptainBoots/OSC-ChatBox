@@ -13,7 +13,7 @@ INSTALL INTRUCTTIONS
 
 ⠀
 
-Option 1 (Easy) 
+# Option 1 (Easy) 
 
 ⠀
 
