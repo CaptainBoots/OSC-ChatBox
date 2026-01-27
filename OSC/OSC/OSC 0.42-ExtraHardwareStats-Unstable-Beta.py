@@ -247,7 +247,7 @@ def run_osc_loop():
 
     all_stats = psutil.net_io_counters(pernic=True)
     if INTERFACE not in all_stats:
-        print(f"Interface not found: {INTERFACE}")
+        print(f"Error: {INTERFACE} not found. Available: {list(all_stats.keys())}")
         running = False
         return
 
@@ -342,7 +342,7 @@ def stop_script():
 # GUI SETUP
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-BG = "#121212"/
+BG = "#121212"
 FG = "#E0E0E0"
 ENTRY_BG = "#1E1E1E"
 BTN_BG = "#2A2A2A"

@@ -232,7 +232,7 @@ def run_osc_loop():
 
     all_stats = psutil.net_io_counters(pernic=True)
     if INTERFACE not in all_stats:
-        print(f"Interface not found: {INTERFACE}")
+        print(f"Error: {INTERFACE} not found. Available: {list(all_stats.keys())}")
         running = False
         return
 
