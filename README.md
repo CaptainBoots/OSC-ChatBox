@@ -66,7 +66,7 @@ https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
 
 3 / Open OSC Chatbox 
 
-<img width="227" height="279" alt="image" src="https://github.com/user-attachments/assets/e9a4e1c8-6fb1-4a50-956e-9a0b79a0842f" />
+(Image To Be Added)
 
 ⠀
 
