@@ -11,7 +11,7 @@ INSTALL INTRUCTTIONS
 <img width="943" height="675" alt="image" src="https://github.com/user-attachments/assets/37758dc8-6cac-4dd8-80a6-79252b152af9" />
 
 
-Option 1 (easy) 
+Option 1 (Easy) 
 
 2 / Get Thonny
 
@@ -41,6 +41,19 @@ install:
 
 6 / Run Code
 
+
+
+
+Option 2 (Harder) 
+
+2 / Get Pycharm
+
+https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
+
+
+3 / Open OSC Chatbox 
+
+<img width="227" height="279" alt="image" src="https://github.com/user-attachments/assets/e9a4e1c8-6fb1-4a50-956e-9a0b79a0842f" />
 
 
 4 / Open Most Recent file with the only descriptor of -Stable
