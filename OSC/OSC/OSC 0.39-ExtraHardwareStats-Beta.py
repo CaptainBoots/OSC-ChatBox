@@ -27,6 +27,8 @@ OSC_PORT = 9000
 INTERFACE = "Ethernet"
 SWITCH_INTERVAL = 30
 
+print("This a beta version use at your own risk")
+
 client = None
 running = False
 page1_line1_text = "-enter text-"
