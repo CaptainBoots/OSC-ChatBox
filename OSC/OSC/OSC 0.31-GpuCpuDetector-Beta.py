@@ -11,6 +11,8 @@ OSC_PORT = 9000 #Change to the OSC port you want to use
 INTERFACE = "Ethernet" #Chamge to interface you want to measure: Ethernet, "the name of your WI-FI" or any other interface
 SWITCH_INTERVAL = 30 #Change to decide how often the page number changes
 
+print("This a beta version use at your own risk")
+
 client = SimpleUDPClient(OSC_IP, OSC_PORT)
 
 def fmt(bps): #Formats the Bits per second for the network reader
