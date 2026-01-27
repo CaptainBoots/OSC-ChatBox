@@ -2,22 +2,29 @@
 OSC Chatbox
 
 INSTALL INTRUCTTIONS
+
 ⠀
-⠀
-⠀
-⠀
+
 1 / Extract OSC Folder
+
 ⠀
+
 <img width="943" height="675" alt="image" src="https://github.com/user-attachments/assets/37758dc8-6cac-4dd8-80a6-79252b152af9" />
+
 ⠀
-⠀
+
 Option 1 (Easy) 
+
 ⠀
+
 2 / Get Thonny
+
 ⠀
+
 https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownload
+
 ⠀
-⠀
+
 3 / Open OSC Chatbox 
 ⠀
 <img width="227" height="279" alt="image" src="https://github.com/user-attachments/assets/e9a4e1c8-6fb1-4a50-956e-9a0b79a0842f" />
