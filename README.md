@@ -37,6 +37,10 @@ https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownloa
 
 5 / Install Packages
 
+<img width="420" height="327" alt="image" src="https://github.com/user-attachments/assets/2278c793-e97d-49e2-9366-8e2c1cc7aa3f" />
+
+<img width="668" height="487" alt="image" src="https://github.com/user-attachments/assets/907dff64-7f0b-4825-a883-6d20c4438ef3" />
+
 install:
                                 
     psutil
