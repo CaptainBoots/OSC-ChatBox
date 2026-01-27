@@ -7,6 +7,8 @@ import re
 from pythonosc.udp_client import SimpleUDPClient
 import winrt.windows.media.control as wmc
 
+print("This code is depreciated use at your own risk")
+
 # -------------------- CONFIG --------------------
 OSC_IP = "127.0.0.1"
 OSC_PORT = 9000
