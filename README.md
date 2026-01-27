@@ -26,15 +26,21 @@ https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownloa
 ⠀
 
 3 / Open OSC Chatbox 
+
 ⠀
+
 <img width="227" height="279" alt="image" src="https://github.com/user-attachments/assets/e9a4e1c8-6fb1-4a50-956e-9a0b79a0842f" />
+
 ⠀
-⠀
+
 4 / Open Most Recent file with the only descriptor of -Stable
+
 ⠀
+
 <img width="1033" height="611" alt="image" src="https://github.com/user-attachments/assets/7d68c38e-09f8-4ff9-b607-019ae3ff73a6" />
+
 ⠀
-⠀
+
 5 / Install Packages
 
 install:
@@ -48,16 +54,24 @@ install:
 
 6 / Run Code
 
+⠀
+
 <img width="283" height="89" alt="image" src="https://github.com/user-attachments/assets/6484cc43-6379-48d8-9c1a-36fb7d21b7a3" />
 
+⠀
 
-Option 2 (Harder) 
+Option 2 (Harder)
+
+⠀
 
 2 / Get Pycharm
 
+⠀
+
 https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
 ⠀
-⠀
+⠀⠀
+
 3 / Open OSC Chatbox 
 ⠀
 <img width="227" height="279" alt="image" src="https://github.com/user-attachments/assets/e9a4e1c8-6fb1-4a50-956e-9a0b79a0842f" />
