@@ -11,6 +11,8 @@ OSC_IP = "127.0.0.1"
 OSC_PORT = 9000
 INTERFACE = "Ethernet"
 
+print("This code is depreciated use at your own risk")
+
 client = SimpleUDPClient(OSC_IP, OSC_PORT)
 
 

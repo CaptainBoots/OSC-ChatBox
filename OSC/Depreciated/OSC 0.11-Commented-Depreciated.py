@@ -14,6 +14,8 @@ SWITCH_INTERVAL = 30
 
 client = SimpleUDPClient(OSC_IP, OSC_PORT)
 
+print("This code is depreciated use at your own risk")
+
 # -------------------- HELPERS --------------------
 def fmt(bps):
     if bps > 1024 * 1024:
