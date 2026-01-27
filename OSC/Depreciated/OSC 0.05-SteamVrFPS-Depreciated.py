@@ -11,6 +11,8 @@ OSC_PORT = 9000
 INTERFACE = "Ethernet"
 SWITCH_INTERVAL = 30
 
+print("This code is depreciated use at your own risk")
+
 client = SimpleUDPClient(OSC_IP, OSC_PORT)
 
 
