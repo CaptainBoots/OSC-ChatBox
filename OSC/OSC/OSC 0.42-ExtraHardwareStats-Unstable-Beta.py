@@ -36,10 +36,10 @@ page1_line1_text = "-enter text-"
 page2_line1_text = "-enter text-"
 
 # Add these new global variables
-cpu_wattage = 0
-cpu_temp = 0
-gpu_wattage = 0
-gpu_temp = 0
+cpu_wattage = "-error-"
+cpu_temp = "-error-"
+gpu_wattage = "-error-"
+gpu_temp = "-error-"
 
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # UTILITY FUNCTIONS
@@ -342,7 +342,7 @@ def stop_script():
 # GUI SETUP
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-BG = "#121212"
+BG = "#121212"/
 FG = "#E0E0E0"
 ENTRY_BG = "#1E1E1E"
 BTN_BG = "#2A2A2A"
@@ -352,7 +352,7 @@ root = tk.Tk()
 root.title("VRChat OSC Monitor")
 root.geometry("400x360")
 root.configure(bg=BG)
-root.resizable(False, False)
+root.resizable(True, True)
 
 frame = tk.Frame(root, bg=BG)
 frame.pack(fill="both", expand=True, padx=10, pady=10)
