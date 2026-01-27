@@ -84,11 +84,11 @@ https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
 
     Python -m pip install --upgrade pip
                                       
-    Python -m pip install psutil
+    Python -m pip install Psutil - 7.2.1
                                       
-    Python -m pip install python-osc
+    Python -m pip install Python-osc - 1.9.3
                                       
-    Python -m pip install winrt-Windows.Media.Control
+    Python -m pip install Winrt-Windows.media.control - 3.2.1
 
 ⠀
 
