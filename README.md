@@ -101,6 +101,7 @@ https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
 ⠀
 
 8 / For Version 0.39 And Later Install And Run Open Hardware Monitor/Lirbre Hardware Monitor depending on what is needed
+
 (Only use beta edition if yoiu know what your doing)
 
 <img width="167" height="34" alt="image" src="https://github.com/user-attachments/assets/5e1b807c-5cc4-4077-b25c-fb83b2be1401" />
