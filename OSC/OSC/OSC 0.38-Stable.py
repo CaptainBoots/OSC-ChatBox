@@ -101,7 +101,7 @@ def get_network_usage(prev, prev_time):
         up = (cur.bytes_sent - prev.bytes_sent) / elapsed
         down = (cur.bytes_recv - prev.bytes_recv) / elapsed
         return cur, up, down, now
-    except (KeyError, ZeroDivisionError):
+    except KeyError:
         return prev, 0, 0, now
 
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -159,7 +159,7 @@ def run_osc_loop():
 
     all_stats = psutil.net_io_counters(pernic=True)
     if INTERFACE not in all_stats:
-        print(f"Interface not found: {INTERFACE}")
+        print(f"Error: {INTERFACE} not found. Available: {list(all_stats.keys())}")
         running = False
         return
 
