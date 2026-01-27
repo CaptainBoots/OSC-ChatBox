@@ -5,21 +5,41 @@ INSTALL INTRUCTTIONS
 
 
 
-1 / Install Pycharm
 
-https://www.jetbrains.com/pycharm/download/?section=windows
-
-
-
-2 / Extract OSC Folder
+1 / Extract OSC Folder
 
 <img width="943" height="675" alt="image" src="https://github.com/user-attachments/assets/37758dc8-6cac-4dd8-80a6-79252b152af9" />
 
 
+Option 1 (easy) 
 
-3 / Open OSC Folder In Pycharm
+2 / Get Thonny
 
-<img width="723" height="743" alt="image" src="https://github.com/user-attachments/assets/9c5cfee2-f32c-4b10-8201-b9a8990964b7" />
+https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownload
+
+
+3 / Open OSC Chatbox 
+
+<img width="227" height="279" alt="image" src="https://github.com/user-attachments/assets/e9a4e1c8-6fb1-4a50-956e-9a0b79a0842f" />
+
+
+4 / Open Most Recent file with the only descriptor of -Stable
+
+<img width="1033" height="611" alt="image" src="https://github.com/user-attachments/assets/7d68c38e-09f8-4ff9-b607-019ae3ff73a6" />
+
+
+5 / Install Packages
+
+install:
+                                
+    psutil
+                                      
+    python-osc
+    
+    winrt-Windows.Media.Control
+
+
+6 / Run Code
 
 
 
@@ -33,15 +53,11 @@ https://www.jetbrains.com/pycharm/download/?section=windows
 
     Python -m pip install --upgrade pip
                                       
-    Python -m pip install pyinstaller
-                                      
     Python -m pip install psutil
                                       
     Python -m pip install python-osc
                                       
     Python -m pip install winrt-Windows.Media.Control
-
-    python -m pip install psutil python-osc scipy setuptools typing-extensions wheel winrt-runtime winrt-Windows-Foundation winrt-Windows-Media-Control
 
 
 
