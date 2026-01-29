@@ -58,6 +58,18 @@ install:
 
 ⠀
 
+7 / Customize The Options In The UI
+
+<img width="402" height="392" alt="image" src="https://github.com/user-attachments/assets/d40b7610-296f-4f15-8afc-9045c3da365f" />
+
+⠀
+
+8 / For Version 0.39 And Later Install And Run Open Hardware Monitor/Lirbre Hardware Monitor depending on what is needed
+
+(Only use beta edition if yoiu know what your doing)
+
+⠀
+
 # Option 2 (Harder)
 
 ⠀
