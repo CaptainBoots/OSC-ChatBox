@@ -83,12 +83,10 @@ https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
 5 / Run The Package Install Commands:
 
     Python -m pip install --upgrade pip
-                                      
-    Python -m pip install Psutil - 7.2.1
-                                      
-    Python -m pip install Python-osc - 1.9.3
-                                      
-    Python -m pip install Winrt-Windows.media.control - 3.2.1
+    Python -m pip install python-osc 1.9.3
+    Python -m pip install psutil 7.2.2
+    Python -m pip install winrt-Windows.Foundation 3.2.1
+    Python -m pip install winrt-Windows.Media.Control 3.2.1
 
 ⠀
 
