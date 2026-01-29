@@ -49,6 +49,8 @@ install:
     
     winrt-Windows.Media.Control
 
+    winrt-Windows.Foundation
+
 
 6 / Run Code
 
