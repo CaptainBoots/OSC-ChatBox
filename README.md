@@ -79,8 +79,8 @@ install:
 ⠀
 
 https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
+
 ⠀
-⠀⠀
 
 3 / Open OSC Chatbox 
 
