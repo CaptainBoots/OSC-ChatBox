@@ -64,9 +64,9 @@ install:
 
 ⠀
 
-8 / For Version 0.39 And Later Install And Run Open Hardware Monitor/Lirbre Hardware Monitor depending on what is needed
+8 / On thonny Version 0.39 and later are not tested so do not run them unless you know what your doing.
 
-(Only use beta edition if yoiu know what your doing)
+(but if you want to run them get open hardware monitor or libre hardware monitor)
 
 ⠀
 
