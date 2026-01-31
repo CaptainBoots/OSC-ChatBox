@@ -11,6 +11,14 @@
 import subprocess
 import sys
 import importlib
+import json
+import asyncio
+import re
+import threading
+import time
+import tkinter as tk
+from tkinter import messagebox
+from enum import Enum
 
 def install_if_missing(package, import_name=None):
     if import_name is None:
@@ -24,25 +32,13 @@ def install_if_missing(package, import_name=None):
 
 install_if_missing("python-osc==1.9.3", "pythonosc")
 install_if_missing("psutil==7.2.2", "psutil")
-install_if_missing("winrt-Windows.Foundation==3.2.1", "winrt")
 install_if_missing("winrt-Windows.Media.Control==3.2.1", "winrt")
 install_if_missing("requests==2.32.5", "requests")
 
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
-import asyncio
-import re
-import threading
-import time
-import tkinter as tk
-from tkinter import messagebox
 import psutil
-import winrt.windows.media.control as wmc
 from pythonosc.udp_client import SimpleUDPClient
-from enum import Enum
+import winrt.windows.media.control as wmc
 import requests
-import json
-
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # CONFIGURATION & GLOBAL VARIABLES
