@@ -35,23 +35,6 @@ https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownloa
 
 ⠀
 
-5 / Install Packages
-
-<img width="420" height="327" alt="image" src="https://github.com/user-attachments/assets/2278c793-e97d-49e2-9366-8e2c1cc7aa3f" />
-
-<img width="668" height="487" alt="image" src="https://github.com/user-attachments/assets/907dff64-7f0b-4825-a883-6d20c4438ef3" />
-
-install:
-                                
-    psutil
-                                      
-    python-osc
-    
-    winrt-Windows.Media.Control
-
-    winrt-Windows.Foundation
-
-
 6 / Run Code
 
 <img width="283" height="89" alt="image" src="https://github.com/user-attachments/assets/6484cc43-6379-48d8-9c1a-36fb7d21b7a3" />
@@ -64,9 +47,11 @@ install:
 
 ⠀
 
-8 / On thonny Version 0.39 and later are not tested so do not run them unless you know what your doing.
+8 / For Version 0.39 And Later run Lirbre Hardware Monitor and enable remote web sever
 
-(but if you want to run them get open hardware monitor or libre hardware monitor)
+<img width="269" height="395" alt="Screenshot_2026-01-31_205442" src="https://github.com/user-attachments/assets/dafabbb8-24b4-4584-97bc-45aec9ec6f15" />
+
+(sorry for the low qualty image)
 
 ⠀
 
@@ -94,16 +79,6 @@ https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
 
 ⠀
 
-5 / Run The Package Install Commands:
-
-    Python -m pip install --upgrade pip
-    Python -m pip install python-osc 1.9.3
-    Python -m pip install psutil 7.2.2
-    Python -m pip install winrt-Windows.Foundation 3.2.1
-    Python -m pip install winrt-Windows.Media.Control 3.2.1
-
-⠀
-
 6 / Run Code
 
 <img width="287" height="88" alt="image" src="https://github.com/user-attachments/assets/921fed1f-6e2a-4196-bbec-e07213e563e2" />
@@ -116,6 +91,8 @@ https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
 
 ⠀
 
-8 / For Version 0.39 And Later Install And Run Open Hardware Monitor/Lirbre Hardware Monitor depending on what is needed
+8 / For Version 0.39 And Later run Lirbre Hardware Monitor and enable remote web sever
 
-(Only use beta edition if yoiu know what your doing)
+<img width="269" height="395" alt="Screenshot_2026-01-31_205442" src="https://github.com/user-attachments/assets/6be802fa-e11a-4b63-b42b-9d89f9b41643" />
+
+(sorry for the low qualty image)
