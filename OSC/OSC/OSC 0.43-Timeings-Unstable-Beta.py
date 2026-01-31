@@ -1,4 +1,3 @@
-
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 #                                              OSC Python Script                                                      #
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -35,30 +34,20 @@ running = False
 page1_line1_text = "-enter text-"
 page2_line1_text = "-enter text-"
 
-# Add these new global variables
 cpu_wattage = "-error-"
 cpu_temp = "-error-"
 gpu_wattage = "-error-"
 gpu_temp = "-error-"
 
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# UTILITY FUNCTIONS
+# HARDWARE MONITORING
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
-def fmt(bps):
-    if bps > 1024 * 1024:
-        return f"{bps / (1024 * 1024):.2f} MB/s"
-    return f"{bps / 1024:.1f} KB/s"
-
 
 def _clean_name(name: str):
     name = re.sub(r"\(.*?\)|\[.*?]|\{.*?}", "", name)
     name = name.split("@")[0]
     name = re.sub(r"\s+", " ", name).strip()
     return name
-#═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# HARDWARE MONITORING
-#═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 #════════════════════════════════════════════════════Cpu══════════════════════════════════════════════════════════════#
 
@@ -87,7 +76,7 @@ def get_cpu_wattage():
 
         if result:
             return int(float(result))
-    except:
+    except (subprocess.CalledProcessError, ValueError):
         pass
 
     return 0
@@ -107,7 +96,7 @@ def get_cpu_temp():
 
         if result:
             return int(float(result))
-    except:
+    except (subprocess.CalledProcessError, ValueError):
         pass
 
     return 0
@@ -133,7 +122,9 @@ def get_gpu_load():
             'Select-Object -ExpandProperty CounterSamples | '
             'Select-Object -ExpandProperty CookedValue'
         )
-        result = subprocess.check_output(["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL)
+        result = subprocess.check_output(
+            ["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL
+        )
         values = [float(v) for v in result.strip().split('\n') if v.strip()]
         return int(max(values)) if values else 0
     except (subprocess.CalledProcessError, ValueError, IndexError):
@@ -153,7 +144,7 @@ def get_gpu_wattage():
 
         if result:
             return int(float(result))
-    except:
+    except (subprocess.CalledProcessError, ValueError):
         pass
 
     return 0
@@ -172,7 +163,7 @@ def get_gpu_temp():
 
         if result:
             return int(float(result))
-    except:
+    except (subprocess.CalledProcessError, ValueError):
         pass
 
     return 0
@@ -180,6 +171,11 @@ def get_gpu_temp():
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # NETWORK MONITORING
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+def fmt(bps):
+    if bps > 1024 * 1024:
+        return f"{bps / (1024 * 1024):.2f} MB/s"
+    return f"{bps / 1024:.1f} KB/s"
 
 def get_network_usage(prev, prev_time):
     now = time.time()
@@ -259,7 +255,7 @@ def run_osc_loop():
 
     print(cpu_detect)
     print(gpu_detect)
-    print("Sending live data to VRChat...")
+    print("Sending live data to OSC port..")
 
     while running:
         song, artist, pos, dur = asyncio.run(get_media_info())
@@ -278,7 +274,7 @@ def run_osc_loop():
         cur_time_str = time.strftime("%I:%M %p")
         progress_bar = create_progress_bar(pos, dur)
 
-        display_artist = f"- {artist}" if artist else ""
+        display_artist = f"-{artist}" if artist else ""
         display_song = f"🎵 {clean_song}" if clean_song else ""
 
         page_index = int((time.time() // SWITCH_INTERVAL) % 2)
@@ -303,7 +299,7 @@ def run_osc_loop():
             )
 
         client.send_message("/chatbox/input", [text, True])  # type: ignore
-        time.sleep(1.6)
+        time.sleep(5.0)
 
 #═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # SCRIPT CONTROL FUNCTIONS
@@ -349,7 +345,7 @@ BTN_BG = "#2A2A2A"
 BTN_FG = "#FFFFFF"
 
 root = tk.Tk()
-root.title("VRChat OSC Monitor")
+root.title("OSC Chatbox")
 root.geometry("400x360")
 root.configure(bg=BG)
 root.resizable(True, True)
@@ -391,11 +387,11 @@ iface_entry = dark_entry(2, INTERFACE)
 dark_label("Switch Interval", 3)
 interval_entry = dark_entry(3, str(SWITCH_INTERVAL))
 
-dark_label("Page 1 - Line 1 Text", 4)
-page1_entry = dark_entry(4, "-enter text-")
+dark_label("Page 1 Text", 4)
+page1_entry = dark_entry(4, "Thx for using boot's osc code")
 
-dark_label("Page 2 - Line 1 Text", 5)
-page2_entry = dark_entry(5, "-enter text-")
+dark_label("Page 2 Text", 5)
+page2_entry = dark_entry(5, "hi put your text here :3")
 
 start_btn = tk.Button(frame, text="Start", command=start_script,
                       bg=BTN_BG, fg=BTN_FG, relief="flat")
