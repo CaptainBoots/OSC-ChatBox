@@ -31,8 +31,7 @@ INTERFACE = "Ethernet"
 SWITCH_INTERVAL = 30
 LHM_REST_API = "http://localhost:8888/data.json"
 
-print("OSC Script - LibreHardwareMonitor REST API Edition (ENHANCED)")
-print("=" * 70)
+print("This a beta version use at your own risk")
 
 client = None
 running = False
