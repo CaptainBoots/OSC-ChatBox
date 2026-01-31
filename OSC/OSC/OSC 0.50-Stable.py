@@ -8,9 +8,30 @@
 # Imports
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+import subprocess
+import sys
+import importlib
+
+def install_if_missing(package, import_name=None):
+    if import_name is None:
+        import_name = package.split("==")[0].replace("-", "_")
+
+    try:
+        importlib.import_module(import_name)
+    except ImportError:
+        print(f"Installing {package}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+install_if_missing("python-osc==1.9.3", "pythonosc")
+install_if_missing("psutil==7.2.2", "psutil")
+install_if_missing("winrt-Windows.Foundation==3.2.1", "winrt")
+install_if_missing("winrt-Windows.Media.Control==3.2.1", "winrt")
+install_if_missing("requests==2.32.5", "requests")
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
 import asyncio
 import re
-import subprocess
 import threading
 import time
 import tkinter as tk
