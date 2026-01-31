@@ -79,12 +79,12 @@ install:
 ⠀
 
 https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
+
 ⠀
-⠀⠀
 
 3 / Open OSC Chatbox 
 
-(Image To Be Added)
+<img width="1031" height="614" alt="image" src="https://github.com/user-attachments/assets/36a18bcf-f6b3-4685-a37a-b83007d988ec" />
 
 ⠀
 
