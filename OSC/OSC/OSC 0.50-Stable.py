@@ -1,12 +1,12 @@
-#═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 #                                              OSC Python Script                                                      #
-#═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-#Hi :3
-#Wellcome to my code
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# Hi :3
+# Wellcome to my code
 
-#═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Imports
-#═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 import asyncio
 import re
@@ -22,9 +22,10 @@ from enum import Enum
 import requests
 import json
 
-#═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # CONFIGURATION & GLOBAL VARIABLES
-#═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 class CPUManufacturer(Enum):
     INTEL = "Intel"
@@ -32,31 +33,79 @@ class CPUManufacturer(Enum):
     UNKNOWN = "Unknown"
 
 
-OSC_IP = "127.0.0.1"
-OSC_PORT = 9000
-INTERFACE = "Ethernet"
-SWITCH_INTERVAL = 30
-LHM_REST_API = "http://localhost:8085/data.json"
-
 print("OSC Chatbox")
 print("Made By Boots")
 
+OSC_IP = "127.0.0.1"
+OSC_PORT = 9000
+
+INTERFACE = "Ethernet"
+
+SWITCH_INTERVAL = 30
+
+LHM_REST_API = "http://localhost:8085/data.json"
+
 client = None
 running = False
+
 page1_line1_text = "-enter text-"
 page2_line1_text = "-enter text-"
 
-cpu_wattage = 0
-cpu_temp = 0
-gpu_wattage = 0
-gpu_temp = 0
+cpu_wattage = "error"
+cpu_temp = "error"
+gpu_wattage = "error"
+gpu_temp = "error"
 
 cpu_manufacturer = CPUManufacturer.UNKNOWN
 
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# HARDWARE MONITORING
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# REST API DATA RETRIEVAL
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+def _clean_name(name: str):
+    name = re.sub(r"\(.*?\)|\[.*?]|\{.*?}", "", name)
+    name = name.split("@")[0]
+    name = re.sub(r"\s+", " ", name).strip()
+    return name
+
+
+def detect_cpu():
+    global cpu_manufacturer
+
+    try:
+        cpu_name = subprocess.check_output(
+            ["powershell", "-Command", "(Get-CimInstance Win32_Processor).Name"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=5
+        ).strip()
+
+        clean_cpu_name = _clean_name(cpu_name)
+
+        if "intel" in cpu_name.lower():
+            cpu_manufacturer = CPUManufacturer.INTEL
+        elif "amd" in cpu_name.lower():
+            cpu_manufacturer = CPUManufacturer.AMD
+        else:
+            cpu_manufacturer = CPUManufacturer.UNKNOWN
+
+        return clean_cpu_name
+    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
+        return "CPU Unknown"
+
+
+def detect_gpu():
+    try:
+        gpu_name = subprocess.check_output(
+            ["powershell", "-Command", "(Get-CimInstance Win32_VideoController).Name"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=5
+        ).strip()
+        return _clean_name(gpu_name)
+    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
+        return "GPU Unknown"
+
 
 def get_lhm_data():
     try:
@@ -140,9 +189,78 @@ def parse_lhm_data(data):
     return cpu_temp_val, cpu_power_val, gpu_temp_val, gpu_power_val
 
 
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# DIAGNOSTICS
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+def get_gpu_load_from_lhm(data):
+    if not data or "Children" not in data:
+        return 0
+
+    try:
+        for top_level in data.get("Children", []):
+            for hardware in top_level.get("Children", []):
+                hardware_text = hardware.get("Text", "").lower()
+
+                if "amd radeon" in hardware_text:
+                    for category in hardware.get("Children", []):
+                        category_text = category.get("Text", "").lower()
+
+                        if "load" in category_text:
+                            for sensor in category.get("Children", []):
+                                sensor_text = sensor.get("Text", "").lower()
+                                if "gpu core" in sensor_text:
+                                    try:
+                                        sensor_value = sensor.get("Value", 0)
+                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
+                                        return int(float(numeric_str))
+                                    except (ValueError, TypeError):
+                                        pass
+    except (KeyError, TypeError, AttributeError, ValueError):
+        pass
+
+    return 0
+
+
+def get_cpu_load_from_lhm(data):
+    if not data or "Children" not in data:
+        return 0
+
+    try:
+        for top_level in data.get("Children", []):
+            for hardware in top_level.get("Children", []):
+                hardware_text = hardware.get("Text", "").lower()
+
+                if "intel" in hardware_text:
+                    for category in hardware.get("Children", []):
+                        category_text = category.get("Text", "").lower()
+
+                        if "load" in category_text:
+                            for sensor in category.get("Children", []):
+                                sensor_text = sensor.get("Text", "").lower()
+                                if "cpu total" in sensor_text:
+                                    try:
+                                        sensor_value = sensor.get("Value", 0)
+                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
+                                        return int(float(numeric_str))
+                                    except (ValueError, TypeError):
+                                        pass
+
+                elif "amd" in hardware_text and "radeon" not in hardware_text:
+                    for category in hardware.get("Children", []):
+                        category_text = category.get("Text", "").lower()
+
+                        if "load" in category_text:
+                            for sensor in category.get("Children", []):
+                                sensor_text = sensor.get("Text", "").lower()
+                                if "cpu total" in sensor_text:
+                                    try:
+                                        sensor_value = sensor.get("Value", 0)
+                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
+                                        return int(float(numeric_str))
+                                    except (ValueError, TypeError):
+                                        pass
+    except (KeyError, TypeError, AttributeError, ValueError):
+        pass
+
+    return 0
+
 
 def diagnose_lhm():
     try:
@@ -166,71 +284,6 @@ def diagnose_lhm():
     except Exception as e:
         print(f"[DIAGNOSTIC] ✗ Error: {e}")
     return False
-
-
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# HARDWARE MONITORING
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
-def _clean_name(name: str):
-    name = re.sub(r"\(.*?\)|\[.*?]|\{.*?}", "", name)
-    name = name.split("@")[0]
-    name = re.sub(r"\s+", " ", name).strip()
-    return name
-
-
-def detect_cpu():
-    global cpu_manufacturer
-
-    try:
-        cpu_name = subprocess.check_output(
-            ["powershell", "-Command", "(Get-CimInstance Win32_Processor).Name"],
-            encoding="utf-8",
-            stderr=subprocess.DEVNULL,
-            timeout=5
-        ).strip()
-
-        clean_cpu_name = _clean_name(cpu_name)
-
-        if "intel" in cpu_name.lower():
-            cpu_manufacturer = CPUManufacturer.INTEL
-        elif "amd" in cpu_name.lower():
-            cpu_manufacturer = CPUManufacturer.AMD
-        else:
-            cpu_manufacturer = CPUManufacturer.UNKNOWN
-
-        return clean_cpu_name
-    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
-        return "CPU Unknown"
-
-
-def detect_gpu():
-    try:
-        gpu_name = subprocess.check_output(
-            ["powershell", "-Command", "(Get-CimInstance Win32_VideoController).Name"],
-            encoding="utf-8",
-            stderr=subprocess.DEVNULL,
-            timeout=5
-        ).strip()
-        return _clean_name(gpu_name)
-    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
-        return "GPU Unknown"
-
-
-def get_gpu_load():
-    try:
-        cmd = (
-            'Get-Counter "\\GPU Engine(*3D*)\\Utilization Percentage" | '
-            'Select-Object -ExpandProperty CounterSamples | '
-            'Select-Object -ExpandProperty CookedValue'
-        )
-        result = subprocess.check_output(
-            ["powershell", "-Command", cmd], encoding='utf-8', stderr=subprocess.DEVNULL, timeout=5
-        )
-        values = [float(v) for v in result.strip().split('\n') if v.strip()]
-        return int(max(values)) if values else 0
-    except (subprocess.CalledProcessError, ValueError, IndexError, subprocess.TimeoutExpired):
-        return 0
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -328,20 +381,24 @@ def run_osc_loop():
     print(f"{'=' * 60}")
 
     query_cooldown = 0
+    cpu = 0
+    gpu = 0
 
     while running:
         try:
             song, artist, pos, dur = asyncio.run(get_media_info())
             clean_song = clean_title(song)
 
-            cpu = psutil.cpu_percent()
-            gpu = get_gpu_load()
-
             query_cooldown += 1
             if query_cooldown >= 3:
                 lhm_data = get_lhm_data()
                 if lhm_data:
                     cpu_temp, cpu_wattage, gpu_temp, gpu_wattage = parse_lhm_data(lhm_data)
+                    cpu = get_cpu_load_from_lhm(lhm_data)
+                    gpu = get_gpu_load_from_lhm(lhm_data)
+                else:
+                    cpu = 0
+                    gpu = 0
                 query_cooldown = 0
 
             prev, up_raw, down_raw, prev_time = get_network_usage(prev, prev_time)
