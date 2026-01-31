@@ -17,8 +17,6 @@ INSTALL INTRUCTTIONS
 
 2 / Get Thonny
 
-⠀
-
 https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownload
 
 ⠀
@@ -66,8 +64,6 @@ https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownloa
 ⠀
 
 2 / Get Pycharm
-
-⠀
 
 https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
 
