@@ -1,8 +1,8 @@
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 #                                    OSC Python Script - LibreHardwareMonitor REST API Edition                          #
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# Enhanced version with improved sensor parsing
 # Uses REST API instead of WMI - NO ADMIN REQUIRED
-# LibreHardwareMonitor must be running with web server enabled
 
 import asyncio
 import re
@@ -29,20 +29,19 @@ OSC_IP = "127.0.0.1"
 OSC_PORT = 9000
 INTERFACE = "Ethernet"
 SWITCH_INTERVAL = 30
-LHM_REST_API = "http://localhost:8888/data.json"  # Default LHM web server port
+LHM_REST_API = "http://localhost:8888/data.json"
 
-print("OSC Script - LibreHardwareMonitor REST API Edition")
-print("=" * 70)
+print("This a beta version use at your own risk")
 
 client = None
 running = False
 page1_line1_text = "-enter text-"
 page2_line1_text = "-enter text-"
 
-cpu_wattage = "-error-"
-cpu_temp = "-error-"
-gpu_wattage = "-error-"
-gpu_temp = "-error-"
+cpu_wattage = 0
+cpu_temp = 0
+gpu_wattage = 0
+gpu_temp = 0
 
 cpu_manufacturer = CPUManufacturer.UNKNOWN
 
@@ -52,21 +51,44 @@ cpu_manufacturer = CPUManufacturer.UNKNOWN
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def get_lhm_data():
-    """
-    Get sensor data from LibreHardwareMonitor REST API.
-    No admin required - just need LHM running with web server enabled.
-    """
+    """Get sensor data from LibreHardwareMonitor REST API"""
     try:
         response = requests.get(LHM_REST_API, timeout=5)
         if response.status_code == 200:
             return response.json()
     except (requests.ConnectionError, requests.Timeout, json.JSONDecodeError) as e:
-        print(f"[WARNING] REST API query failed: {e}")
+        pass
     return None
 
 
+def find_sensor_recursive(obj, sensor_type, hardware_type=""):
+    """Recursively search through LHM JSON for specific sensor types"""
+    results = []
+
+    if not isinstance(obj, dict):
+        return results
+
+    # Check if this object is a sensor with matching type
+    obj_text = obj.get("Text", "").lower()
+    obj_type = obj.get("ImageIndex", -1)
+
+    if sensor_type in obj_text:
+        try:
+            value = float(obj.get("Value", 0))
+            results.append(value)
+        except (ValueError, TypeError):
+            pass
+
+    # Recursively search children
+    if "Children" in obj:
+        for child in obj["Children"]:
+            results.extend(find_sensor_recursive(child, sensor_type, hardware_type))
+
+    return results
+
+
 def parse_lhm_data(data):
-    """Parse LibreHardwareMonitor JSON data and extract sensor values"""
+    """Enhanced parsing of LibreHardwareMonitor JSON data"""
     cpu_temp_val = 0
     cpu_power_val = 0
     gpu_temp_val = 0
@@ -76,54 +98,118 @@ def parse_lhm_data(data):
         return cpu_temp_val, cpu_power_val, gpu_temp_val, gpu_power_val
 
     try:
-        for component in data.get("Children", []):
-            component_name = component.get("Text", "").lower()
+        # Navigate: Sensor → DESKTOP-XXX → Hardware components
+        for top_level in data.get("Children", []):
 
-            # Check if this is CPU
-            if "cpu" in component_name:
-                for child in component.get("Children", []):
-                    child_name = child.get("Text", "").lower()
+            # This should be the computer name (e.g., "DESKTOP-C3IQFV6")
+            for hardware in top_level.get("Children", []):
+                hardware_text = hardware.get("Text", "").lower()
 
-                    # Look for CPU temperature
-                    if "core" in child_name or "package" in child_name:
-                        for sensor in child.get("Children", []):
-                            sensor_name = sensor.get("Text", "").lower()
-                            if "temperature" in sensor_name:
-                                try:
-                                    cpu_temp_val = int(float(sensor.get("Value", 0)))
-                                except (ValueError, TypeError):
-                                    pass
+                # ──────────────────────────────────────────────────────────────
+                # CPU SENSORS
+                # ──────────────────────────────────────────────────────────────
+                if "intel" in hardware_text:
+                    # Navigate through categories: Temperatures, Powers, etc.
+                    for category in hardware.get("Children", []):
+                        category_text = category.get("Text", "").lower()
 
-                    # Look for CPU power
-                    if "power" in child_name or "package" in child_name:
-                        try:
-                            cpu_power_val = int(float(child.get("Value", 0)))
-                        except (ValueError, TypeError):
-                            pass
+                        # Get CPU Package temperature (most relevant)
+                        if "temperature" in category_text:
+                            for sensor in category.get("Children", []):
+                                sensor_text = sensor.get("Text", "").lower()
+                                if "cpu package" in sensor_text:
+                                    try:
+                                        sensor_value = sensor.get("Value", 0)
+                                        # Strip the unit (e.g., "61.0 °C" -> "61.0")
+                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
+                                        cpu_temp_val = int(float(numeric_str))
+                                        print(f"[PARSE] ✓ CPU Temp: {cpu_temp_val}°C")
+                                    except (ValueError, TypeError) as e:
+                                        print(f"[PARSE] ✗ Failed to parse CPU temp: {e}")
 
-            # Check if this is GPU
-            if "gpu" in component_name or "amd" in component_name or "nvidia" in component_name:
-                for child in component.get("Children", []):
-                    child_name = child.get("Text", "").lower()
+                        # Get CPU Package power (most relevant)
+                        if "power" in category_text:
+                            for sensor in category.get("Children", []):
+                                sensor_text = sensor.get("Text", "").lower()
+                                if "cpu package" in sensor_text:
+                                    try:
+                                        sensor_value = sensor.get("Value", 0)
+                                        # Strip the unit (e.g., "56.5 W" -> "56.5")
+                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
+                                        cpu_power_val = int(float(numeric_str))
+                                        print(f"[PARSE] ✓ CPU Power: {cpu_power_val}W")
+                                    except (ValueError, TypeError) as e:
+                                        print(f"[PARSE] ✗ Failed to parse CPU power: {e}")
 
-                    # Look for GPU temperature
-                    if "temperature" in child_name or "temp" in child_name:
-                        try:
-                            gpu_temp_val = int(float(child.get("Value", 0)))
-                        except (ValueError, TypeError):
-                            pass
+                # ──────────────────────────────────────────────────────────────
+                # GPU SENSORS
+                # ──────────────────────────────────────────────────────────────
+                elif "amd radeon" in hardware_text:
+                    # Navigate through categories: Temperatures, Powers, etc.
+                    for category in hardware.get("Children", []):
+                        category_text = category.get("Text", "").lower()
 
-                    # Look for GPU power
-                    if "power" in child_name:
-                        try:
-                            gpu_power_val = int(float(child.get("Value", 0)))
-                        except (ValueError, TypeError):
-                            pass
+                        # Get GPU Core temperature
+                        if "temperature" in category_text:
+                            for sensor in category.get("Children", []):
+                                sensor_text = sensor.get("Text", "").lower()
+                                if "gpu core" in sensor_text and "distance" not in sensor_text:
+                                    try:
+                                        sensor_value = sensor.get("Value", 0)
+                                        # Strip the unit (e.g., "49.0 °C" -> "49.0")
+                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
+                                        gpu_temp_val = int(float(numeric_str))
+                                        print(f"[PARSE] ✓ GPU Temp: {gpu_temp_val}°C")
+                                    except (ValueError, TypeError) as e:
+                                        print(f"[PARSE] ✗ Failed to parse GPU temp: {e}")
 
-    except (KeyError, TypeError, AttributeError):
-        pass
+                        # Get GPU Package power
+                        if "power" in category_text:
+                            for sensor in category.get("Children", []):
+                                sensor_text = sensor.get("Text", "").lower()
+                                if "gpu package" in sensor_text:
+                                    try:
+                                        sensor_value = sensor.get("Value", 0)
+                                        # Strip the unit (e.g., "28.0 W" -> "28.0")
+                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
+                                        gpu_power_val = int(float(numeric_str))
+                                        print(f"[PARSE] ✓ GPU Power: {gpu_power_val}W")
+                                    except (ValueError, TypeError) as e:
+                                        print(f"[PARSE] ✗ Failed to parse GPU power: {e}")
+
+    except (KeyError, TypeError, AttributeError, ValueError) as e:
+        print(f"[PARSE] Error during parsing: {e}")
+        import traceback
+        traceback.print_exc()
 
     return cpu_temp_val, cpu_power_val, gpu_temp_val, gpu_power_val
+
+
+def debug_sensors():
+    """Print all available sensors for debugging"""
+    data = get_lhm_data()
+    if not data:
+        print("[DEBUG] No data received")
+        return
+
+    def print_tree(obj, indent=0):
+        if isinstance(obj, dict):
+            text = obj.get("Text", "")
+            value = obj.get("Value", "")
+            if text:
+                prefix = "  " * indent
+                if value:
+                    print(f"{prefix}├─ {text}: {value}")
+                else:
+                    print(f"{prefix}├─ {text}")
+
+            if "Children" in obj:
+                for child in obj["Children"]:
+                    print_tree(child, indent + 1)
+
+    print("\n[DEBUG] Full Sensor Tree:")
+    print_tree(data)
+    print()
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -143,6 +229,12 @@ def diagnose_lhm():
             sensor_count = len(data.get("Children", []))
             print(f"[DIAGNOSTIC] ✓ Sensors Found: {sensor_count} components")
             print("[DIAGNOSTIC] ✓ No admin privileges required!")
+
+            # Parse and show what we found
+            cpu_t, cpu_p, gpu_t, gpu_p = parse_lhm_data(data)
+            print(f"[DIAGNOSTIC] ✓ CPU: {cpu_t}°C, {cpu_p}W")
+            print(f"[DIAGNOSTIC] ✓ GPU: {gpu_t}°C, {gpu_p}W")
+
             print("[DIAGNOSTIC] " + "=" * 66)
             return True
         else:
@@ -342,7 +434,7 @@ def run_osc_loop():
             cpu = psutil.cpu_percent()
             gpu = get_gpu_load()
 
-            # Query sensors every 3 iterations
+            # Query sensors every 3 iterations (every 15 seconds)
             query_cooldown += 1
             if query_cooldown >= 3:
                 lhm_data = get_lhm_data()
@@ -437,6 +529,12 @@ def stop_script():
     info_label.config(text="")
 
 
+def show_debug():
+    """Show sensor tree for debugging"""
+    print("\n[DEBUG] Showing sensor tree...")
+    debug_sensors()
+
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # GUI
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -448,24 +546,27 @@ BTN_BG = "#2A2A2A"
 BTN_FG = "#FFFFFF"
 
 root = tk.Tk()
-root.title("OSC Chatbox - LibreHardwareMonitor REST API")
-root.geometry("450x480")
+root.title("OSC Chatbox - LibreHardwareMonitor REST API (Enhanced)")
+root.geometry("450x520")
 root.configure(bg=BG)
 root.resizable(True, True)
 
 frame = tk.Frame(root, bg=BG)
 frame.pack(fill="both", expand=True, padx=10, pady=10)
 
+
 def dark_label(text, r):
     lbl = tk.Label(frame, text=text, bg=BG, fg=FG, anchor="w")
     lbl.grid(row=r, column=0, sticky="w", pady=4)
     return lbl
+
 
 def dark_entry(r, default=""):
     e = tk.Entry(frame, bg=ENTRY_BG, fg=FG, insertbackground=FG, relief="flat")
     e.insert(0, default)
     e.grid(row=r, column=1, pady=4, sticky="ew")
     return e
+
 
 frame.columnconfigure(1, weight=1)
 
@@ -490,13 +591,23 @@ page1_entry = dark_entry(5, "Thx for using boot's osc code")
 dark_label("Page 2 Text", 6)
 page2_entry = dark_entry(6, "hi put your text here :3")
 
-start_btn = tk.Button(frame, text="Start", command=start_script,
-                      bg=BTN_BG, fg=BTN_FG, relief="flat")
-start_btn.grid(row=7, column=0, pady=15, sticky="ew")
+button_frame = tk.Frame(frame, bg=BG)
+button_frame.grid(row=7, column=0, columnspan=2, pady=15, sticky="ew")
+button_frame.columnconfigure(0, weight=1)
+button_frame.columnconfigure(1, weight=1)
+button_frame.columnconfigure(2, weight=1)
 
-stop_btn = tk.Button(frame, text="Stop", command=stop_script,
+start_btn = tk.Button(button_frame, text="Start", command=start_script,
+                      bg=BTN_BG, fg=BTN_FG, relief="flat")
+start_btn.grid(row=0, column=0, sticky="ew", padx=2)
+
+stop_btn = tk.Button(button_frame, text="Stop", command=stop_script,
                      bg=BTN_BG, fg=BTN_FG, relief="flat")
-stop_btn.grid(row=7, column=1, pady=15, sticky="ew")
+stop_btn.grid(row=0, column=1, sticky="ew", padx=2)
+
+debug_btn = tk.Button(button_frame, text="Debug", command=show_debug,
+                      bg=BTN_BG, fg="#FFB84D", relief="flat")
+debug_btn.grid(row=0, column=2, sticky="ew", padx=2)
 
 status_label = tk.Label(frame, text="Status: Stopped", bg=BG, fg="#FF4C4C")
 status_label.grid(row=8, column=0, columnspan=2)
@@ -506,8 +617,8 @@ info_label.grid(row=9, column=0, columnspan=2, pady=5)
 
 help_text = tk.Label(
     frame,
-    text="Note: Enable web server in LibreHardwareMonitor\n(Options → Web server)",
-    bg=BG, fg="#888888", font=("Arial", 8)
+    text="Note: Enable web server in LibreHardwareMonitor\n(Options → Web server)\n\nClick Debug if sensors show as 0w/0°C",
+    bg=BG, fg="#888888", font=("Arial", 8), justify="center"
 )
 help_text.grid(row=10, column=0, columnspan=2, pady=5)
 

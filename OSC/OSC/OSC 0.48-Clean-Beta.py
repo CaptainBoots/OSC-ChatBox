@@ -1,5 +1,5 @@
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# OSC Python Script
+#                                    OSC Python Script - LibreHardwareMonitor REST API Edition                          #
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Uses REST API instead of WMI - NO ADMIN REQUIRED
 
@@ -28,10 +28,9 @@ OSC_IP = "127.0.0.1"
 OSC_PORT = 9000
 INTERFACE = "Ethernet"
 SWITCH_INTERVAL = 30
-LHM_REST_API = "http://localhost:8085/data.json"
+LHM_REST_API = "http://localhost:8888/data.json"
 
-print("OSC Chatbox")
-print("Made By Boots")
+print("This a beta version use at your own risk")
 
 client = None
 running = False
@@ -72,7 +71,9 @@ def parse_lhm_data(data):
         return cpu_temp_val, cpu_power_val, gpu_temp_val, gpu_power_val
 
     try:
+        # Navigate: Sensor → DESKTOP-XXX → Hardware components
         for top_level in data.get("Children", []):
+            # This should be the computer name (e.g., "DESKTOP-C3IQFV6")
             for hardware in top_level.get("Children", []):
                 hardware_text = hardware.get("Text", "").lower()
 
@@ -80,26 +81,31 @@ def parse_lhm_data(data):
                 # CPU SENSORS
                 # ──────────────────────────────────────────────────────────────
                 if "intel" in hardware_text:
+                    # Navigate through categories: Temperatures, Powers, etc.
                     for category in hardware.get("Children", []):
                         category_text = category.get("Text", "").lower()
 
+                        # Get CPU Package temperature (most relevant)
                         if "temperature" in category_text:
                             for sensor in category.get("Children", []):
                                 sensor_text = sensor.get("Text", "").lower()
                                 if "cpu package" in sensor_text:
                                     try:
                                         sensor_value = sensor.get("Value", 0)
+                                        # Strip the unit (e.g., "61.0 °C" -> "61.0")
                                         numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
                                         cpu_temp_val = int(float(numeric_str))
                                     except (ValueError, TypeError):
                                         pass
 
+                        # Get CPU Package power (most relevant)
                         if "power" in category_text:
                             for sensor in category.get("Children", []):
                                 sensor_text = sensor.get("Text", "").lower()
                                 if "cpu package" in sensor_text:
                                     try:
                                         sensor_value = sensor.get("Value", 0)
+                                        # Strip the unit (e.g., "56.5 W" -> "56.5")
                                         numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
                                         cpu_power_val = int(float(numeric_str))
                                     except (ValueError, TypeError):
@@ -150,6 +156,10 @@ def parse_lhm_data(data):
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def diagnose_lhm():
+    """Run LibreHardwareMonitor connection diagnostics"""
+    print("\n[DIAGNOSTIC] Testing LibreHardwareMonitor REST API...")
+    print("[DIAGNOSTIC] " + "=" * 66)
+
     try:
         response = requests.get(LHM_REST_API, timeout=5)
         if response.status_code == 200:
@@ -158,6 +168,7 @@ def diagnose_lhm():
             sensor_count = len(data.get("Children", []))
             print(f"[DIAGNOSTIC] ✓ Sensors Found: {sensor_count} components")
             print("[DIAGNOSTIC] ✓ No admin privileges required!")
+            print("[DIAGNOSTIC] " + "=" * 66)
             return True
         else:
             print(f"[DIAGNOSTIC] ✗ REST API returned status: {response.status_code}")
@@ -165,11 +176,13 @@ def diagnose_lhm():
         print("[DIAGNOSTIC] ✗ Cannot connect to LibreHardwareMonitor REST API")
         print("[DIAGNOSTIC] FIX 1: Make sure LibreHardwareMonitor.exe is RUNNING")
         print("[DIAGNOSTIC] FIX 2: Enable web server in LHM (Options → Web server)")
-        print("[DIAGNOSTIC] FIX 3: Check port is 8085 (default)")
+        print("[DIAGNOSTIC] FIX 3: Check port is 8888 (default)")
     except requests.Timeout:
         print("[DIAGNOSTIC] ✗ REST API query timed out")
     except Exception as e:
         print(f"[DIAGNOSTIC] ✗ Error: {e}")
+
+    print("[DIAGNOSTIC] " + "=" * 66)
     return False
 
 
@@ -323,7 +336,7 @@ def create_progress_bar(position_ms, duration_ms, length=13):
 
 def run_osc_loop():
     """Main OSC loop"""
-    global running, cpu_wattage, cpu_temp, gpu_wattage, gpu_temp, client
+    global running, cpu_wattage, cpu_temp, gpu_wattage, gpu_temp
 
     all_stats = psutil.net_io_counters(pernic=True)
     if INTERFACE not in all_stats:
@@ -389,12 +402,7 @@ def run_osc_loop():
                     f"{gpu_wattage}w {gpu_temp}℃\n"
                 )
 
-            # FIX: Check if client is initialized before sending
-            if client is not None:
-                client.send_message("/chatbox/input", [text, True])  # type: ignore
-            else:
-                print("Warning: OSC client not initialized")
-
+            client.send_message("/chatbox/input", [text, True])
             time.sleep(5.0)
 
         except Exception as e:
@@ -428,6 +436,7 @@ def start_script():
 
         running = True
         status_label.config(text="Status: Running", fg="#4CFF4C")
+        info_label.config(text="LibreHardwareMonitor", fg="#FFB84D")
 
         diagnose_lhm()
 
@@ -447,6 +456,7 @@ def stop_script():
     global running
     running = False
     status_label.config(text="Status: Stopped", fg="#FF4C4C")
+    info_label.config(text="")
 
 
 def restart_script():
@@ -532,5 +542,8 @@ restart_btn.grid(row=0, column=2, sticky="ew", padx=2)
 
 status_label = tk.Label(frame, text="Status: Stopped", bg=BG, fg="#FF4C4C")
 status_label.grid(row=8, column=0, columnspan=2)
+
+info_label = tk.Label(frame, text="", bg=BG, fg="#FFB84D", wraplength=400)
+info_label.grid(row=9, column=0, columnspan=2, pady=5)
 
 root.mainloop()

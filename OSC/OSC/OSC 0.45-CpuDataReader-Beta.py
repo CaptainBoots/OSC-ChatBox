@@ -2,6 +2,7 @@
 #                                    OSC Python Script - LibreHardwareMonitor REST API Edition                          #
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Uses REST API instead of WMI - NO ADMIN REQUIRED
+# LibreHardwareMonitor must be running with web server enabled
 
 import asyncio
 import re
@@ -28,20 +29,19 @@ OSC_IP = "127.0.0.1"
 OSC_PORT = 9000
 INTERFACE = "Ethernet"
 SWITCH_INTERVAL = 30
-LHM_REST_API = "http://localhost:8888/data.json"
+LHM_REST_API = "http://localhost:8888/data.json"  # Default LHM web server port
 
-print("OSC Script - LibreHardwareMonitor REST API Edition")
-print("=" * 70)
+print("This a beta version use at your own risk")
 
 client = None
 running = False
 page1_line1_text = "-enter text-"
 page2_line1_text = "-enter text-"
 
-cpu_wattage = 0
-cpu_temp = 0
-gpu_wattage = 0
-gpu_temp = 0
+cpu_wattage = "-error-"
+cpu_temp = "-error-"
+gpu_wattage = "-error-"
+gpu_temp = "-error-"
 
 cpu_manufacturer = CPUManufacturer.UNKNOWN
 
@@ -51,13 +51,16 @@ cpu_manufacturer = CPUManufacturer.UNKNOWN
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def get_lhm_data():
-    """Get sensor data from LibreHardwareMonitor REST API"""
+    """
+    Get sensor data from LibreHardwareMonitor REST API.
+    No admin required - just need LHM running with web server enabled.
+    """
     try:
         response = requests.get(LHM_REST_API, timeout=5)
         if response.status_code == 200:
             return response.json()
-    except (requests.ConnectionError, requests.Timeout, json.JSONDecodeError):
-        pass
+    except (requests.ConnectionError, requests.Timeout, json.JSONDecodeError) as e:
+        print(f"[WARNING] REST API query failed: {e}")
     return None
 
 
@@ -72,81 +75,51 @@ def parse_lhm_data(data):
         return cpu_temp_val, cpu_power_val, gpu_temp_val, gpu_power_val
 
     try:
-        # Navigate: Sensor → DESKTOP-XXX → Hardware components
-        for top_level in data.get("Children", []):
-            # This should be the computer name (e.g., "DESKTOP-C3IQFV6")
-            for hardware in top_level.get("Children", []):
-                hardware_text = hardware.get("Text", "").lower()
+        for component in data.get("Children", []):
+            component_name = component.get("Text", "").lower()
 
-                # ──────────────────────────────────────────────────────────────
-                # CPU SENSORS
-                # ──────────────────────────────────────────────────────────────
-                if "intel" in hardware_text:
-                    # Navigate through categories: Temperatures, Powers, etc.
-                    for category in hardware.get("Children", []):
-                        category_text = category.get("Text", "").lower()
+            # Check if this is CPU
+            if "cpu" in component_name:
+                for child in component.get("Children", []):
+                    child_name = child.get("Text", "").lower()
 
-                        # Get CPU Package temperature (most relevant)
-                        if "temperature" in category_text:
-                            for sensor in category.get("Children", []):
-                                sensor_text = sensor.get("Text", "").lower()
-                                if "cpu package" in sensor_text:
-                                    try:
-                                        sensor_value = sensor.get("Value", 0)
-                                        # Strip the unit (e.g., "61.0 °C" -> "61.0")
-                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
-                                        cpu_temp_val = int(float(numeric_str))
-                                    except (ValueError, TypeError):
-                                        pass
+                    # Look for CPU temperature
+                    if "core" in child_name or "package" in child_name:
+                        for sensor in child.get("Children", []):
+                            sensor_name = sensor.get("Text", "").lower()
+                            if "temperature" in sensor_name:
+                                try:
+                                    cpu_temp_val = int(float(sensor.get("Value", 0)))
+                                except (ValueError, TypeError):
+                                    pass
 
-                        # Get CPU Package power (most relevant)
-                        if "power" in category_text:
-                            for sensor in category.get("Children", []):
-                                sensor_text = sensor.get("Text", "").lower()
-                                if "cpu package" in sensor_text:
-                                    try:
-                                        sensor_value = sensor.get("Value", 0)
-                                        # Strip the unit (e.g., "56.5 W" -> "56.5")
-                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
-                                        cpu_power_val = int(float(numeric_str))
-                                    except (ValueError, TypeError):
-                                        pass
+                    # Look for CPU power
+                    if "power" in child_name or "package" in child_name:
+                        try:
+                            cpu_power_val = int(float(child.get("Value", 0)))
+                        except (ValueError, TypeError):
+                            pass
 
-                # ──────────────────────────────────────────────────────────────
-                # GPU SENSORS
-                # ──────────────────────────────────────────────────────────────
-                elif "amd radeon" in hardware_text:
-                    # Navigate through categories: Temperatures, Powers, etc.
-                    for category in hardware.get("Children", []):
-                        category_text = category.get("Text", "").lower()
+            # Check if this is GPU
+            if "gpu" in component_name or "amd" in component_name or "nvidia" in component_name:
+                for child in component.get("Children", []):
+                    child_name = child.get("Text", "").lower()
 
-                        # Get GPU Core temperature
-                        if "temperature" in category_text:
-                            for sensor in category.get("Children", []):
-                                sensor_text = sensor.get("Text", "").lower()
-                                if "gpu core" in sensor_text and "distance" not in sensor_text:
-                                    try:
-                                        sensor_value = sensor.get("Value", 0)
-                                        # Strip the unit (e.g., "49.0 °C" -> "49.0")
-                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
-                                        gpu_temp_val = int(float(numeric_str))
-                                    except (ValueError, TypeError):
-                                        pass
+                    # Look for GPU temperature
+                    if "temperature" in child_name or "temp" in child_name:
+                        try:
+                            gpu_temp_val = int(float(child.get("Value", 0)))
+                        except (ValueError, TypeError):
+                            pass
 
-                        # Get GPU Package power
-                        if "power" in category_text:
-                            for sensor in category.get("Children", []):
-                                sensor_text = sensor.get("Text", "").lower()
-                                if "gpu package" in sensor_text:
-                                    try:
-                                        sensor_value = sensor.get("Value", 0)
-                                        # Strip the unit (e.g., "28.0 W" -> "28.0")
-                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
-                                        gpu_power_val = int(float(numeric_str))
-                                    except (ValueError, TypeError):
-                                        pass
+                    # Look for GPU power
+                    if "power" in child_name:
+                        try:
+                            gpu_power_val = int(float(child.get("Value", 0)))
+                        except (ValueError, TypeError):
+                            pass
 
-    except (KeyError, TypeError, AttributeError, ValueError):
+    except (KeyError, TypeError, AttributeError):
         pass
 
     return cpu_temp_val, cpu_power_val, gpu_temp_val, gpu_power_val
@@ -354,7 +327,9 @@ def run_osc_loop():
     print(f"\n{'=' * 60}")
     print(f"CPU: {cpu_detect} ({cpu_manufacturer.value})")
     print(f"GPU: {gpu_detect}")
+    print(f"Using: LibreHardwareMonitor REST API")
     print(f"{'=' * 60}")
+    print("Sending live data to OSC port..\n")
 
     query_cooldown = 0
 
@@ -366,7 +341,7 @@ def run_osc_loop():
             cpu = psutil.cpu_percent()
             gpu = get_gpu_load()
 
-            # Query sensors every 3 iterations (every 15 seconds)
+            # Query sensors every 3 iterations
             query_cooldown += 1
             if query_cooldown >= 3:
                 lhm_data = get_lhm_data()
@@ -437,8 +412,9 @@ def start_script():
 
         running = True
         status_label.config(text="Status: Running", fg="#4CFF4C")
-        info_label.config(text="LibreHardwareMonitor", fg="#FFB84D")
+        info_label.config(text="LibreHardwareMonitor REST API", fg="#FFB84D")
 
+        print("\n[INFO] Starting diagnostics...")
         diagnose_lhm()
 
         thread = threading.Thread(target=run_osc_loop, daemon=True)
@@ -460,13 +436,6 @@ def stop_script():
     info_label.config(text="")
 
 
-def restart_script():
-    """Restart the script"""
-    stop_script()
-    time.sleep(1)
-    start_script()
-
-
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # GUI
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -478,27 +447,24 @@ BTN_BG = "#2A2A2A"
 BTN_FG = "#FFFFFF"
 
 root = tk.Tk()
-root.title("OSC Chatbox")
-root.geometry("450x350")
+root.title("OSC Chatbox - LibreHardwareMonitor REST API")
+root.geometry("450x480")
 root.configure(bg=BG)
 root.resizable(True, True)
 
 frame = tk.Frame(root, bg=BG)
 frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-
 def dark_label(text, r):
     lbl = tk.Label(frame, text=text, bg=BG, fg=FG, anchor="w")
     lbl.grid(row=r, column=0, sticky="w", pady=4)
     return lbl
-
 
 def dark_entry(r, default=""):
     e = tk.Entry(frame, bg=ENTRY_BG, fg=FG, insertbackground=FG, relief="flat")
     e.insert(0, default)
     e.grid(row=r, column=1, pady=4, sticky="ew")
     return e
-
 
 frame.columnconfigure(1, weight=1)
 
@@ -514,7 +480,7 @@ iface_entry = dark_entry(2, INTERFACE)
 dark_label("Switch Interval", 3)
 interval_entry = dark_entry(3, str(SWITCH_INTERVAL))
 
-dark_label("LHM Interface", 4)
+dark_label("LHM REST API", 4)
 lhm_entry = dark_entry(4, LHM_REST_API)
 
 dark_label("Page 1 Text", 5)
@@ -523,28 +489,25 @@ page1_entry = dark_entry(5, "Thx for using boot's osc code")
 dark_label("Page 2 Text", 6)
 page2_entry = dark_entry(6, "hi put your text here :3")
 
-button_frame = tk.Frame(frame, bg=BG)
-button_frame.grid(row=7, column=0, columnspan=2, pady=15, sticky="ew")
-button_frame.columnconfigure(0, weight=1)
-button_frame.columnconfigure(1, weight=1)
-button_frame.columnconfigure(2, weight=1)
-
-start_btn = tk.Button(button_frame, text="Start", command=start_script,
+start_btn = tk.Button(frame, text="Start", command=start_script,
                       bg=BTN_BG, fg=BTN_FG, relief="flat")
-start_btn.grid(row=0, column=0, sticky="ew", padx=2)
+start_btn.grid(row=7, column=0, pady=15, sticky="ew")
 
-stop_btn = tk.Button(button_frame, text="Stop", command=stop_script,
+stop_btn = tk.Button(frame, text="Stop", command=stop_script,
                      bg=BTN_BG, fg=BTN_FG, relief="flat")
-stop_btn.grid(row=0, column=1, sticky="ew", padx=2)
-
-restart_btn = tk.Button(button_frame, text="Restart", command=restart_script,
-                        bg=BTN_BG, fg=BTN_FG, relief="flat")
-restart_btn.grid(row=0, column=2, sticky="ew", padx=2)
+stop_btn.grid(row=7, column=1, pady=15, sticky="ew")
 
 status_label = tk.Label(frame, text="Status: Stopped", bg=BG, fg="#FF4C4C")
 status_label.grid(row=8, column=0, columnspan=2)
 
 info_label = tk.Label(frame, text="", bg=BG, fg="#FFB84D", wraplength=400)
 info_label.grid(row=9, column=0, columnspan=2, pady=5)
+
+help_text = tk.Label(
+    frame,
+    text="Note: Enable web server in LibreHardwareMonitor\n(Options → Web server)",
+    bg=BG, fg="#888888", font=("Arial", 8)
+)
+help_text.grid(row=10, column=0, columnspan=2, pady=5)
 
 root.mainloop()
