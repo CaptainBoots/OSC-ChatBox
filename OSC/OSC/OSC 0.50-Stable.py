@@ -32,7 +32,8 @@ def install_if_missing(package, import_name=None):
 
 install_if_missing("python-osc==1.9.3", "pythonosc")
 install_if_missing("psutil==7.2.2", "psutil")
-install_if_missing("winrt-Windows.Media.Control==3.2.1", "winrt")
+install_if_missing("winrt-Windows.Media.Control==3.2.1", "winrt.M")
+install_if_missing("winrt.windows.foundation", "winrt.F")
 install_if_missing("requests==2.32.5", "requests")
 
 import psutil
@@ -397,9 +398,9 @@ def run_osc_loop():
     print(f"GPU: {gpu_detect}")
     print(f"{'=' * 60}")
 
-    query_cooldown = "error"
-    cpu = "error"
-    gpu = "error"
+    query_cooldown = 0
+    cpu = 0
+    gpu = 0
 
     while running:
         try:

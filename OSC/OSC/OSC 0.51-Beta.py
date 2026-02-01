@@ -397,9 +397,9 @@ def run_osc_loop():
     print(f"GPU: {gpu_detect}")
     print(f"{'=' * 60}")
 
-    query_cooldown = "error"
-    cpu = "error"
-    gpu = "error"
+    query_cooldown = 0
+    cpu = 0
+    gpu = 0
 
     while running:
         try:
