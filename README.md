@@ -65,7 +65,7 @@ https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownloa
 
 ⠀
 
-2 / Get Pycharm
+2 / Get and set up Pycharm 
 
 https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
 
