@@ -38,7 +38,6 @@ https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
 5 / Open The Stable file
 
 <img width="1183" height="701" alt="image" src="https://github.com/user-attachments/assets/04dbe815-c503-45b6-b632-3ac328e05652" />
-<img width="1183" height="701" alt="image" src="https://github.com/user-attachments/assets/04dbe815-c503-45b6-b632-3ac328e05652" />
 
 
 ⠀
