@@ -1,4 +1,4 @@
-# OSC ChatBox
+# OSC ChatBox - Windows
 OSC Chatbox
 
 INSTALL INTRUCTTIONS
@@ -17,11 +17,11 @@ INSTALL INTRUCTTIONS
 
 ⠀
 
-2 / Get Thonny
+2 / Get Thonny or Pycharm
 
 https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownload
 
-⠀
+https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
 
 3 /Click open file
 
@@ -35,7 +35,7 @@ https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownloa
 
 ⠀
 
-5 / Open Most Recent file with the only descriptor of -Stable
+5 / Open The Stable file
 
 <img width="1033" height="611" alt="image" src="https://github.com/user-attachments/assets/7d68c38e-09f8-4ff9-b607-019ae3ff73a6" />
 
