@@ -13,15 +13,13 @@ INSTALL INTRUCTTIONS
 
 ⠀
 
-# Option 1 (Easy) 
-
-⠀
-
 2 / Get Thonny or Pycharm
 
 https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownload
 
 https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
+
+⠀
 
 3 /Click open file
 
