@@ -16,9 +16,12 @@ import asyncio
 import re
 import threading
 import time
+import os
+import site
 import tkinter as tk
 from tkinter import messagebox
 from enum import Enum
+
 
 def install_if_missing(package, import_name=None):
     if import_name is None:
@@ -28,17 +31,21 @@ def install_if_missing(package, import_name=None):
         importlib.import_module(import_name)
     except ImportError:
         print(f"Installing {package}...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+        subprocess.check_call([
+            sys.executable, "-m", "pip", "install",
+            package, "--break-system-packages"
+        ])
+        # Make sure newly installed packages are findable
+        user_site = site.getusersitepackages()
+        if user_site not in sys.path:
+            sys.path.insert(0, user_site)
 
-install_if_missing("python-osc==1.9.3", "pythonosc")
-install_if_missing("psutil==7.2.2", "psutil")
-install_if_missing("winrt-Windows.Media.Control==3.2.1", "winrt")
-install_if_missing("requests==2.32.5", "requests")
+install_if_missing("python-osc", "pythonosc")
+install_if_missing("psutil", "psutil")
+install_if_missing("requests", "requests")
 
 import psutil
 from pythonosc.udp_client import SimpleUDPClient
-import winrt.windows.media.control as wmc
-import requests
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # CONFIGURATION & GLOBAL VARIABLES
@@ -56,7 +63,7 @@ print("Made By Boots")
 OSC_IP = "127.0.0.1"
 OSC_PORT = 9000
 
-INTERFACE = "Ethernet"
+INTERFACE = "eno1"
 
 SWITCH_INTERVAL = 30
 
@@ -86,222 +93,258 @@ def _clean_name(name: str):
     return name
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CPU / GPU DETECTION
+# ─────────────────────────────────────────────────────────────────────────────
+
 def detect_cpu():
     global cpu_manufacturer
-
     try:
-        cpu_name = subprocess.check_output(
-            ["powershell", "-Command", "(Get-CimInstance Win32_Processor).Name"],
-            encoding="utf-8",
-            stderr=subprocess.DEVNULL,
-            timeout=5
-        ).strip()
-
-        clean_cpu_name = _clean_name(cpu_name)
-
-        if "intel" in cpu_name.lower():
-            cpu_manufacturer = CPUManufacturer.INTEL
-        elif "amd" in cpu_name.lower():
-            cpu_manufacturer = CPUManufacturer.AMD
-        else:
-            cpu_manufacturer = CPUManufacturer.UNKNOWN
-
-        return clean_cpu_name
-    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
-        return "CPU Unknown"
+        with open("/proc/cpuinfo", "r") as f:
+            for line in f:
+                if line.startswith("model name"):
+                    cpu_name = line.split(":", 1)[1].strip()
+                    if "intel" in cpu_name.lower():
+                        cpu_manufacturer = CPUManufacturer.INTEL
+                    elif "amd" in cpu_name.lower():
+                        cpu_manufacturer = CPUManufacturer.AMD
+                    else:
+                        cpu_manufacturer = CPUManufacturer.UNKNOWN
+                    return _clean_name(cpu_name)
+    except (OSError, IOError):
+        pass
+    return "CPU Unknown"
 
 
 def detect_gpu():
     try:
-        gpu_name = subprocess.check_output(
-            ["powershell", "-Command", "(Get-CimInstance Win32_VideoController).Name"],
+        output = subprocess.check_output(
+            ["lspci"],
             encoding="utf-8",
             stderr=subprocess.DEVNULL,
             timeout=5
-        ).strip()
-        return _clean_name(gpu_name)
-    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
-        return "GPU Unknown"
+        )
+        for line in output.splitlines():
+            if any(k in line.lower() for k in ["vga", "display", "3d controller"]):
+                # lspci format: "00:00.0 VGA compatible controller: AMD/ATI Device Name"
+                parts = line.split(":", 2)
+                if len(parts) >= 3:
+                    return _clean_name(parts[2].strip())
+    except (subprocess.CalledProcessError, UnicodeDecodeError,
+            subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return "GPU Unknown"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HARDWARE DATA COLLECTION  (replaces get_lhm_data + all parse functions)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _read_sysfs(path):
+    """Read a single integer value from a sysfs file, return None on failure."""
+    try:
+        with open(path, "r") as f:
+            return int(f.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _get_cpu_temp_celsius():
+    """
+    Try multiple sysfs sources for CPU package temperature.
+    Works for both Intel (coretemp) and AMD (k10temp) CPUs.
+    """
+    import glob
+
+    # Look for a hwmon device with 'coretemp' or 'k10temp' as the driver name
+    for hwmon_dir in glob.glob("/sys/class/hwmon/hwmon*"):
+        try:
+            with open(f"{hwmon_dir}/name") as f:
+                name = f.read().strip()
+        except OSError:
+            continue
+
+        if name in ("coretemp", "k10temp"):
+            # coretemp: temp1 is usually "Package id 0"
+            # k10temp:  Tctl/Tdie is temp1
+            for label_path in sorted(glob.glob(f"{hwmon_dir}/temp*_label")):
+                try:
+                    with open(label_path) as f:
+                        label = f.read().strip().lower()
+                except OSError:
+                    continue
+
+                if any(k in label for k in ["package", "tctl", "tdie"]):
+                    input_path = label_path.replace("_label", "_input")
+                    raw = _read_sysfs(input_path)
+                    if raw is not None:
+                        return raw // 1000  # millidegrees → degrees
+
+            # Fallback: just use temp1_input if no label matched
+            raw = _read_sysfs(f"{hwmon_dir}/temp1_input")
+            if raw is not None:
+                return raw // 1000
+
+    return 0
+
+
+def _get_cpu_power_watts():
+    """
+    Intel: RAPL energy counter (requires read permission on powercap sysfs).
+    AMD:   hwmon power1_input from k10temp/fam17h driver.
+    Takes two readings ~200 ms apart to calculate watts.
+    """
+    import glob
+
+    # ── Intel RAPL ──────────────────────────────────────────────────────────
+    rapl_path = "/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj"
+    if os.path.exists(rapl_path):
+        e1 = _read_sysfs(rapl_path)
+        time.sleep(0.2)
+        e2 = _read_sysfs(rapl_path)
+        if e1 is not None and e2 is not None and e2 > e1:
+            return int((e2 - e1) / 0.2 / 1_000_000)  # µJ → W
+
+    # ── AMD hwmon power ──────────────────────────────────────────────────────
+    for hwmon_dir in glob.glob("/sys/class/hwmon/hwmon*"):
+        try:
+            with open(f"{hwmon_dir}/name") as f:
+                name = f.read().strip()
+        except OSError:
+            continue
+        if name in ("k10temp", "fam17h"):
+            raw = _read_sysfs(f"{hwmon_dir}/power1_input")
+            if raw is not None:
+                return raw // 1_000_000  # µW → W
+
+    return 0
+
+
+def _get_gpu_stats_rocm():
+    """
+    Use rocm-smi to get AMD GPU temp, power, and load in one call.
+    Returns (temp_c, power_w, load_pct) or (0, 0, 0) on failure.
+    """
+    try:
+        output = subprocess.check_output(
+            ["rocm-smi", "--showtemp", "--showpower", "--showuse", "--json"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=5
+        )
+        data = json.loads(output)
+
+        # rocm-smi JSON has a key per card: "card0", "card1", etc.
+        card = next((v for k, v in data.items() if k.startswith("card")), None)
+        if not card:
+            return 0, 0, 0
+
+        def _parse(val):
+            try:
+                return int(float(re.sub(r"[^\d.-]", "", str(val))))
+            except (ValueError, TypeError):
+                return 0
+
+        # Key names can vary slightly between rocm-smi versions
+        temp  = _parse(card.get("Temperature (Sensor junction) (C)")
+                       or card.get("Temperature (Sensor edge) (C)", 0))
+        power = _parse(card.get("Average Graphics Package Power (W)", 0))
+        load  = _parse(card.get("GPU use (%)", 0))
+
+        return temp, power, load
+
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
+            FileNotFoundError, json.JSONDecodeError, StopIteration):
+        pass
+    return 0, 0, 0
 
 
 def get_lhm_data():
-    try:
-        response = requests.get(LHM_REST_API, timeout=5)
-        if response.status_code == 200:
-            return response.json()
-    except (requests.ConnectionError, requests.Timeout, json.JSONDecodeError):
-        pass
-    return None
+    """
+    Drop-in replacement for the LHM REST API call.
+    Collects all hardware stats from Linux sysfs / rocm-smi and
+    returns them in a simple dict understood by the parse helpers below.
+    """
+    gpu_temp, gpu_power, gpu_load = _get_gpu_stats_rocm()
 
+    return {
+        "cpu_temp":  _get_cpu_temp_celsius(),
+        "cpu_power": _get_cpu_power_watts(),
+        "gpu_temp":  gpu_temp,
+        "gpu_power": gpu_power,
+        "gpu_load":  gpu_load,
+        "cpu_load":  int(psutil.cpu_percent(interval=None)),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PARSE HELPERS  (same signatures as before — run_osc_loop needs no changes)
+# ─────────────────────────────────────────────────────────────────────────────
 
 def parse_lhm_data(data):
-    cpu_temp_val = 0
-    cpu_power_val = 0
-    gpu_temp_val = 0
-    gpu_power_val = 0
-
-    if not data or "Children" not in data:
-        return cpu_temp_val, cpu_power_val, gpu_temp_val, gpu_power_val
-
-    try:
-        for top_level in data.get("Children", []):
-            for hardware in top_level.get("Children", []):
-                hardware_text = hardware.get("Text", "").lower()
-
-                if "intel" in hardware_text:
-                    for category in hardware.get("Children", []):
-                        category_text = category.get("Text", "").lower()
-
-                        if "temperature" in category_text:
-                            for sensor in category.get("Children", []):
-                                sensor_text = sensor.get("Text", "").lower()
-                                if "cpu package" in sensor_text:
-                                    try:
-                                        sensor_value = sensor.get("Value", 0)
-                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
-                                        cpu_temp_val = int(float(numeric_str))
-                                    except (ValueError, TypeError):
-                                        pass
-
-                        if "power" in category_text:
-                            for sensor in category.get("Children", []):
-                                sensor_text = sensor.get("Text", "").lower()
-                                if "cpu package" in sensor_text:
-                                    try:
-                                        sensor_value = sensor.get("Value", 0)
-                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
-                                        cpu_power_val = int(float(numeric_str))
-                                    except (ValueError, TypeError):
-                                        pass
-
-                elif "amd radeon" in hardware_text:
-                    for category in hardware.get("Children", []):
-                        category_text = category.get("Text", "").lower()
-
-                        if "temperature" in category_text:
-                            for sensor in category.get("Children", []):
-                                sensor_text = sensor.get("Text", "").lower()
-                                if "gpu core" in sensor_text and "distance" not in sensor_text:
-                                    try:
-                                        sensor_value = sensor.get("Value", 0)
-                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
-                                        gpu_temp_val = int(float(numeric_str))
-                                    except (ValueError, TypeError):
-                                        pass
-
-                        if "power" in category_text:
-                            for sensor in category.get("Children", []):
-                                sensor_text = sensor.get("Text", "").lower()
-                                if "gpu package" in sensor_text:
-                                    try:
-                                        sensor_value = sensor.get("Value", 0)
-                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
-                                        gpu_power_val = int(float(numeric_str))
-                                    except (ValueError, TypeError):
-                                        pass
-
-    except (KeyError, TypeError, AttributeError, ValueError):
-        pass
-
-    return cpu_temp_val, cpu_power_val, gpu_temp_val, gpu_power_val
-
-
-def get_gpu_load_from_lhm(data):
-    if not data or "Children" not in data:
-        return 0
-
-    try:
-        for top_level in data.get("Children", []):
-            for hardware in top_level.get("Children", []):
-                hardware_text = hardware.get("Text", "").lower()
-
-                if "amd radeon" in hardware_text:
-                    for category in hardware.get("Children", []):
-                        category_text = category.get("Text", "").lower()
-
-                        if "load" in category_text:
-                            for sensor in category.get("Children", []):
-                                sensor_text = sensor.get("Text", "").lower()
-                                if "gpu core" in sensor_text:
-                                    try:
-                                        sensor_value = sensor.get("Value", 0)
-                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
-                                        return int(float(numeric_str))
-                                    except (ValueError, TypeError):
-                                        pass
-    except (KeyError, TypeError, AttributeError, ValueError):
-        pass
-
-    return 0
+    if not data:
+        return 0, 0, 0, 0
+    return (
+        data.get("cpu_temp",  0),
+        data.get("cpu_power", 0),
+        data.get("gpu_temp",  0),
+        data.get("gpu_power", 0),
+    )
 
 
 def get_cpu_load_from_lhm(data):
-    if not data or "Children" not in data:
+    if not data:
         return 0
+    return data.get("cpu_load", 0)
 
-    try:
-        for top_level in data.get("Children", []):
-            for hardware in top_level.get("Children", []):
-                hardware_text = hardware.get("Text", "").lower()
 
-                if "intel" in hardware_text:
-                    for category in hardware.get("Children", []):
-                        category_text = category.get("Text", "").lower()
+def get_gpu_load_from_lhm(data):
+    if not data:
+        return 0
+    return data.get("gpu_load", 0)
 
-                        if "load" in category_text:
-                            for sensor in category.get("Children", []):
-                                sensor_text = sensor.get("Text", "").lower()
-                                if "cpu total" in sensor_text:
-                                    try:
-                                        sensor_value = sensor.get("Value", 0)
-                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
-                                        return int(float(numeric_str))
-                                    except (ValueError, TypeError):
-                                        pass
 
-                elif "amd" in hardware_text and "radeon" not in hardware_text:
-                    for category in hardware.get("Children", []):
-                        category_text = category.get("Text", "").lower()
-
-                        if "load" in category_text:
-                            for sensor in category.get("Children", []):
-                                sensor_text = sensor.get("Text", "").lower()
-                                if "cpu total" in sensor_text:
-                                    try:
-                                        sensor_value = sensor.get("Value", 0)
-                                        numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
-                                        return int(float(numeric_str))
-                                    except (ValueError, TypeError):
-                                        pass
-    except (KeyError, TypeError, AttributeError, ValueError):
-        pass
-
-    return 0
-
+# ─────────────────────────────────────────────────────────────────────────────
+# DIAGNOSTIC  (replaces diagnose_lhm)
+# ─────────────────────────────────────────────────────────────────────────────
 
 def diagnose_lhm():
-    try:
-        response = requests.get(LHM_REST_API, timeout=5)
-        if response.status_code == 200:
-            print("[DIAGNOSTIC] ✓ REST API Connection: SUCCESS")
-            data = response.json()
-            sensor_count = len(data.get("Children", []))
-            print(f"[DIAGNOSTIC] ✓ Sensors Found: {sensor_count} components")
-            print("[DIAGNOSTIC] ✓ No admin privileges required!")
-            return True
-        else:
-            print(f"[DIAGNOSTIC] ✗ REST API returned status: {response.status_code}")
-    except requests.ConnectionError:
-        print("[DIAGNOSTIC] ✗ Cannot connect to LibreHardwareMonitor REST API")
-        print("[DIAGNOSTIC] FIX 1: Make sure LibreHardwareMonitor.exe is RUNNING")
-        print("[DIAGNOSTIC] FIX 2: Enable web server in LHM (Options → Web server)")
-        print("[DIAGNOSTIC] FIX 3: Check port is 8085 (default)")
-    except requests.Timeout:
-        print("[DIAGNOSTIC] ✗ REST API query timed out")
-    except Exception as e:
-        print(f"[DIAGNOSTIC] ✗ Error: {e}")
-    return False
+    import glob
+    print("[DIAGNOSTIC] Running Linux hardware diagnostics...")
 
+    # CPU temp
+    cpu_t = _get_cpu_temp_celsius()
+    if cpu_t:
+        print(f"[DIAGNOSTIC] ✓ CPU Temperature: {cpu_t}°C")
+    else:
+        print("[DIAGNOSTIC] ✗ CPU Temperature: not found")
+        print("[DIAGNOSTIC]   FIX: sudo apt install lm-sensors && sudo sensors-detect")
+
+    # CPU power
+    cpu_p = _get_cpu_power_watts()
+    if cpu_p:
+        print(f"[DIAGNOSTIC] ✓ CPU Power: {cpu_p}W")
+    else:
+        print("[DIAGNOSTIC] ✗ CPU Power: not found")
+        print("[DIAGNOSTIC]   FIX (Intel): sudo chmod a+r /sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj")
+        print("[DIAGNOSTIC]   FIX (AMD):   check /sys/class/hwmon/hwmon*/name for k10temp")
+
+    # rocm-smi / GPU
+    gpu_t, gpu_p, gpu_l = _get_gpu_stats_rocm()
+    if gpu_t or gpu_p or gpu_l:
+        print(f"[DIAGNOSTIC] ✓ GPU: {gpu_t}°C  {gpu_p}W  {gpu_l}% load")
+    else:
+        print("[DIAGNOSTIC] ✗ GPU stats: not found")
+        print("[DIAGNOSTIC]   FIX: sudo apt install rocm-smi  (AMD only)")
+
+    # Network interface
+    all_ifaces = list(psutil.net_io_counters(pernic=True).keys())
+    if INTERFACE in all_ifaces:
+        print(f"[DIAGNOSTIC] ✓ Network interface '{INTERFACE}' found")
+    else:
+        print(f"[DIAGNOSTIC] ✗ Interface '{INTERFACE}' not found. Available: {all_ifaces}")
+
+    return True
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # NETWORK MONITORING
@@ -332,17 +375,24 @@ def get_network_usage(prev, prev_time):
 # MEDIA MONITORING
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-async def get_media_info():
+def get_media_info():
     try:
-        manager = await wmc.GlobalSystemMediaTransportControlsSessionManager.request_async()
-        session = manager.get_current_session()
-        if session:
-            props = await session.try_get_media_properties_async()
-            timeline = session.get_timeline_properties()
-            pos = timeline.position.total_seconds() * 1000
-            dur = timeline.end_time.total_seconds() * 1000
-            return props.title, props.artist, pos, dur
-    except (OSError, AttributeError, RuntimeError):
+        output = subprocess.check_output(
+            ["playerctl", "metadata", "--format",
+             "{{title}}\n{{artist}}\n{{position}}\n{{mpris:length}}"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=3
+        ).strip().split("\n")
+
+        if len(output) >= 4:
+            title  = output[0]
+            artist = output[1]
+            pos    = int(output[2]) / 1000      # µs → ms
+            dur    = int(output[3]) / 1000      # µs → ms
+            return title, artist, pos, dur
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
+            FileNotFoundError, ValueError):
         pass
     return None, None, 0, 0
 
@@ -403,7 +453,7 @@ def run_osc_loop():
 
     while running:
         try:
-            song, artist, pos, dur = asyncio.run(get_media_info())
+            song, artist, pos, dur = get_media_info()
             clean_song = clean_title(song)
 
             query_cooldown += 1
@@ -475,7 +525,6 @@ def start_script():
         OSC_PORT = int(port_entry.get())
         INTERFACE = iface_entry.get()
         SWITCH_INTERVAL = int(interval_entry.get())
-        LHM_REST_API = lhm_entry.get()
 
         page1_line1_text = page1_entry.get()
         page2_line1_text = page2_entry.get()
@@ -484,8 +533,6 @@ def start_script():
 
         running = True
         status_label.config(text="Status: Running", fg="#4CFF4C")
-
-        diagnose_lhm()
 
         thread = threading.Thread(target=run_osc_loop, daemon=True)
         thread.start()
@@ -556,9 +603,6 @@ iface_entry = dark_entry(2, INTERFACE)
 
 dark_label("Switch Interval", 3)
 interval_entry = dark_entry(3, str(SWITCH_INTERVAL))
-
-dark_label("LHM Interface", 4)
-lhm_entry = dark_entry(4, LHM_REST_API)
 
 dark_label("Page 1 Text", 5)
 page1_entry = dark_entry(5, "Thx for using boot's osc code")
