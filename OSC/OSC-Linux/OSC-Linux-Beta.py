@@ -11,12 +11,9 @@
 import subprocess
 import sys
 import importlib
-import json
-import asyncio
 import re
 import threading
 import time
-import os
 import site
 import tkinter as tk
 from tkinter import messagebox
@@ -86,16 +83,52 @@ cpu_manufacturer = CPUManufacturer.UNKNOWN
 # HARDWARE MONITORING
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+gpu_id_map = {
+    # AMD RDNA3
+    "1002:7590": "Radeon RX 9060 XT",
+    "1002:7340": "Radeon RX 7900 XTX",
+    "1002:7341": "Radeon RX 7900 XT",
+    "1002:71b0": "Radeon RX 7800 XT",
+    "1002:7438": "Radeon RX 7700 XT",
+    "1002:7439": "Radeon RX 7700",
+    "1002:7540": "Radeon RX 7600",
+    "1002:7541": "Radeon RX 7600 XT",
+
+    # AMD RDNA2
+    "1002:73bf": "Radeon RX 6950 XT",
+    "1002:73b7": "Radeon RX 6900 XT",
+    "1002:73b8": "Radeon RX 6800",
+    "1002:73ab": "Radeon RX 6600 XT",
+    "1002:73a0": "Radeon RX 6600",
+    "1002:73a4": "Radeon RX 6500 XT",
+
+    # NVIDIA RTX 40 Series
+    "10de:2498": "GeForce RTX 4090",
+    "10de:2487": "GeForce RTX 4080",
+    "10de:2490": "GeForce RTX 4070 Ti",
+    "10de:248e": "GeForce RTX 4070",
+    "10de:2481": "GeForce RTX 4060 Ti",
+    "10de:2480": "GeForce RTX 4060",
+
+    # NVIDIA RTX 30 Series
+    "10de:2204": "GeForce RTX 3090",
+    "10de:2206": "GeForce RTX 3080 Ti",
+    "10de:1e87": "GeForce RTX 3080",
+    "10de:1e84": "GeForce RTX 3070",
+    "10de:2485": "GeForce RTX 3060 Ti",
+    "10de:2483": "GeForce RTX 3060",
+
+    # Intel Integrated
+    "8086:3e92": "Intel UHD Graphics 630",
+    "8086:9bc5": "Intel Iris Xe Graphics",
+}
+
 def _clean_name(name: str):
     name = re.sub(r"\(.*?\)|\[.*?]|\{.*?}", "", name)
     name = name.split("@")[0]
     name = re.sub(r"\s+", " ", name).strip()
     return name
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CPU / GPU DETECTION
-# ─────────────────────────────────────────────────────────────────────────────
 
 def detect_cpu():
     global cpu_manufacturer
@@ -116,29 +149,25 @@ def detect_cpu():
     return "CPU Unknown"
 
 
-def detect_gpu():
+def detect_gpu_pci_id():
     try:
         output = subprocess.check_output(
-            ["lspci"],
-            encoding="utf-8",
-            stderr=subprocess.DEVNULL,
-            timeout=5
+            ["lspci", "-nn"], encoding="utf-8", stderr=subprocess.DEVNULL
         )
         for line in output.splitlines():
-            if any(k in line.lower() for k in ["vga", "display", "3d controller"]):
-                # lspci format: "00:00.0 VGA compatible controller: AMD/ATI Device Name"
-                parts = line.split(":", 2)
-                if len(parts) >= 3:
-                    return _clean_name(parts[2].strip())
-    except (subprocess.CalledProcessError, UnicodeDecodeError,
-            subprocess.TimeoutExpired, FileNotFoundError):
+            if "VGA" in line or "3D controller" in line:
+                match = re.search(r"\[(\w{4}:\w{4})\]", line)
+                if match:
+                    return match.group(1).lower()
+    except Exception:
         pass
-    return "GPU Unknown"
+    return None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# HARDWARE DATA COLLECTION  (replaces get_lhm_data + all parse functions)
-# ─────────────────────────────────────────────────────────────────────────────
+def detect_gpu():
+    pci_id = detect_gpu_pci_id()
+    return gpu_id_map.get(pci_id, f"Unknown GPU ({pci_id})" if pci_id else "GPU Unknown")
+
 
 def _read_sysfs(path):
     """Read a single integer value from a sysfs file, return None on failure."""
@@ -190,96 +219,77 @@ def _get_cpu_temp_celsius():
 
 def _get_cpu_power_watts():
     """
-    Intel: RAPL energy counter (requires read permission on powercap sysfs).
-    AMD:   hwmon power1_input from k10temp/fam17h driver.
-    Takes two readings ~200 ms apart to calculate watts.
+    Return the CPU power in watts.
+    Works for Intel (RAPL) and AMD (hwmon) CPUs.
     """
     import glob
+    import os
+    import time
 
-    # ── Intel RAPL ──────────────────────────────────────────────────────────
-    rapl_path = "/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj"
-    if os.path.exists(rapl_path):
-        e1 = _read_sysfs(rapl_path)
-        time.sleep(0.2)
-        e2 = _read_sysfs(rapl_path)
+    # Intel RAPL
+    rapl = "/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj"
+    if os.path.exists(rapl):
+        e1 = None
+        e2 = None
+        try:
+            e1 = int(open(rapl).read().strip())
+            time.sleep(0.2)
+            e2 = int(open(rapl).read().strip())
+        except:
+            pass
         if e1 is not None and e2 is not None and e2 > e1:
             return int((e2 - e1) / 0.2 / 1_000_000)  # µJ → W
 
-    # ── AMD hwmon power ──────────────────────────────────────────────────────
-    for hwmon_dir in glob.glob("/sys/class/hwmon/hwmon*"):
+    # AMD hwmon
+    for hwmon in glob.glob("/sys/class/hwmon/hwmon*"):
         try:
-            with open(f"{hwmon_dir}/name") as f:
-                name = f.read().strip()
-        except OSError:
+            name = open(f"{hwmon}/name").read().strip()
+            if name.lower() in ("k10temp", "fam17h", "zenpower"):
+                raw = _read_sysfs(f"{hwmon}/power1_input")
+                if raw:
+                    return raw // 1_000_000  # µW → W
+        except:
             continue
-        if name in ("k10temp", "fam17h"):
-            raw = _read_sysfs(f"{hwmon_dir}/power1_input")
-            if raw is not None:
-                return raw // 1_000_000  # µW → W
 
     return 0
 
 
-def _get_gpu_stats_rocm():
-    """
-    Use rocm-smi to get AMD GPU temp, power, and load in one call.
-    Returns (temp_c, power_w, load_pct) or (0, 0, 0) on failure.
-    """
-    try:
-        output = subprocess.check_output(
-            ["rocm-smi", "--showtemp", "--showpower", "--showuse", "--json"],
-            encoding="utf-8",
-            stderr=subprocess.DEVNULL,
-            timeout=5
+def _get_gpu_stats():
+    import glob
+
+    for hwmon in glob.glob("/sys/class/drm/card*/device/hwmon/hwmon*"):
+        temp = _read_sysfs(f"{hwmon}/temp1_input")
+        power = (
+            _read_sysfs(f"{hwmon}/power1_average")
+            or _read_sysfs(f"{hwmon}/power1_input")
         )
-        data = json.loads(output)
 
-        # rocm-smi JSON has a key per card: "card0", "card1", etc.
-        card = next((v for k, v in data.items() if k.startswith("card")), None)
-        if not card:
-            return 0, 0, 0
+        if temp is not None:
+            temp = temp // 1000
 
-        def _parse(val):
-            try:
-                return int(float(re.sub(r"[^\d.-]", "", str(val))))
-            except (ValueError, TypeError):
-                return 0
+        if power is not None:
+            power = power // 1_000_000
 
-        # Key names can vary slightly between rocm-smi versions
-        temp  = _parse(card.get("Temperature (Sensor junction) (C)")
-                       or card.get("Temperature (Sensor edge) (C)", 0))
-        power = _parse(card.get("Average Graphics Package Power (W)", 0))
-        load  = _parse(card.get("GPU use (%)", 0))
+        return temp or 0, power or 0, 0
 
-        return temp, power, load
-
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
-            FileNotFoundError, json.JSONDecodeError, StopIteration):
-        pass
     return 0, 0, 0
 
 
 def get_lhm_data():
     """
-    Drop-in replacement for the LHM REST API call.
-    Collects all hardware stats from Linux sysfs / rocm-smi and
-    returns them in a simple dict understood by the parse helpers below.
+    Collect CPU/GPU stats for OSC display.
     """
-    gpu_temp, gpu_power, gpu_load = _get_gpu_stats_rocm()
+    gpu_temp, gpu_power, gpu_load = _get_gpu_stats()  # GPU function you already have
 
     return {
         "cpu_temp":  _get_cpu_temp_celsius(),
-        "cpu_power": _get_cpu_power_watts(),
+        "cpu_power": _get_cpu_power_watts(),  # uses the function we just defined
         "gpu_temp":  gpu_temp,
         "gpu_power": gpu_power,
         "gpu_load":  gpu_load,
         "cpu_load":  int(psutil.cpu_percent(interval=None)),
     }
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PARSE HELPERS  (same signatures as before — run_osc_loop needs no changes)
-# ─────────────────────────────────────────────────────────────────────────────
 
 def parse_lhm_data(data):
     if not data:
@@ -303,10 +313,6 @@ def get_gpu_load_from_lhm(data):
         return 0
     return data.get("gpu_load", 0)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# DIAGNOSTIC  (replaces diagnose_lhm)
-# ─────────────────────────────────────────────────────────────────────────────
 
 def diagnose_lhm():
     import glob
@@ -372,35 +378,55 @@ def get_network_usage(prev, prev_time):
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# MEDIA MONITORING
+# MEDIA MONITORING - Browser & YouTube Music compatible
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def get_media_info():
     try:
-        output = subprocess.check_output(
-            ["playerctl", "metadata", "--format",
-             "{{title}}\n{{artist}}\n{{position}}\n{{mpris:length}}"],
+        # List all active MPRIS players
+        players = subprocess.check_output(
+            ["playerctl", "-l"],
             encoding="utf-8",
             stderr=subprocess.DEVNULL,
-            timeout=3
+            timeout=2
+        ).splitlines()
+
+        if not players:
+            return None, None, 0, 0
+
+        # Match any browser player (chrome, chromium, firefox) including instance suffix
+        browser_player = next(
+            (p for p in players if any(k in p.lower() for k in ["chrome", "chromium", "firefox"])),
+            players[0]  # fallback to first player
+        )
+
+        # Query metadata
+        output = subprocess.check_output(
+            ["playerctl", "-p", browser_player, "metadata",
+             "--format", "{{title}}\n{{artist}}\n{{position}}\n{{mpris:length}}"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=2
         ).strip().split("\n")
 
         if len(output) >= 4:
-            title  = output[0]
-            artist = output[1]
-            pos    = int(output[2]) / 1000      # µs → ms
-            dur    = int(output[3]) / 1000      # µs → ms
+            title  = output[0].strip()
+            artist = output[1].strip()
+            pos    = int(output[2]) / 1000        # µs → ms
+            dur    = int(output[3]) / 1000        # µs → ms
             return title, artist, pos, dur
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
-            FileNotFoundError, ValueError):
+
+    except subprocess.CalledProcessError:
         pass
+    except Exception as e:
+        print(f"[MEDIA ERROR] {e}")
+
     return None, None, 0, 0
 
 
 def clean_title(raw_title):
     if not raw_title:
         return ""
-
     title = re.sub(r"\(.*?\)|\[.*?]|\{.*?}", "", raw_title)
     junk_words = [
         "official", "video", "lyrics", "audio", "hd", "4k", "remastered",
@@ -410,9 +436,7 @@ def clean_title(raw_title):
     title = re.sub(pattern, "", title, flags=re.IGNORECASE)
     title = re.sub(r"\b(ft\.|feat\.|featuring).*", "", title, flags=re.IGNORECASE)
     parts = [p.strip() for p in re.split(r"[-–|•]", title) if len(p.strip()) > 2]
-    title = parts[0] if parts else title
-
-    return re.sub(r"\s+", " ", title).strip()
+    return re.sub(r"\s+", " ", parts[0] if parts else title).strip()
 
 
 def create_progress_bar(position_ms, duration_ms, length=13):
