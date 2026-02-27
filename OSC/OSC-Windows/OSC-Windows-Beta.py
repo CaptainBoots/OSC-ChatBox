@@ -33,6 +33,7 @@ def install_if_missing(package, import_name=None):
 install_if_missing("python-osc==1.9.3", "pythonosc")
 install_if_missing("psutil==7.2.2", "psutil")
 install_if_missing("winrt-Windows.Media.Control==3.2.1", "winrt")
+install_if_missing("winrt-windows.foundation==3.2.1", "winrt.windows.foundation")
 install_if_missing("requests==2.32.5", "requests")
 
 import psutil
