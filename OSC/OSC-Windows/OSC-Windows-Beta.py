@@ -284,14 +284,13 @@ def diagnose_lhm():
     try:
         response = requests.get(LHM_REST_API, timeout=5)
         if response.status_code == 200:
-            print("[DIAGNOSTIC] ✓ REST API Connection: SUCCESS")
+            print("[DIAGNOSTIC] ✓ API Connection: SUCCESS")
             data = response.json()
             sensor_count = len(data.get("Children", []))
-            print(f"[DIAGNOSTIC] ✓ Sensors Found: {sensor_count} components")
-            print("[DIAGNOSTIC] ✓ No admin privileges required!")
+            print(f"[DIAGNOSTIC] ✓ Sensors Found")
             return True
         else:
-            print(f"[DIAGNOSTIC] ✗ REST API returned status: {response.status_code}")
+            print(f"[DIAGNOSTIC] ✗ API returned status: {response.status_code}")
     except requests.ConnectionError:
         print("[DIAGNOSTIC] ✗ Cannot connect to LibreHardwareMonitor REST API")
         print("[DIAGNOSTIC] FIX 1: Make sure LibreHardwareMonitor.exe is RUNNING")
@@ -302,7 +301,6 @@ def diagnose_lhm():
     except Exception as e:
         print(f"[DIAGNOSTIC] ✗ Error: {e}")
     return False
-
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # NETWORK MONITORING
