@@ -13,7 +13,13 @@ INSTALL INTRUCTTIONS
 
 ⠀
 
-2 / Get Thonny or Pycharm
+2 / Get Python 3.12 or Thonny/Pycharm
+
+⠀
+
+https://www.python.org/ftp/python/3.12.0/python-3.12.0-amd64.exe
+
+⠀
 
 https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownload
 
