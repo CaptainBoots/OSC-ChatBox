@@ -36,7 +36,9 @@ https://www.python.org/ftp/python/3.12.0/python-3.12.0-amd64.exe
 
 ⠀
 
-4 / Get and run Lirbre Hardware Monitor and enable remote web sever
+4 / On Windows get and run Lirbre Hardware Monitor and enable remote web sever
+
+https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v0.9.6/LibreHardwareMonitor.zip
 
 <img width="269" height="395" alt="Screenshot_2026-01-31_205442" src="https://github.com/user-attachments/assets/6be802fa-e11a-4b63-b42b-9d89f9b41643" />
 
