@@ -21,13 +21,13 @@ https://www.python.org/ftp/python/3.12.0/python-3.12.0-amd64.exe
 
 ⠀
 
-5 / Open The Stable file
+3 / Run The Stable file
 
 <img width="1183" height="701" alt="image" src="https://github.com/user-attachments/assets/04dbe815-c503-45b6-b632-3ac328e05652" />
 
 ⠀
 
-9 / For Version 0.39 And Later run Lirbre Hardware Monitor and enable remote web sever
+4 / For Version 0.39 And Later run Lirbre Hardware Monitor and enable remote web sever
 
 <img width="269" height="395" alt="Screenshot_2026-01-31_205442" src="https://github.com/user-attachments/assets/6be802fa-e11a-4b63-b42b-9d89f9b41643" />
 
