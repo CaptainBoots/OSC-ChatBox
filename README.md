@@ -43,66 +43,6 @@ https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
 
 <img width="1183" height="701" alt="image" src="https://github.com/user-attachments/assets/04dbe815-c503-45b6-b632-3ac328e05652" />
 
-
-⠀
-
-6 / Run Code
-
-<img width="283" height="89" alt="image" src="https://github.com/user-attachments/assets/6484cc43-6379-48d8-9c1a-36fb7d21b7a3" />
-
-⠀
-
-7 / Customize The Options In The UI
-
-<img width="402" height="392" alt="image" src="https://github.com/user-attachments/assets/d40b7610-296f-4f15-8afc-9045c3da365f" />
-
-⠀
-
-8 / For Version 0.39 And Later run Lirbre Hardware Monitor and enable remote web sever
-
-<img width="269" height="395" alt="Screenshot_2026-01-31_205442" src="https://github.com/user-attachments/assets/dafabbb8-24b4-4584-97bc-45aec9ec6f15" />
-
-(sorry for the low qualty image)
-
-⠀
-
-# Option 2 (Harder)
-
-⠀
-
-2 / Get and set up Pycharm 
-
-https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
-
-⠀
-3 / Click open file
-
-<img width="373" height="410" alt="image" src="https://github.com/user-attachments/assets/10497e04-b004-4516-b8d7-7e6af3b6cf3c" />
-
-⠀
-
-4 / Open OSC Chatbox 
-
-<img width="1031" height="614" alt="image" src="https://github.com/user-attachments/assets/36a18bcf-f6b3-4685-a37a-b83007d988ec" />
-
-⠀
-
-5 / Open Most Recent file with the only descriptor of -Stable
-
-<img width="372" height="23" alt="image" src="https://github.com/user-attachments/assets/d45df7cf-adb9-4449-bf02-a3ddfec1d94e" />
-
-⠀
-
-7 / Run Code
-
-<img width="287" height="88" alt="image" src="https://github.com/user-attachments/assets/921fed1f-6e2a-4196-bbec-e07213e563e2" />
-
-⠀
-
-8 / Customize The Options In The UI
-
-<img width="402" height="392" alt="image" src="https://github.com/user-attachments/assets/d40b7610-296f-4f15-8afc-9045c3da365f" />
-
 ⠀
 
 9 / For Version 0.39 And Later run Lirbre Hardware Monitor and enable remote web sever
