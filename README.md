@@ -15,7 +15,8 @@ INSTALL INTRUCTTIONS
 
 2 / Select your OS
 
-<img width="540" height="528" alt="{89BF75AB-5CDE-4284-A76B-C827FCAB7FC2}" src="https://github.com/user-attachments/assets/9a243533-26ee-468e-abb5-84f339e7d2f8" />
+<img width="772" height="445" alt="{A226A4E2-484F-4CAC-BF61-1C4A5DAD2582}" src="https://github.com/user-attachments/assets/e09916de-b0b3-4b6d-8016-b1e5fe25b9f3" />
+
 
 
 ⠀
@@ -35,7 +36,7 @@ https://www.python.org/ftp/python/3.12.0/python-3.12.0-amd64.exe
 
 ⠀
 
-4 / For Version 0.39 And Later run Lirbre Hardware Monitor and enable remote web sever
+4 / Get and run Lirbre Hardware Monitor and enable remote web sever
 
 <img width="269" height="395" alt="Screenshot_2026-01-31_205442" src="https://github.com/user-attachments/assets/6be802fa-e11a-4b63-b42b-9d89f9b41643" />
 
