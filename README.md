@@ -13,93 +13,32 @@ INSTALL INTRUCTTIONS
 
 ⠀
 
-2 / Get Thonny or Pycharm
+2 / Select your OS
 
-https://en.softonic.com/download/thonny/windows/post-download?dt=internalDownload
+<img width="772" height="445" alt="{A226A4E2-484F-4CAC-BF61-1C4A5DAD2582}" src="https://github.com/user-attachments/assets/e09916de-b0b3-4b6d-8016-b1e5fe25b9f3" />
 
-https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
-
-⠀
-
-3 /Click open file
-
-<img width="271" height="358" alt="image" src="https://github.com/user-attachments/assets/398f10d8-b680-454d-8e15-270f26a64c42" />
-
-⠀
-
-4 / Open OSC Chatbox 
-
-<img width="227" height="279" alt="image" src="https://github.com/user-attachments/assets/e9a4e1c8-6fb1-4a50-956e-9a0b79a0842f" />
-
-⠀
-
-5 / Open The Stable file
-
-<img width="1183" height="701" alt="image" src="https://github.com/user-attachments/assets/04dbe815-c503-45b6-b632-3ac328e05652" />
 
 
 ⠀
 
-6 / Run Code
-
-<img width="283" height="89" alt="image" src="https://github.com/user-attachments/assets/6484cc43-6379-48d8-9c1a-36fb7d21b7a3" />
+2 / Get and install Python 3.12
 
 ⠀
 
-7 / Customize The Options In The UI
-
-<img width="402" height="392" alt="image" src="https://github.com/user-attachments/assets/d40b7610-296f-4f15-8afc-9045c3da365f" />
+https://www.python.org/ftp/python/3.12.0/python-3.12.0-amd64.exe
 
 ⠀
 
-8 / For Version 0.39 And Later run Lirbre Hardware Monitor and enable remote web sever
+3 / Run The Stable file
 
-<img width="269" height="395" alt="Screenshot_2026-01-31_205442" src="https://github.com/user-attachments/assets/dafabbb8-24b4-4584-97bc-45aec9ec6f15" />
+<img width="831" height="602" alt="{04B56421-873B-464A-9B3F-C9767F1531BF}" src="https://github.com/user-attachments/assets/cbc1220e-6f6c-4a7f-8ed2-472f9dd24805" />
 
-(sorry for the low qualty image)
-
-⠀
-
-# Option 2 (Harder)
 
 ⠀
 
-2 / Get and set up Pycharm 
+4 / On Windows get and run Lirbre Hardware Monitor and enable remote web sever
 
-https://www.jetbrains.com/pycharm/download/download-thanks.html?platform=windows
-
-⠀
-3 / Click open file
-
-<img width="373" height="410" alt="image" src="https://github.com/user-attachments/assets/10497e04-b004-4516-b8d7-7e6af3b6cf3c" />
-
-⠀
-
-4 / Open OSC Chatbox 
-
-<img width="1031" height="614" alt="image" src="https://github.com/user-attachments/assets/36a18bcf-f6b3-4685-a37a-b83007d988ec" />
-
-⠀
-
-5 / Open Most Recent file with the only descriptor of -Stable
-
-<img width="372" height="23" alt="image" src="https://github.com/user-attachments/assets/d45df7cf-adb9-4449-bf02-a3ddfec1d94e" />
-
-⠀
-
-7 / Run Code
-
-<img width="287" height="88" alt="image" src="https://github.com/user-attachments/assets/921fed1f-6e2a-4196-bbec-e07213e563e2" />
-
-⠀
-
-8 / Customize The Options In The UI
-
-<img width="402" height="392" alt="image" src="https://github.com/user-attachments/assets/d40b7610-296f-4f15-8afc-9045c3da365f" />
-
-⠀
-
-9 / For Version 0.39 And Later run Lirbre Hardware Monitor and enable remote web sever
+https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v0.9.6/LibreHardwareMonitor.zip
 
 <img width="269" height="395" alt="Screenshot_2026-01-31_205442" src="https://github.com/user-attachments/assets/6be802fa-e11a-4b63-b42b-9d89f9b41643" />
 
