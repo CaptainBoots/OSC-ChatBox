@@ -43,3 +43,32 @@ https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v
 <img width="269" height="395" alt="Screenshot_2026-01-31_205442" src="https://github.com/user-attachments/assets/6be802fa-e11a-4b63-b42b-9d89f9b41643" />
 
 (sorry for the low qualty image)
+
+# OSC ChatBox - Android
+OSC Chatbox
+
+⠀
+
+⠀
+
+INSTALL INTRUCTTIONS
+
+⠀
+
+1 / Download OSC Folder
+
+⠀
+
+2 / Get and Pydroid from Playstore
+
+⠀
+
+3 / Open Android Beta in Pydroid (the stable branch will release soon)
+
+⠀
+
+4 / Enter your Pc / Quest IP 
+
+⠀
+
+5 / Run the code
