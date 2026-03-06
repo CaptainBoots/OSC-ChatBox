@@ -67,4 +67,8 @@ INSTALL INTRUCTTIONS
 
 ⠀
 
-3 / Run The Stable file
+4 / Enter your Pc / Quest IP 
+
+⠀
+
+5 / Run the code
