@@ -69,7 +69,7 @@ running = False
 page1_line1_text = "-enter text-"
 page2_line1_text = "-enter text-"
 page3_line1_text = "-enter text-"
-page4_line1_text = "-enter text-"
+error_text = "Error: Page error value exceeding limit"
 
 cpu_wattage = "error"
 cpu_temp = "error"
@@ -129,12 +129,11 @@ def detect_gpu():
         return "GPU Unknown"
 
 
-# ─────────────────────────────────────────────
-#  Helpers
-# ─────────────────────────────────────────────
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+#  LHM HELPERS
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def _numeric(sensor_value) -> float:
-    """Strip units and return float, raises ValueError on empty."""
     s = re.sub(r'[^\d.-]', '', str(sensor_value))
     if not s or s in ('.', '-'):
         raise ValueError(f"No numeric content in: {sensor_value!r}")
@@ -142,7 +141,6 @@ def _numeric(sensor_value) -> float:
 
 
 def _walk_sensors(node):
-    """Yield every leaf sensor node in the LHM tree."""
     children = node.get("Children", [])
     if not children:
         yield node
@@ -162,7 +160,6 @@ def _is_gpu(text: str) -> bool:
 
 
 def _get_hardware_nodes(data):
-    """Yield (hardware_node,) for every real hardware entry."""
     for top in data.get("Children", []):          # computer
         for hw in top.get("Children", []):         # hardware
             yield hw
@@ -198,23 +195,17 @@ def get_lhm_data():
         pass
     return None
 
-# ─────────────────────────────────────────────
-#  CPU sensors
-# ─────────────────────────────────────────────
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+#  CPU SENSORS
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def get_cpu_temp_from_lhm(data) -> int:
-    """
-    Returns CPU package / Tdie temperature.
-    Tries 'cpu package', then 'tdie', then falls back to 'core average' / 'cpu core'.
-    Works for Intel and AMD.
-    """
     if not data:
         return 0
 
-    PRIMARY   = ("cpu package", "tdie")
-    SECONDARY = ("core average", "cpu core", "core max")
-
-    best = {"primary": None, "secondary": None}
+    primary   = ("cpu package", "tdie")
+    secondary = ("core average", "cpu core", "core max")
+    best: dict[str, float | None] = {"primary": None, "secondary": None}
 
     try:
         for hw in _get_hardware_nodes(data):
@@ -225,30 +216,33 @@ def get_cpu_temp_from_lhm(data) -> int:
                     continue
                 for sensor in cat.get("Children", []):
                     st = sensor.get("Text", "").lower()
-                    if "distance" in st:          # skip TjMax distance sensors
+                    if "distance" in st:
                         continue
-                    val = _numeric(sensor.get("Value", 0))
-                    if any(p in st for p in PRIMARY):
+                    try:
+                        val = _numeric(sensor.get("Value", 0))
+                    except ValueError:
+                        continue
+                    if any(p in st for p in primary):
                         best["primary"] = val
-                    elif any(s in st for s in SECONDARY):
+                    elif any(s in st for s in secondary):
                         if best["secondary"] is None:
                             best["secondary"] = val
-    except (KeyError, TypeError, AttributeError, ValueError):
+    except (KeyError, TypeError, AttributeError):
         pass
 
     result = best["primary"] if best["primary"] is not None else best["secondary"]
-    return int(result) if result is not None else 0
+    if result is None:
+        return 0
+    return int(result)
 
 
 def get_cpu_power_from_lhm(data) -> int:
-    """Returns CPU package power in watts. Falls back to 'cpu cores' if package missing."""
     if not data:
         return 0
 
-    PRIMARY   = ("cpu package",)
-    SECONDARY = ("cpu cores", "cpu total", "package")
-
-    best = {"primary": None, "secondary": None}
+    primary   = ("cpu package",)
+    secondary = ("cpu cores", "cpu total", "package")
+    best: dict[str, float | None] = {"primary": None, "secondary": None}
 
     try:
         for hw in _get_hardware_nodes(data):
@@ -264,20 +258,20 @@ def get_cpu_power_from_lhm(data) -> int:
                         val = _numeric(sensor.get("Value", 0))
                     except ValueError:
                         continue
-                    if any(p in st for p in PRIMARY):
+                    if any(p in st for p in primary):
                         best["primary"] = val
-                    elif any(s in st for s in SECONDARY):
+                    elif any(s in st for s in secondary):
                         if best["secondary"] is None:
                             best["secondary"] = val
-    except (KeyError, TypeError, AttributeError, ValueError):
+    except (KeyError, TypeError, AttributeError):
         pass
 
     result = best["primary"] if best["primary"] is not None else best["secondary"]
-    return int(result) if result is not None else 0
-
+    if result is None:
+        return 0
+    return int(result)
 
 def get_cpu_load_from_lhm(data) -> int:
-    """Returns CPU total load %. Works for Intel and AMD CPUs."""
     if not data:
         return 0
 
@@ -300,22 +294,17 @@ def get_cpu_load_from_lhm(data) -> int:
     return 0
 
 
-# ─────────────────────────────────────────────
-#  GPU sensors
-# ─────────────────────────────────────────────
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+#  GPU SENSORS
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def get_gpu_temp_from_lhm(data) -> int:
-    """
-    Returns GPU core temp. Works for AMD Radeon and NVIDIA.
-    Falls back to 'gpu hot spot' or first temperature found.
-    """
     if not data:
         return 0
 
-    PRIMARY   = ("gpu core", "gpu temperature", "gpu temp")
-    SECONDARY = ("gpu hot spot", "gpu")
-
-    best = {"primary": None, "secondary": None}
+    primary   = ("gpu core", "gpu temperature", "gpu temp")
+    secondary = ("gpu hot spot", "gpu")
+    best: dict[str, float | None] = {"primary": None, "secondary": None}
 
     try:
         for hw in _get_hardware_nodes(data):
@@ -332,27 +321,25 @@ def get_gpu_temp_from_lhm(data) -> int:
                         val = _numeric(sensor.get("Value", 0))
                     except ValueError:
                         continue
-                    if any(p in st for p in PRIMARY):
+                    if any(p in st for p in primary):
                         best["primary"] = val
-                    elif any(s in st for s in SECONDARY):
+                    elif any(s in st for s in secondary):
                         if best["secondary"] is None:
                             best["secondary"] = val
-    except (KeyError, TypeError, AttributeError, ValueError):
+    except (KeyError, TypeError, AttributeError):
         pass
 
     result = best["primary"] if best["primary"] is not None else best["secondary"]
-    return int(result) if result is not None else 0
+    if result is None:
+        return 0
+    return int(result)
 
 
 def get_gpu_power_from_lhm(data) -> int:
-    """
-    Returns GPU power in watts. Tries 'gpu package', 'gpu total', 'board power'.
-    Works for AMD and NVIDIA.
-    """
     if not data:
         return 0
 
-    LABELS = ("gpu package", "gpu total", "board power", "total board power", "gpu power", "gpu")
+    labels = ("gpu package", "gpu total", "board power", "total board power", "gpu power", "gpu")
 
     try:
         for hw in _get_hardware_nodes(data):
@@ -364,7 +351,7 @@ def get_gpu_power_from_lhm(data) -> int:
                     continue
                 for sensor in cat.get("Children", []):
                     st = sensor.get("Text", "").lower()
-                    if any(lbl in st for lbl in LABELS):
+                    if any(lbl in st for lbl in labels):
                         try:
                             return int(_numeric(sensor.get("Value", 0)))
                         except ValueError:
@@ -376,7 +363,6 @@ def get_gpu_power_from_lhm(data) -> int:
 
 
 def get_gpu_load_from_lhm(data) -> int:
-    """Returns GPU core load %. Works for AMD and NVIDIA."""
     if not data:
         return 0
 
@@ -399,9 +385,9 @@ def get_gpu_load_from_lhm(data) -> int:
     return 0
 
 
-# ─────────────────────────────────────────────
-#  Memory sensors
-# ─────────────────────────────────────────────
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+#  MEMORY SENSORS
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def _parse_gb(sensor_value) -> float:
     numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
@@ -421,11 +407,10 @@ def get_dram_total_from_lhm(data) -> str:
         total_bytes = psutil.virtual_memory().total
         total_gb = total_bytes / (1024 ** 3)
         return f"{_fmt_gb(total_gb)}"
-    except Exception:
+    except (OSError, AttributeError):
         return "error"
 
 def get_dram_used_from_lhm(data) -> float:
-    """Returns used system RAM in GB. Uses 'total memory' hardware node."""
     if not data:
         return 0.0
 
@@ -449,11 +434,6 @@ def get_dram_used_from_lhm(data) -> float:
 
 
 def get_vram_used_from_lhm(data) -> float:
-    """
-    Returns used VRAM in GB.
-    For AMD: reads MB from smalldata node and converts.
-    For NVIDIA: reads from 'gpu memory used' (already in MB in LHM).
-    """
     if not data:
         return 0.0
 
@@ -479,11 +459,6 @@ def get_vram_used_from_lhm(data) -> float:
 
 
 def get_vram_total_from_lhm(data) -> str:
-    """
-    Returns total VRAM as a rounded string like '8', '16', '24'.
-    Tries 'gpu memory total', then reconstructs from used+free.
-    Works for AMD and NVIDIA.
-    """
     if not data:
         return "error"
 
@@ -521,22 +496,14 @@ def get_vram_total_from_lhm(data) -> str:
 
     return "error"
 
-
-# ─────────────────────────────────────────────
-#  Convenience: replace old parse_lhm_data
-# ─────────────────────────────────────────────
-
 def parse_lhm_data(data):
-    """
-    Returns (cpu_temp, cpu_power, gpu_temp, gpu_power).
-    Kept for backwards compatibility; now delegates to dedicated functions.
-    """
     return (
         get_cpu_temp_from_lhm(data),
         get_cpu_power_from_lhm(data),
         get_gpu_temp_from_lhm(data),
         get_gpu_power_from_lhm(data),
     )
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # NETWORK MONITORING
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -637,7 +604,6 @@ def run_osc_loop():
     print(f"Dram Total: {dram_detect}")
     print(f"VRAM Total: {vram_detect}")
     print(f"{'=' * 60}")
-    print(f"{lhm_data}")
 
 
     query_cooldown = 0
@@ -705,7 +671,7 @@ def run_osc_loop():
                     f"{display_song} {display_artist}"
                 )
             else:
-                text = (f"{error_text}")
+                text = f"{error_text}"
 
             print(text)
 
@@ -836,7 +802,7 @@ dark_label("Page 2 Text", 8)
 page2_entry = dark_entry(8, "Join the discord server at https://discord.gg/XdfKAWu6Ph")
 
 dark_label("Page 3 Text", 9)
-page3_entry = dark_entry(9, "")
+page3_entry = dark_entry(9, "hi put your text here :3")
 
 
 button_frame = tk.Frame(frame, bg=BG)
