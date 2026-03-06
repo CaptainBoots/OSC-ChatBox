@@ -1,76 +1,67 @@
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-#                                              OSC Python Script                                                      #
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ════════════════════════#
+# OSC Python Script #
+# ════════════════════════#
 # Hi :3
 # Wellcome to my code
 
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# Imports
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+# ════════════════════════#
+# Imports
+# ════════════════════════#
+
+import sys
+import subprocess
 import time
 import threading
+import importlib
+
+def install_if_missing(package, import_name=None):
+    if import_name is None:
+        import_name = package.split("==")[0].replace("-", "_")
+
+    try:
+        importlib.import_module(import_name)
+    except ImportError:
+        print(f"Installing {package}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+install_if_missing("python-osc==1.9.3", "pythonosc")
+install_if_missing("psutil==7.2.2", "psutil")
+install_if_missing("kivy==2.3.1", "kivy")
+
 import psutil
 from pythonosc.udp_client import SimpleUDPClient
-
 from kivy.app import App
-from kivy.clock import Clock
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ════════════════════════#
 # CONFIGURATION & GLOBAL VARIABLES
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ════════════════════════#
 
-SWITCH_INTERVAL = 30
-INTERFACE = "wlan0"  # Android default
+SWITCH_INTERVAL = 20
+INTERFACE = "wlan0"
 running = False
 client = None
 
 page1_text = ""
 page2_text = ""
 
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# NETWORK MONITORING
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
-def fmt(bps):
-    if bps >= 1_000_000:
-        return f"{bps / 1_000_000:.2f} Mb/s"
-    return f"{bps / 1_000:.1f} Kb/s"
-
-
-def get_network(prev, prev_time):
-    now = time.time()
-    cur = psutil.net_io_counters(pernic=True).get(INTERFACE)
-    if not cur:
-        return prev, 0, 0, now
-
-    dt = now - prev_time
-    up = (cur.bytes_sent - prev.bytes_sent) / dt if dt else 0
-    down = (cur.bytes_recv - prev.bytes_recv) / dt if dt else 0
-    return cur, up, down, now
-
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# MEDIA MONITORING
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
-def get_media_info():
-    # ANDROID PLACEHOLDER
-    return "No Media", "", 0, 0
-
-
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ════════════════════════#
 # MAIN OSC LOOP
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ════════════════════════#
 
 def osc_loop():
     global running
 
-    stats = psutil.net_io_counters(pernic=True)
-    prev = stats.get(INTERFACE)
+    try:
+        stats = psutil.net_io_counters(pernic=True)
+        prev = stats.get(INTERFACE)
+    except Exception:
+        prev = None  # Android fallback
+
     prev_time = time.time()
 
     while running:
@@ -80,24 +71,19 @@ def osc_loop():
         page = int((time.time() // SWITCH_INTERVAL) % 2)
         text = page1_text if page == 0 else page2_text
 
-        msg = (
-            f"{text}\n"
-            f"Download {fmt(down)}\n"
-            f"Upload {fmt(up)}\n"
-            f"{song}"
-        )
+        msg = {text}
 
         try:
             client.send_message("/chatbox/input", [msg, True])
+            print("Sent:", msg)
         except Exception as e:
             print("OSC error:", e)
 
         time.sleep(5)
 
-
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ════════════════════════#
 # UI
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ════════════════════════#
 
 class MainUI(BoxLayout):
     def __init__(self, **kwargs):
