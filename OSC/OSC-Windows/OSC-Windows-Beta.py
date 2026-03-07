@@ -90,7 +90,6 @@ def _clean_name(name: str):
     name = re.sub(r"\s+", " ", name).strip()
     return name
 
-
 def detect_cpu():
     global cpu_manufacturer
 
@@ -124,6 +123,13 @@ def detect_gpu():
             stderr=subprocess.DEVNULL,
             timeout=5
         ).strip()
+
+        gpu_lines = [
+            line for line in gpu_name.splitlines()
+            if "virtual desktop" not in line.lower() and "virtual monitor" not in line.lower()
+        ]
+        gpu_name = "\n".join(gpu_lines).strip()
+
         return _clean_name(gpu_name)
     except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
         return "GPU Unknown"
