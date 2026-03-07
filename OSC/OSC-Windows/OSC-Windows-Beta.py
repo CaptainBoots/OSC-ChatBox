@@ -81,6 +81,36 @@ vram_load = "error"
 cpu_manufacturer = CPUManufacturer.UNKNOWN
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# CONFIG FILE
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+CONFIG_FILE = "osc_config.json"
+
+def load_config():
+    defaults = {
+        "osc_ip": OSC_IP, "osc_port": OSC_PORT, "interface": INTERFACE,
+        "switch_interval": SWITCH_INTERVAL, "lhm_api": LHM_REST_API,
+        "page1_text": "Thx for using Boots's osc code",
+        "page2_text": "Join the discord server at https://discord.gg/XdfKAWu6Ph",
+        "page3_text": "hi put your text here :3"
+    }
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            return {**defaults, **json.load(f)}
+    except (FileNotFoundError, json.JSONDecodeError):
+        return defaults
+
+def save_config():
+    config = {
+        "osc_ip": ip_entry.get(), "osc_port": port_entry.get(),
+        "interface": iface_entry.get(), "switch_interval": interval_entry.get(),
+        "lhm_api": lhm_entry.get(), "page1_text": page1_entry.get(),
+        "page2_text": page2_entry.get(), "page3_text": page3_entry.get()
+    }
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(config, f, indent=2)
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # HARDWARE MONITORING
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
@@ -714,6 +744,7 @@ def start_script():
         page1_line1_text = page1_entry.get()
         page2_line1_text = page2_entry.get()
         page3_line1_text = page3_entry.get()
+        save_config()
         error_text = "Error: Page error value exceeding limit"
         client = SimpleUDPClient(OSC_IP, OSC_PORT)
 
@@ -749,6 +780,8 @@ def restart_script():
 # GUI
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+cfg = load_config()
+
 BG = "#121212"
 FG = "#E0E0E0"
 ENTRY_BG = "#1E1E1E"
@@ -780,35 +813,35 @@ def dark_entry(r, default=""):
 
 frame.columnconfigure(1, weight=1)
 
-status_label = tk.Label(frame, text="Data config", bg=BG, fg="#FFFFFF")
-status_label.grid(row=0, column=0, columnspan=6)
+data_config_label = tk.Label(frame, text="Data config", bg=BG, fg="#FFFFFF")
+data_config_label.grid(row=0, column=0, columnspan=6)
 
 dark_label("OSC IP", 1)
-ip_entry = dark_entry(1, OSC_IP)
+ip_entry = dark_entry(1, cfg["osc_ip"])
 
 dark_label("OSC Port", 2)
-port_entry = dark_entry(2, str(OSC_PORT))
+port_entry = dark_entry(2, cfg["osc_port"])
 
 dark_label("Network Interface", 3)
-iface_entry = dark_entry(3, INTERFACE)
+iface_entry = dark_entry(3, cfg["interface"])
 
 dark_label("Switch Interval", 4)
-interval_entry = dark_entry(4, str(SWITCH_INTERVAL))
+interval_entry = dark_entry(4, cfg["switch_interval"])
 
 dark_label("LHM Interface", 5)
-lhm_entry = dark_entry(5, LHM_REST_API)
+lhm_entry = dark_entry(5, cfg["lhm_api"])
 
-status_label = tk.Label(frame, text="Page Text", bg=BG, fg="#FFFFFF")
-status_label.grid(row=6, column=0, columnspan=2)
+page_text_label = tk.Label(frame, text="Page Text", bg=BG, fg="#FFFFFF")
+page_text_label.grid(row=6, column=0, columnspan=2)
 
 dark_label("Page 1 Text", 7)
-page1_entry = dark_entry(7, "Thx for using Boots's osc code")
+page1_entry = dark_entry(7, cfg["page1_text"])
 
 dark_label("Page 2 Text", 8)
-page2_entry = dark_entry(8, "Join the discord server at https://discord.gg/XdfKAWu6Ph")
+page2_entry = dark_entry(8, cfg["page2_text"])
 
 dark_label("Page 3 Text", 9)
-page3_entry = dark_entry(9, "hi put your text here :3")
+page3_entry = dark_entry(9, cfg["page3_text"])
 
 
 button_frame = tk.Frame(frame, bg=BG)
