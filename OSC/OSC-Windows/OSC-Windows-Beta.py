@@ -540,6 +540,83 @@ def parse_lhm_data(data):
         get_gpu_power_from_lhm(data),
     )
 
+def detect_dram_type() -> str:
+    try:
+        result = subprocess.check_output(
+            ["powershell", "-Command",
+             "(Get-CimInstance Win32_PhysicalMemory | Select-Object -First 1).SMBIOSMemoryType"],
+            encoding="utf-8", stderr=subprocess.DEVNULL, timeout=5
+        ).strip()
+        type_map = {
+            "17": "SDRAM", "18": "SDRAM", "19": "SDRAM",
+            "20": "DDR",   "21": "DDR2",  "22": "DDR2",
+            "23": "DDR2",  "24": "DDR3",  "26": "DDR4",
+            "34": "DDR5",  "35": "DDR5"
+        }
+        return type_map.get(result, "DDR")
+    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
+        return "DDR"
+
+
+def detect_vram_type(gpu_name: str) -> str:
+    name = gpu_name.lower()
+
+    # RTX 50 series
+    if any(x in name for x in ["5090", "5080", "5070 ti", "5070ti", "5070", "5060 ti", "5060ti", "5060"]):
+        return "GDDR7"
+
+    # RTX 40 series — Ti/Super variants mostly GDDR6X, base 4060 is GDDR6
+    if any(x in name for x in ["4090", "4080", "4070 ti", "4070ti", "4070 super", "4070super"]):
+        return "GDDR6X"
+    if any(x in name for x in ["4070", "4060 ti", "4060ti", "4060"]):
+        return "GDDR6"
+
+    # RTX 30 series
+    if any(x in name for x in ["3090", "3080"]):
+        return "GDDR6X"
+    if any(x in name for x in ["3070", "3060", "rtx 30", "rtx30"]):
+        return "GDDR6"
+
+    # RTX 20 series
+    if any(x in name for x in ["rtx 20", "rtx20", "2080", "2070", "2060"]):
+        return "GDDR6"
+
+    # GTX 10 series
+    if any(x in name for x in ["1080 ti", "1080ti", "1080"]):
+        return "GDDR5X"
+    if any(x in name for x in ["gtx 10", "gtx10", "1070", "1060", "1050"]):
+        return "GDDR5"
+
+    # GTX 900 series
+    if any(x in name for x in ["980 ti", "980ti", "980", "970"]):
+        return "GDDR5"
+
+    # AMD RX 9000
+    if any(x in name for x in ["rx 9", "rx9"]):
+        return "GDDR6"
+
+    # AMD RX 7000
+    if any(x in name for x in ["rx 7", "rx7"]):
+        return "GDDR6"
+
+    # AMD RX 6000
+    if any(x in name for x in ["rx 6", "rx6"]):
+        return "GDDR6"
+
+    # AMD RX 5000
+    if any(x in name for x in ["rx 5", "rx5"]):
+        return "GDDR6"
+
+    # AMD RX 500 / 400 series
+    if any(x in name for x in ["rx 5", "rx 4", "rx5", "rx4", "rx 580", "rx 570", "rx 480", "rx 470"]):
+        return "GDDR5"
+
+    # Generic fallback
+    if any(x in name for x in ["radeon", "nvidia", "geforce"]):
+        return "GDDR6"
+
+    return "GDDR"
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # NETWORK MONITORING
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -633,6 +710,9 @@ def run_osc_loop():
     startup_lhm = get_lhm_data()
     dram_detect = get_dram_total_from_lhm(startup_lhm)
     vram_detect = get_vram_total_from_lhm(startup_lhm)
+    dram = detect_dram_type()
+    vram = detect_vram_type(gpu_detect)
+
 
     print(f"\n{'=' * 60}")
     print(f"CPU:  {cpu_detect} ({cpu_manufacturer.value})")
@@ -701,8 +781,8 @@ def run_osc_loop():
                 text = (
                     f"{page3_line1_text}\n"
                     f"{cur_time_str}\n"
-                    f"Dram {dram_load}GB/{dram_detect}GB\n"
-                    f"Vram {vram_load}GB/{vram_detect}GB\n"
+                    f"{dram} {dram_load}GB/{dram_detect}GB\n"
+                    f"{vram} {vram_load}GB/{vram_detect}GB\n"
                     f"{progress_bar}\n"
                     f"{display_song} {display_artist}"
                 )
