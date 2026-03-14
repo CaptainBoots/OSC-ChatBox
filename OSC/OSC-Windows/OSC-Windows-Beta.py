@@ -878,7 +878,7 @@ BTN_FG = "#FFFFFF"
 
 root = tk.Tk()
 root.title("OSC Chatbox")
-root.geometry("450x400")
+root.geometry("450x450")
 root.configure(bg=BG)
 root.resizable(True, True)
 
