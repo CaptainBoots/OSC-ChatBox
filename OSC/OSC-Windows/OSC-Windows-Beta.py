@@ -749,6 +749,11 @@ def run_osc_loop():
                     vram_load = 0.0
                 query_cooldown = 0
 
+            if vram_detect == "error":
+                vram_detect = get_vram_total_from_lhm(lhm_data)
+            if dram_detect == "error":
+                dram_detect = get_dram_total_from_lhm(lhm_data)
+
             prev, up_raw, down_raw, prev_time = get_network_usage(prev, prev_time)
 
             cur_time_str = time.strftime("%I:%M %p")
@@ -758,36 +763,40 @@ def run_osc_loop():
             display_song = f"🎵 {clean_song}" if clean_song else ""
 
             page_index = int((time.time() // SWITCH_INTERVAL) % 3)
+            if forced_text.get().strip() == "":
 
-            if page_index == 0:
-                text = (
-                    f"{page1_line1_text}\n"
-                    f"{cur_time_str}\n"
-                    f"Download {fmt(down_raw)}\n"
-                    f"Upload {fmt(up_raw)}\n"
-                    f"{progress_bar}\n"
-                    f"{display_song} {display_artist}"
-                )
-            elif page_index == 1:
-                text = (
-                    f"{page2_line1_text}\n"
-                    f"{cur_time_str}\n"
-                    f"{cpu_detect} {cpu_load}%\n"
-                    f"{cpu_wattage}w {cpu_temp}℃\n"
-                    f"{gpu_detect} {gpu_load}%\n"
-                    f"{gpu_wattage}w {gpu_temp}℃\n"
-                )
-            elif page_index == 2:
-                text = (
-                    f"{page3_line1_text}\n"
-                    f"{cur_time_str}\n"
-                    f"{dram} {dram_load}GB/{dram_detect}GB\n"
-                    f"{vram} {vram_load}GB/{vram_detect}GB\n"
-                    f"{progress_bar}\n"
-                    f"{display_song} {display_artist}"
-                )
+                if page_index == 0:
+                    text = (
+                        f"{page1_line1_text}\n"
+                        f"{cur_time_str}\n"
+                        f"Download {fmt(down_raw)}\n"
+                        f"Upload {fmt(up_raw)}\n"
+                        f"{progress_bar}\n"
+                        f"{display_song} {display_artist}"
+                    )
+                elif page_index == 1:
+                    text = (
+                        f"{page2_line1_text}\n"
+                        f"{cur_time_str}\n"
+                        f"{cpu_detect} {cpu_load}%\n"
+                        f"{cpu_wattage}w {cpu_temp}℃\n"
+                        f"{gpu_detect} {gpu_load}%\n"
+                        f"{gpu_wattage}w {gpu_temp}℃\n"
+                    )
+                elif page_index == 2:
+                    text = (
+                        f"{page3_line1_text}\n"
+                        f"{cur_time_str}\n"
+                        f"{dram} {dram_load}GB/{dram_detect}GB\n"
+                        f"{vram} {vram_load}GB/{vram_detect}GB\n"
+                        f"{progress_bar}\n"
+                        f"{display_song} {display_artist}"
+                    )
+                else:
+                    text = f"{error_text}"
             else:
-                text = f"{error_text}"
+                text = forced_text.get()
+
 
             print(text)
 
@@ -799,9 +808,8 @@ def run_osc_loop():
             time.sleep(5.0)
 
         except Exception as e:
-            print(f"Error in OSC loop: {e}")
+            print(f"Error: OSC loop Error {e}")
             time.sleep(1)
-
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # SCRIPT CONTROL
@@ -923,6 +931,9 @@ page2_entry = dark_entry(8, cfg["page2_text"])
 dark_label("Page 3 Text", 9)
 page3_entry = dark_entry(9, cfg["page3_text"])
 
+dark_label("Text Message", 10)
+forced_text = dark_entry(10, " ")
+
 
 button_frame = tk.Frame(frame, bg=BG)
 button_frame.grid(row=11, column=0, columnspan=2, pady=15, sticky="ew")
@@ -944,7 +955,5 @@ restart_btn.grid(row=0, column=2, sticky="ew", padx=2)
 
 status_label = tk.Label(frame, text="Status: Stopped", bg=BG, fg="#FF4C4C")
 status_label.grid(row=12, column=0, columnspan=2)
-
-
 
 root.mainloop()
