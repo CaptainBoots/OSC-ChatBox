@@ -898,6 +898,123 @@ def dark_entry(r, default=""):
     e.grid(row=r, column=1, pady=4, sticky="ew")
     return e
 
+def open_help():
+    help_win = tk.Toplevel(root)
+    help_win.title("OSC Chatbox Tutorial")
+    help_win.configure(bg=BG)
+    help_win.resizable(True, True)
+
+    help_w, help_h = 450, 450
+    root_x = root.winfo_x()
+    root_y = root.winfo_y()
+    root_w = root.winfo_width()
+    root_h = root.winfo_height()
+    x = root_x + (root_w // 2) - (help_w // 2)
+    y = root_y + (root_h // 2) - (help_h // 2)
+    help_win.geometry(f"{help_w}x{help_h}+{x}+{y}")
+
+    pages = [
+        {
+            "title": "Data Config",
+            "content": (
+                "OSC IP — The IP address to send OSC messages to.\n"
+                "Usually 127.0.0.1 (your own PC).\n\n"
+                "OSC Port — The port VRChat listens on.\n"
+                "Default is 9000. Don't change unless needed.\n\n"
+                "Network Interface — The name of your network\n"
+                "adapter to monitor (e.g. Ethernet, Wi-Fi).\n"
+                "Open Task Manager → Performance to find yours.\n\n"
+                "Switch Interval — How many seconds before the\n"
+                "chatbox rotates to the next page (e.g. 20)."
+            )
+        },
+        {
+            "title": "LHM Interface",
+            "content": (
+                "LHM Interface — The URL for the LibreHardwareMonitor\n"
+                "REST API. Default: http://localhost:8085/data.json\n\n"
+                "This is used to read CPU/GPU temperatures,\n"
+                "wattage, and load percentages.\n\n"
+                "To enable it:\n"
+                "1. Open LibreHardwareMonitor.exe\n"
+                "2. Go to Options → Web Server\n"
+                "3. Click 'Run' and make sure port is 8085\n"
+            )
+        },
+        {
+            "title": "Page Text",
+            "content": (
+                "Page 1 / 2 / 3 Text — The first line shown on\n"
+                "each rotating chatbox page.\n"
+                "or custom message.\n\n"
+                "Page 1 also shows: time, network speed, and\n"
+                "currently playing song.\n\n"
+                "Page 2 also shows: CPU & GPU usage, temps,\n"
+                "and wattage.\n\n"
+                "Page 3 also shows: RAM & VRAM usage and\n"
+                "currently playing song."
+            )
+        },
+        {
+            "title": "Text Message",
+            "content": (
+                "Text Message — If you type anything here,\n"
+                "it overrides ALL pages and sends only this\n"
+                "text to the chatbox.\n\n"
+                "Leave it blank (or just spaces) to go back\n"
+                "to the normal rotating pages.\n\n"
+                "Useful for quickly sending a custom message\n"
+                "without stopping the script."
+            )
+        },
+    ]
+
+    current_page = [0]
+
+    title_label = tk.Label(help_win, text="", bg=BG, fg="#FFFFFF",
+                           font=("Segoe UI", 16, "bold"))
+    title_label.pack(pady=(14, 4))
+
+    content_label = tk.Label(help_win, text="", bg=BG, fg=FG,
+                             justify="left", wraplength=340,
+                             font=("Segoe UI", 10))
+    content_label.pack(padx=20, fill="both", expand=True)
+
+    page_indicator = tk.Label(help_win, text="", bg=BG, fg="#888888",
+                              font=("Segoe UI", 8))
+    page_indicator.pack(pady=(0, 4))
+
+    def show_page(idx):
+        p = pages[idx]
+        title_label.config(text=p["title"])
+        content_label.config(text=p["content"])
+        page_indicator.config(text=f"Page {idx + 1} of {len(pages)}")
+        prev_btn.config(state="normal" if idx > 0 else "disabled")
+        is_last = idx == len(pages) - 1
+        next_btn.config(text="Finish" if is_last else "Next →")
+
+    nav_frame = tk.Frame(help_win, bg=BG)
+    nav_frame.pack(fill="x", padx=20, pady=(0, 14))
+    nav_frame.columnconfigure(1, weight=1)
+
+    prev_btn = tk.Button(nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG,
+                         relief="flat", width=10,
+                         command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
+                                          show_page(current_page[0])))
+    prev_btn.grid(row=0, column=0, sticky="w")
+
+    def next_or_finish():
+        if current_page[0] < len(pages) - 1:
+            current_page[0] += 1
+            show_page(current_page[0])
+        else:
+            help_win.destroy()
+
+    next_btn = tk.Button(nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG,
+                         relief="flat", width=10, command=next_or_finish)
+    next_btn.grid(row=0, column=2, sticky="e")
+
+    show_page(0)
 
 frame.columnconfigure(1, weight=1)
 
@@ -955,5 +1072,10 @@ restart_btn.grid(row=0, column=2, sticky="ew", padx=2)
 
 status_label = tk.Label(frame, text="Status: Stopped", bg=BG, fg="#FF4C4C")
 status_label.grid(row=12, column=0, columnspan=2)
+
+help_btn = tk.Button(frame, text=" ？ ", command=open_help,
+                     bg=BTN_BG, fg="#FFFFFF", relief="flat",
+                     font=("Segoe UI", 9), cursor="question_arrow")
+help_btn.grid(row=12, column=0, sticky="w", padx=2)
 
 root.mainloop()
