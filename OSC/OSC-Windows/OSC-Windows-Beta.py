@@ -69,6 +69,7 @@ running = False
 page1_line1_text = "-enter text-"
 page2_line1_text = "-enter text-"
 page3_line1_text = "-enter text-"
+page4_line1_text = "-enter text-"
 error_text = "Error: Page error value exceeding limit"
 
 cpu_wattage = "error"
@@ -80,6 +81,44 @@ vram_load = "error"
 
 cpu_manufacturer = CPUManufacturer.UNKNOWN
 
+# Weather globals
+weather_temp     = "?"
+weather_humidity = "?"
+weather_desc     = "Unknown"
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# WMO WEATHER CODE MAP
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+WMO_CODES = {
+    0:  "Clear sky",
+    1:  "Mainly clear",
+    2:  "Partly cloudy",
+    3:  "Overcast",
+    45: "Foggy",
+    48: "Icy fog",
+    51: "Light drizzle",
+    53: "Drizzle",
+    55: "Heavy drizzle",
+    61: "Light rain",
+    63: "Rain",
+    65: "Heavy rain",
+    66: "Freezing rain",
+    67: "Heavy freezing rain",
+    71: "Light snow",
+    73: "Snow",
+    75: "Heavy snow",
+    77: "Snow grains",
+    80: "Light showers",
+    81: "Showers",
+    82: "Heavy showers",
+    85: "Snow showers",
+    86: "Heavy snow showers",
+    95: "Thunderstorm",
+    96: "Thunderstorm w/ hail",
+    99: "Thunderstorm w/ heavy hail",
+}
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # CONFIG FILE
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -88,11 +127,16 @@ CONFIG_FILE = "osc_config.json"
 
 def load_config():
     defaults = {
-        "osc_ip": OSC_IP, "osc_port": OSC_PORT, "interface": INTERFACE,
-        "switch_interval": SWITCH_INTERVAL, "lhm_api": LHM_REST_API,
-        "page1_text": "Thx for using Boots's osc code",
-        "page2_text": "Join the discord server at https://discord.gg/XdfKAWu6Ph",
-        "page3_text": "hi put your text here :3"
+        "osc_ip":          OSC_IP,
+        "osc_port":        OSC_PORT,
+        "interface":       INTERFACE,
+        "switch_interval": SWITCH_INTERVAL,
+        "lhm_api":         LHM_REST_API,
+        "location":        "0,0",
+        "page1_text":      "Thx for using Boots's osc code",
+        "page2_text":      "Join the discord server at https://discord.gg/XdfKAWu6Ph",
+        "page3_text":      "hi put your text here :3",
+        "page4_text":      "Local Weather",
     }
     try:
         with open(CONFIG_FILE, "r") as f:
@@ -102,10 +146,16 @@ def load_config():
 
 def save_config():
     config = {
-        "osc_ip": ip_entry.get(), "osc_port": port_entry.get(),
-        "interface": iface_entry.get(), "switch_interval": interval_entry.get(),
-        "lhm_api": lhm_entry.get(), "page1_text": page1_entry.get(),
-        "page2_text": page2_entry.get(), "page3_text": page3_entry.get()
+        "osc_ip":          ip_entry.get(),
+        "osc_port":        port_entry.get(),
+        "interface":       iface_entry.get(),
+        "switch_interval": interval_entry.get(),
+        "lhm_api":         lhm_entry.get(),
+        "location":        location_entry.get(),
+        "page1_text":      page1_entry.get(),
+        "page2_text":      page2_entry.get(),
+        "page3_text":      page3_entry.get(),
+        "page4_text":      page4_entry.get(),
     }
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
@@ -452,7 +502,7 @@ def get_dram_used_from_lhm(data) -> float:
 
     try:
         for hw in _get_hardware_nodes(data):
-            if "total memory" not in hw.get("Text", "").lower():  # 'in' not '=='
+            if "total memory" not in hw.get("Text", "").lower():
                 continue
             for cat in hw.get("Children", []):
                 if "data" not in cat.get("Text", "").lower():
@@ -483,7 +533,6 @@ def get_vram_used_from_lhm(data) -> float:
                     if "gpu memory used" in st:
                         try:
                             raw = _numeric(sensor.get("Value", 0))
-                            # Values > 500 are almost certainly MB; < 500 are GB
                             gb = raw / 1024 if raw > 500 else raw
                             return round(gb, 1)
                         except ValueError:
@@ -561,57 +610,34 @@ def detect_dram_type() -> str:
 def detect_vram_type(gpu_name: str) -> str:
     name = gpu_name.lower()
 
-    # RTX 50 series
     if any(x in name for x in ["5090", "5080", "5070 ti", "5070ti", "5070", "5060 ti", "5060ti", "5060"]):
         return "GDDR7"
-
-    # RTX 40 series — Ti/Super variants mostly GDDR6X, base 4060 is GDDR6
     if any(x in name for x in ["4090", "4080", "4070 ti", "4070ti", "4070 super", "4070super"]):
         return "GDDR6X"
     if any(x in name for x in ["4070", "4060 ti", "4060ti", "4060"]):
         return "GDDR6"
-
-    # RTX 30 series
     if any(x in name for x in ["3090", "3080"]):
         return "GDDR6X"
     if any(x in name for x in ["3070", "3060", "rtx 30", "rtx30"]):
         return "GDDR6"
-
-    # RTX 20 series
     if any(x in name for x in ["rtx 20", "rtx20", "2080", "2070", "2060"]):
         return "GDDR6"
-
-    # GTX 10 series
     if any(x in name for x in ["1080 ti", "1080ti", "1080"]):
         return "GDDR5X"
     if any(x in name for x in ["gtx 10", "gtx10", "1070", "1060", "1050"]):
         return "GDDR5"
-
-    # GTX 900 series
     if any(x in name for x in ["980 ti", "980ti", "980", "970"]):
         return "GDDR5"
-
-    # AMD RX 9000
     if any(x in name for x in ["rx 9", "rx9"]):
         return "GDDR6"
-
-    # AMD RX 7000
     if any(x in name for x in ["rx 7", "rx7"]):
         return "GDDR6"
-
-    # AMD RX 6000
     if any(x in name for x in ["rx 6", "rx6"]):
         return "GDDR6"
-
-    # AMD RX 5000
     if any(x in name for x in ["rx 5", "rx5"]):
         return "GDDR6"
-
-    # AMD RX 500 / 400 series
     if any(x in name for x in ["rx 5", "rx 4", "rx5", "rx4", "rx 580", "rx 570", "rx 480", "rx 470"]):
         return "GDDR5"
-
-    # Generic fallback
     if any(x in name for x in ["radeon", "nvidia", "geforce"]):
         return "GDDR6"
 
@@ -640,6 +666,67 @@ def get_network_usage(prev, prev_time):
         return cur, up, down, now
     except (KeyError, ZeroDivisionError):
         return prev, 0, 0, now
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# WEATHER MONITORING  (Open-Meteo — no API key required)
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+def fetch_weather(lat_lon_str: str):
+    """
+    Calls the Open-Meteo free API with the given "lat,lon" string.
+    Updates the global weather_temp, weather_humidity, weather_desc variables.
+    Returns True on success, False on any failure.
+    """
+    global weather_temp, weather_humidity, weather_desc
+
+    try:
+        parts = [p.strip() for p in lat_lon_str.split(",")]
+        if len(parts) != 2:
+            raise ValueError("Expected format: latitude,longitude  (e.g. 51.5,-0.1)")
+        lat, lon = float(parts[0]), float(parts[1])
+    except (ValueError, AttributeError) as e:
+        print(f"[Weather] Bad location format: {e}")
+        weather_temp     = "?"
+        weather_humidity = "?"
+        weather_desc     = "Bad location"
+        return False
+
+    url = (
+        "https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat}&longitude={lon}"
+        "&current=temperature_2m,relative_humidity_2m,weather_code"
+        "&temperature_unit=celsius"
+        "&wind_speed_unit=mph"
+        "&timezone=auto"
+    )
+
+    try:
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+
+        current          = data["current"]
+        weather_temp     = round(current["temperature_2m"])
+        weather_humidity = current["relative_humidity_2m"]
+        weather_desc     = WMO_CODES.get(current["weather_code"], "Unknown")
+
+        print(f"[Weather] {weather_temp}°C  {weather_humidity}%  {weather_desc}")
+        return True
+
+    except requests.ConnectionError:
+        print("[Weather] ✗ No internet connection")
+    except requests.Timeout:
+        print("[Weather] ✗ Request timed out")
+    except (KeyError, ValueError, requests.HTTPError) as e:
+        print(f"[Weather] ✗ Parse error: {e}")
+    except Exception as e:
+        print(f"[Weather] ✗ Unexpected error: {e}")
+
+    weather_temp     = "?"
+    weather_humidity = "?"
+    weather_desc     = "Unavailable"
+    return False
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -713,6 +800,8 @@ def run_osc_loop():
     dram = detect_dram_type()
     vram = detect_vram_type(gpu_detect)
 
+    # Initial weather fetch on startup
+    fetch_weather(location_entry.get().strip())
 
     print(f"\n{'=' * 60}")
     print(f"CPU:  {cpu_detect} ({cpu_manufacturer.value})")
@@ -721,8 +810,11 @@ def run_osc_loop():
     print(f"VRAM Total: {vram_detect}")
     print(f"{'=' * 60}")
 
+    query_cooldown   = 0
+    # Weather refreshes every ~5 minutes (60 ticks × 5 s = 300 s)
+    weather_cooldown = 0
+    WEATHER_INTERVAL = 60
 
-    query_cooldown = 0
     cpu_load = 0
     gpu_load = 0
     dram_load = 0
@@ -733,6 +825,7 @@ def run_osc_loop():
             song, artist, pos, dur = asyncio.run(get_media_info())
             clean_song = clean_title(song)
 
+            # LHM poll every 3 ticks (~15 s)
             query_cooldown += 1
             if query_cooldown >= 3:
                 lhm_data = get_lhm_data()
@@ -743,11 +836,15 @@ def run_osc_loop():
                     dram_load = get_dram_used_from_lhm(lhm_data)
                     vram_load = get_vram_used_from_lhm(lhm_data)
                 else:
-                    cpu_load  = 0
-                    gpu_load  = 0
-                    dram_load = 0.0
-                    vram_load = 0.0
+                    cpu_load = gpu_load = 0
+                    dram_load = vram_load = 0.0
                 query_cooldown = 0
+
+            # Weather poll every WEATHER_INTERVAL ticks (~5 min)
+            weather_cooldown += 1
+            if weather_cooldown >= WEATHER_INTERVAL:
+                fetch_weather(location_entry.get().strip())
+                weather_cooldown = 0
 
             if vram_detect == "error":
                 vram_detect = get_vram_total_from_lhm(lhm_data)
@@ -760,9 +857,11 @@ def run_osc_loop():
             progress_bar = create_progress_bar(pos, dur)
 
             display_artist = f"- {artist}" if artist else ""
-            display_song = f"🎵 {clean_song}" if clean_song else ""
+            display_song   = f"🎵 {clean_song}" if clean_song else ""
 
-            page_index = int((time.time() // SWITCH_INTERVAL) % 3)
+            # 4-page rotation
+            page_index = int((time.time() // SWITCH_INTERVAL) % 4)
+
             if forced_text.get().strip() == "":
 
                 if page_index == 0:
@@ -792,11 +891,17 @@ def run_osc_loop():
                         f"{progress_bar}\n"
                         f"{display_song} {display_artist}"
                     )
+                elif page_index == 3:
+                    text = (
+                        f"{page4_line1_text}\n"
+                        f"{cur_time_str}\n"
+                        f"{weather_temp}℃  {weather_humidity}% humidity\n"
+                        f"{weather_desc}"
+                    )
                 else:
                     text = f"{error_text}"
             else:
                 text = forced_text.get()
-
 
             print(text)
 
@@ -817,21 +922,23 @@ def run_osc_loop():
 
 def start_script():
     global running, client, OSC_IP, OSC_PORT, INTERFACE, SWITCH_INTERVAL, LHM_REST_API
-    global page1_line1_text, page2_line1_text, page3_line1_text, error_text
+    global page1_line1_text, page2_line1_text, page3_line1_text, page4_line1_text, error_text
 
     if running:
         return
 
     try:
-        OSC_IP = ip_entry.get()
-        OSC_PORT = int(port_entry.get())
-        INTERFACE = iface_entry.get()
+        OSC_IP          = ip_entry.get()
+        OSC_PORT        = int(port_entry.get())
+        INTERFACE       = iface_entry.get()
         SWITCH_INTERVAL = int(interval_entry.get())
-        LHM_REST_API = lhm_entry.get()
+        LHM_REST_API    = lhm_entry.get()
 
         page1_line1_text = page1_entry.get()
         page2_line1_text = page2_entry.get()
         page3_line1_text = page3_entry.get()
+        page4_line1_text = page4_entry.get()
+
         save_config()
         error_text = "Error: Page error value exceeding limit"
         client = SimpleUDPClient(OSC_IP, OSC_PORT)
@@ -870,15 +977,15 @@ def restart_script():
 
 cfg = load_config()
 
-BG = "#121212"
-FG = "#E0E0E0"
+BG       = "#121212"
+FG       = "#E0E0E0"
 ENTRY_BG = "#1E1E1E"
-BTN_BG = "#2A2A2A"
-BTN_FG = "#FFFFFF"
+BTN_BG   = "#2A2A2A"
+BTN_FG   = "#FFFFFF"
 
 root = tk.Tk()
 root.title("OSC Chatbox")
-root.geometry("450x450")
+root.geometry("450x480")
 root.configure(bg=BG)
 root.resizable(True, True)
 
@@ -904,7 +1011,7 @@ def open_help():
     help_win.configure(bg=BG)
     help_win.resizable(True, True)
 
-    help_w, help_h = 450, 450
+    help_w, help_h = 460, 480
     root_x = root.winfo_x()
     root_y = root.winfo_y()
     root_w = root.winfo_width()
@@ -944,15 +1051,33 @@ def open_help():
         {
             "title": "Page Text",
             "content": (
-                "Page 1 / 2 / 3 Text — The first line shown on\n"
-                "each rotating chatbox page.\n"
-                "or custom message.\n\n"
+                "Page 1 / 2 / 3 / 4 Text — The first line shown\n"
+                "on each rotating chatbox page.\n\n"
                 "Page 1 also shows: time, network speed, and\n"
                 "currently playing song.\n\n"
                 "Page 2 also shows: CPU & GPU usage, temps,\n"
                 "and wattage.\n\n"
                 "Page 3 also shows: RAM & VRAM usage and\n"
-                "currently playing song."
+                "currently playing song.\n\n"
+                "Page 4 shows your local weather — see the\n"
+                "next page for setup details."
+            )
+        },
+        {
+            "title": "Weather",
+            "content": (
+                "Page 4 shows live weather from Open-Meteo\n\n"
+                "Location — Enter your coordinates as:\n"
+                "   latitude,longitude\n"
+                "Example: 51.5,-0.1  (London)\n"
+                "         40.7,-74.0  (New York)\n\n"
+                "To find your coordinates:\n"
+                "  Google Maps → right-click your location\n"
+                "  → the first line shown is lat,lon.\n\n"
+                "Weather refreshes every 5 minutes.\n"
+                "Page 4 displays: temperature (°C),\n"
+                "humidity (%), and a short condition\n"
+                "description (e.g. 'Partly cloudy')."
             )
         },
         {
@@ -976,7 +1101,7 @@ def open_help():
     title_label.pack(pady=(14, 4))
 
     content_label = tk.Label(help_win, text="", bg=BG, fg=FG,
-                             justify="left", wraplength=340,
+                             justify="left", wraplength=400,
                              font=("Segoe UI", 10))
     content_label.pack(padx=20, fill="both", expand=True)
 
@@ -1018,8 +1143,9 @@ def open_help():
 
 frame.columnconfigure(1, weight=1)
 
+# ── Data Config section ────────────────────────────────────────────────────────
 data_config_label = tk.Label(frame, text="Data config", bg=BG, fg="#FFFFFF")
-data_config_label.grid(row=0, column=0, columnspan=6)
+data_config_label.grid(row=0, column=0, columnspan=2)
 
 dark_label("OSC IP", 1)
 ip_entry = dark_entry(1, cfg["osc_ip"])
@@ -1036,24 +1162,31 @@ interval_entry = dark_entry(4, cfg["switch_interval"])
 dark_label("LHM Interface", 5)
 lhm_entry = dark_entry(5, cfg["lhm_api"])
 
+dark_label("Location (lat,lon)", 6)
+location_entry = dark_entry(6, cfg["location"])
+
+# ── Page Text section ──────────────────────────────────────────────────────────
 page_text_label = tk.Label(frame, text="Page Text", bg=BG, fg="#FFFFFF")
-page_text_label.grid(row=6, column=0, columnspan=2)
+page_text_label.grid(row=7, column=0, columnspan=2)
 
-dark_label("Page 1 Text", 7)
-page1_entry = dark_entry(7, cfg["page1_text"])
+dark_label("Page 1 Text", 8)
+page1_entry = dark_entry(8, cfg["page1_text"])
 
-dark_label("Page 2 Text", 8)
-page2_entry = dark_entry(8, cfg["page2_text"])
+dark_label("Page 2 Text", 9)
+page2_entry = dark_entry(9, cfg["page2_text"])
 
-dark_label("Page 3 Text", 9)
-page3_entry = dark_entry(9, cfg["page3_text"])
+dark_label("Page 3 Text", 10)
+page3_entry = dark_entry(10, cfg["page3_text"])
 
-dark_label("Text Message", 10)
-forced_text = dark_entry(10, " ")
+dark_label("Page 4 Text", 11)
+page4_entry = dark_entry(11, cfg["page4_text"])
 
+dark_label("Text Message", 12)
+forced_text = dark_entry(12, " ")
 
+# ── Buttons ────────────────────────────────────────────────────────────────────
 button_frame = tk.Frame(frame, bg=BG)
-button_frame.grid(row=11, column=0, columnspan=2, pady=15, sticky="ew")
+button_frame.grid(row=13, column=0, columnspan=2, pady=15, sticky="ew")
 button_frame.columnconfigure(0, weight=1)
 button_frame.columnconfigure(1, weight=1)
 button_frame.columnconfigure(2, weight=1)
@@ -1071,11 +1204,11 @@ restart_btn = tk.Button(button_frame, text="Restart", command=restart_script,
 restart_btn.grid(row=0, column=2, sticky="ew", padx=2)
 
 status_label = tk.Label(frame, text="Status: Stopped", bg=BG, fg="#FF4C4C")
-status_label.grid(row=12, column=0, columnspan=2)
+status_label.grid(row=14, column=0, columnspan=2)
 
 help_btn = tk.Button(frame, text=" ？ ", command=open_help,
                      bg=BTN_BG, fg="#FFFFFF", relief="flat",
                      font=("Segoe UI", 9), cursor="question_arrow")
-help_btn.grid(row=12, column=0, sticky="w", padx=2)
+help_btn.grid(row=14, column=0, sticky="w", padx=2)
 
 root.mainloop()
