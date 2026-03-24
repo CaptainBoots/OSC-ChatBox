@@ -128,13 +128,13 @@ WMO_CODES = {
 
 CONFIG_FILE = "osc_config.json"
 
-def load_config():
-    defaults = {
-        "osc_ip":          OSC_IP,
-        "osc_port":        OSC_PORT,
-        "interface":       INTERFACE,
-        "switch_interval": SWITCH_INTERVAL,
-        "lhm_api":         LHM_REST_API,
+def get_default_config():
+    return {
+        "osc_ip":          "127.0.0.1",
+        "osc_port":        9000,
+        "interface":       "Ethernet",
+        "switch_interval": 20,
+        "lhm_api":         "http://localhost:8085/data.json",
         "location":        "0,0",
         "page1_text":      "Thx for using Boots's osc code",
         "page2_text":      "Join the discord server at https://discord.gg/XdfKAWu6Ph",
@@ -145,6 +145,9 @@ def load_config():
         "page3_enabled":   True,
         "page4_enabled":   True,
     }
+
+def load_config():
+    defaults = get_default_config()
     try:
         with open(CONFIG_FILE, "r") as f:
             return {**defaults, **json.load(f)}
@@ -170,6 +173,49 @@ def save_config():
     }
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
+
+def reset_to_defaults():
+    cfg = get_default_config()  # ← THIS is the fix
+
+    # update UI fields
+    ip_entry.delete(0, tk.END)
+    ip_entry.insert(0, cfg["osc_ip"])
+
+    port_entry.delete(0, tk.END)
+    port_entry.insert(0, str(cfg["osc_port"]))
+
+    iface_entry.delete(0, tk.END)
+    iface_entry.insert(0, cfg["interface"])
+
+    interval_entry.delete(0, tk.END)
+    interval_entry.insert(0, str(cfg["switch_interval"]))
+
+    lhm_entry.delete(0, tk.END)
+    lhm_entry.insert(0, cfg["lhm_api"])
+
+    location_entry.delete(0, tk.END)
+    location_entry.insert(0, cfg["location"])
+
+    page1_entry.delete(0, tk.END)
+    page1_entry.insert(0, cfg["page1_text"])
+
+    page2_entry.delete(0, tk.END)
+    page2_entry.insert(0, cfg["page2_text"])
+
+    page3_entry.delete(0, tk.END)
+    page3_entry.insert(0, cfg["page3_text"])
+
+    page4_entry.delete(0, tk.END)
+    page4_entry.insert(0, cfg["page4_text"])
+
+    # toggles
+    keys = ["page1_enabled", "page2_enabled", "page3_enabled", "page4_enabled"]
+    for i, key in enumerate(keys):
+        page_toggles[i].set(cfg[key])
+
+    forced_text.delete(0, tk.END)
+
+    save_config()  # saves the reset state
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # HARDWARE MONITORING
@@ -1136,6 +1182,10 @@ def open_settings():
                               font=("Segoe UI", 8))
     page_indicator.pack(pady=(0, 4))
 
+    def confirm_reset():
+        if messagebox.askyesno("Reset", "Reset all settings to defaults?"):
+            reset_to_defaults()
+
     def build_scale_page():
         for w in content_frame.winfo_children():
             w.destroy()
@@ -1164,6 +1214,15 @@ def open_settings():
         pct_label = tk.Label(content_frame, text="", bg=BG, fg=FG,
                              font=("Segoe UI", 9))
         pct_label.pack()
+
+        tk.Button(
+            content_frame,
+            text="Reset to Defaults",
+            bg=BTN_BG,
+            fg=BTN_FG,
+            relief="flat",
+            command=confirm_reset
+        ).pack(pady=(20, 5))
 
         def update_pct(*_):
             pct_label.config(text=f"{int(scale_var.get() * 100)}%")
