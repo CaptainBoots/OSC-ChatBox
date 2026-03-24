@@ -1062,6 +1062,10 @@ ENTRY_BG = "#1E1E1E"
 BTN_BG   = "#2A2A2A"
 BTN_FG   = "#FFFFFF"
 
+ui_scale = 1.0
+scaleable_widgets = []
+square_widgets = []  # store square buttons separately
+
 root = tk.Tk()
 root.title("OSC Chatbox")
 root.geometry("450x560")
@@ -1071,18 +1075,138 @@ root.resizable(True, True)
 frame = tk.Frame(root, bg=BG)
 frame.pack(fill="both", expand=True, padx=10, pady=10)
 
+# ── Scaling ────────────────────────────────────────────────────────────────
+def apply_scale(scale):
+    global ui_scale
+    ui_scale = scale
 
-def dark_label(text, r):
-    lbl = tk.Label(frame, text=text, bg=BG, fg=FG, anchor="w")
-    lbl.grid(row=r, column=0, sticky="w", pady=4)
-    return lbl
+    import tkinter.font as tkfont
+    base_default = 9
+    new_default  = max(7, int(base_default * scale))
 
+    tkfont.nametofont("TkDefaultFont").configure(size=new_default)
+    tkfont.nametofont("TkTextFont").configure(size=new_default)
+    tkfont.nametofont("TkFixedFont").configure(size=new_default)
 
-def dark_entry(r, default=""):
-    e = tk.Entry(frame, bg=ENTRY_BG, fg=FG, insertbackground=FG, relief="flat")
-    e.insert(0, default)
-    e.grid(row=r, column=1, pady=4, sticky="ew")
-    return e
+    # scale normal widgets
+    for widget, base_size, extras in scaleable_widgets:
+        try:
+            widget.configure(font=("Segoe UI", max(6, int(base_size * scale)), *extras))
+        except tk.TclError:
+            pass
+
+    # scale square buttons
+    for container, base_size, btn in square_widgets:
+        size = int(base_size * scale)
+        container.config(width=size, height=size)
+        btn.config(font=("Segoe UI", max(8, int(12 * scale))))
+
+# ── Helpers ────────────────────────────────────────────────────────────────
+
+def open_settings():
+    set_win = tk.Toplevel(root)
+    set_win.title("Settings")
+    set_win.configure(bg=BG)
+    set_win.resizable(False, False)
+
+    root.update_idletasks()
+    sw = root.winfo_width()
+    sh = root.winfo_height()
+    sx = root.winfo_x()
+    sy = root.winfo_y()
+    set_win.geometry(f"{sw}x{sh}+{sx}+{sy}")
+
+    pages = [
+        {
+            "title": "UI Scale",
+            "content_type": "scale",
+        },
+    ]
+
+    current_page = [0]
+
+    title_label = tk.Label(set_win, text="", bg=BG, fg="#FFFFFF",
+                           font=("Segoe UI", 16, "bold"))
+    title_label.pack(pady=(14, 4))
+
+    content_frame = tk.Frame(set_win, bg=BG)
+    content_frame.pack(padx=20, fill="both", expand=True)
+
+    page_indicator = tk.Label(set_win, text="", bg=BG, fg="#888888",
+                              font=("Segoe UI", 8))
+    page_indicator.pack(pady=(0, 4))
+
+    def build_scale_page():
+        for w in content_frame.winfo_children():
+            w.destroy()
+
+        tk.Label(content_frame, text="Drag to resize the UI",
+                 bg=BG, fg=FG, font=("Segoe UI", 10)).pack(pady=(20, 8))
+
+        scale_var = tk.DoubleVar(value=ui_scale)
+
+        slider = tk.Scale(
+            content_frame,
+            from_=0.7, to=2.0,
+            resolution=0.05,
+            orient="horizontal",
+            variable=scale_var,
+            bg=BG, fg=FG,
+            troughcolor=ENTRY_BG,
+            activebackground=BTN_BG,
+            highlightthickness=0,
+            sliderrelief="flat",
+            length=300,
+            command=lambda v: apply_scale(float(v)),
+        )
+        slider.pack(pady=4)
+
+        pct_label = tk.Label(content_frame, text="", bg=BG, fg=FG,
+                             font=("Segoe UI", 9))
+        pct_label.pack()
+
+        def update_pct(*_):
+            pct_label.config(text=f"{int(scale_var.get() * 100)}%")
+            set_win.update_idletasks()
+            set_win.geometry(f"{root.winfo_width()}x{root.winfo_height()}"
+                             f"+{root.winfo_x()}+{root.winfo_y()}")
+
+        scale_var.trace_add("write", update_pct)
+        update_pct()
+
+    def show_page(idx):
+        p = pages[idx]
+        title_label.config(text=p["title"])
+        page_indicator.config(text=f"Page {idx + 1} of {len(pages)}")
+        prev_btn.config(state="normal" if idx > 0 else "disabled")
+        is_last = idx == len(pages) - 1
+        next_btn.config(text="Finish" if is_last else "Next →")
+        if p["content_type"] == "scale":
+            build_scale_page()
+
+    nav_frame = tk.Frame(set_win, bg=BG)
+    nav_frame.pack(fill="x", padx=20, pady=(0, 14))
+    nav_frame.columnconfigure(1, weight=1)
+
+    prev_btn = tk.Button(nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG,
+                         relief="flat", width=10,
+                         command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
+                                          show_page(current_page[0])))
+    prev_btn.grid(row=0, column=0, sticky="w")
+
+    def next_or_finish():
+        if current_page[0] < len(pages) - 1:
+            current_page[0] += 1
+            show_page(current_page[0])
+        else:
+            set_win.destroy()
+
+    next_btn = tk.Button(nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG,
+                         relief="flat", width=10, command=next_or_finish)
+    next_btn.grid(row=0, column=2, sticky="e")
+
+    show_page(0)
+
 
 def open_help():
     help_win = tk.Toplevel(root)
@@ -1237,9 +1361,43 @@ def open_help():
 
 frame.columnconfigure(1, weight=1)
 
-# ── Data Config section ────────────────────────────────────────────────────────
-data_config_label = tk.Label(frame, text="Data config", bg=BG, fg="#FFFFFF")
-data_config_label.grid(row=0, column=0, columnspan=2)
+
+def dark_label(text, r):
+    lbl = tk.Label(frame, text=text, bg=BG, fg=FG, anchor="w")
+    lbl.grid(row=r, column=0, sticky="w", pady=4)
+    return lbl
+
+def dark_entry(r, default=""):
+    e = tk.Entry(frame, bg=ENTRY_BG, fg=FG, insertbackground=FG, relief="flat")
+    e.insert(0, default)
+    e.grid(row=r, column=1, pady=4, sticky="ew")
+    return e
+
+def square_button(parent, text, command, base_size=32):
+    container = tk.Frame(parent, bg=BTN_BG)
+    container.pack_propagate(False)
+
+    btn = tk.Button(
+        container,
+        text=text,
+        command=command,
+        bg=BTN_BG,
+        fg="#FFFFFF",
+        relief="flat",
+        borderwidth=0,
+        font=("Segoe UI", 12)
+    )
+    btn.pack(fill="both", expand=True)
+
+    square_widgets.append((container, base_size, btn))
+    container.config(width=base_size, height=base_size)
+
+    return container
+
+frame.columnconfigure(1, weight=1)
+
+# ── Data Config ────────────────────────────────────────────────────────────
+tk.Label(frame, text="Data config", bg=BG, fg="#FFFFFF").grid(row=0, column=0, columnspan=2)
 
 dark_label("OSC IP", 1)
 ip_entry = dark_entry(1, cfg["osc_ip"])
@@ -1259,9 +1417,8 @@ lhm_entry = dark_entry(5, cfg["lhm_api"])
 dark_label("Location (lat,lon)", 6)
 location_entry = dark_entry(6, cfg["location"])
 
-# ── Page Text section ──────────────────────────────────────────────────────────
-page_text_label = tk.Label(frame, text="Page Text", bg=BG, fg="#FFFFFF")
-page_text_label.grid(row=7, column=0, columnspan=2)
+# ── Page Text ──────────────────────────────────────────────────────────────
+tk.Label(frame, text="Page Text", bg=BG, fg="#FFFFFF").grid(row=7, column=0, columnspan=2)
 
 dark_label("Page 1 Text", 8)
 page1_entry = dark_entry(8, cfg["page1_text"])
@@ -1278,57 +1435,59 @@ page4_entry = dark_entry(11, cfg["page4_text"])
 dark_label("Text Message", 12)
 forced_text = dark_entry(12, " ")
 
-# ── Page Toggle section ────────────────────────────────────────────────────────
+# ── Toggles ────────────────────────────────────────────────────────────────
 toggle_outer = tk.Frame(frame, bg=BG)
 toggle_outer.grid(row=13, column=0, columnspan=2, pady=(6, 2), sticky="ew")
 
 toggle_inner = tk.Frame(toggle_outer, bg=BG)
 toggle_inner.pack(anchor="center")
 
-PAGE_NAMES        = ["Network", "CPU/GPU", "RAM", "Weather"]
-PAGE_NUMBERS      = ["P1",      "P2",      "P3", "P4"]
+PAGE_NAMES = ["Network", "CPU/GPU", "RAM", "Weather"]
+PAGE_NUMBERS = ["P1", "P2", "P3", "P4"]
 PAGE_ENABLED_KEYS = ["page1_enabled", "page2_enabled", "page3_enabled", "page4_enabled"]
 
 for col, (name, num, key) in enumerate(zip(PAGE_NAMES, PAGE_NUMBERS, PAGE_ENABLED_KEYS)):
     cell = tk.Frame(toggle_inner, bg=BG)
     cell.grid(row=0, column=col, padx=18)
 
-    tk.Label(cell, text=name, bg=BG, fg=FG,
-             font=("Segoe UI", 8), justify="center").pack()
+    name_lbl = tk.Label(cell, text=name, bg=BG, fg=FG, font=("Segoe UI", 8))
+    name_lbl.pack()
+    scaleable_widgets.append((name_lbl, 8, ()))
 
     tog = CircleToggle(cell, enabled=bool(cfg.get(key, True)))
     tog.pack()
 
-    tk.Label(cell, text=num, bg=BG, fg=FG,
-             font=("Segoe UI", 8), justify="center").pack()
+    num_lbl = tk.Label(cell, text=num, bg=BG, fg=FG, font=("Segoe UI", 8))
+    num_lbl.pack()
+    scaleable_widgets.append((num_lbl, 8, ()))
 
     page_toggles.append(tog)
 
-# ── Buttons ────────────────────────────────────────────────────────────────────
+# ── Buttons ────────────────────────────────────────────────────────────────
 button_frame = tk.Frame(frame, bg=BG)
 button_frame.grid(row=14, column=0, columnspan=2, pady=15, sticky="ew")
+
 button_frame.columnconfigure(0, weight=1)
 button_frame.columnconfigure(1, weight=1)
 button_frame.columnconfigure(2, weight=1)
 
-start_btn = tk.Button(button_frame, text="Start", command=start_script,
-                      bg=BTN_BG, fg=BTN_FG, relief="flat")
-start_btn.grid(row=0, column=0, sticky="ew", padx=2)
+tk.Button(button_frame, text="Start", command=start_script,
+          bg=BTN_BG, fg=BTN_FG, relief="flat").grid(row=0, column=0, sticky="ew", padx=2)
 
-stop_btn = tk.Button(button_frame, text="Stop", command=stop_script,
-                     bg=BTN_BG, fg=BTN_FG, relief="flat")
-stop_btn.grid(row=0, column=1, sticky="ew", padx=2)
+tk.Button(button_frame, text="Stop", command=stop_script,
+          bg=BTN_BG, fg=BTN_FG, relief="flat").grid(row=0, column=1, sticky="ew", padx=2)
 
-restart_btn = tk.Button(button_frame, text="Restart", command=restart_script,
-                        bg=BTN_BG, fg=BTN_FG, relief="flat")
-restart_btn.grid(row=0, column=2, sticky="ew", padx=2)
+tk.Button(button_frame, text="Restart", command=restart_script,
+          bg=BTN_BG, fg=BTN_FG, relief="flat").grid(row=0, column=2, sticky="ew", padx=2)
 
+# ── Status + Square Buttons ────────────────────────────────────────────────
 status_label = tk.Label(frame, text="Status: Stopped", bg=BG, fg="#FF4C4C")
 status_label.grid(row=15, column=0, columnspan=2)
 
-help_btn = tk.Button(frame, text=" ？ ", command=open_help,
-                     bg=BTN_BG, fg="#FFFFFF", relief="flat",
-                     font=("Segoe UI", 9), cursor="question_arrow")
+help_btn = square_button(frame, "？", open_help)
 help_btn.grid(row=15, column=0, sticky="w", padx=2)
+
+settings_btn = square_button(frame, "⚙", open_settings)
+settings_btn.grid(row=15, column=1, sticky="e", padx=2)
 
 root.mainloop()
