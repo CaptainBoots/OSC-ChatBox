@@ -86,6 +86,9 @@ weather_temp     = "?"
 weather_humidity = "?"
 weather_desc     = "Unknown"
 
+# Page toggles placeholder (populated after GUI is built)
+page_toggles = []
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # WMO WEATHER CODE MAP
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -137,6 +140,10 @@ def load_config():
         "page2_text":      "Join the discord server at https://discord.gg/XdfKAWu6Ph",
         "page3_text":      "hi put your text here :3",
         "page4_text":      "Local Weather",
+        "page1_enabled":   True,
+        "page2_enabled":   True,
+        "page3_enabled":   True,
+        "page4_enabled":   True,
     }
     try:
         with open(CONFIG_FILE, "r") as f:
@@ -156,6 +163,10 @@ def save_config():
         "page2_text":      page2_entry.get(),
         "page3_text":      page3_entry.get(),
         "page4_text":      page4_entry.get(),
+        "page1_enabled":   page_toggles[0].get() if page_toggles else True,
+        "page2_enabled":   page_toggles[1].get() if page_toggles else True,
+        "page3_enabled":   page_toggles[2].get() if page_toggles else True,
+        "page4_enabled":   page_toggles[3].get() if page_toggles else True,
     }
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
@@ -863,7 +874,22 @@ def run_osc_loop():
                 display_artist = "⏸"
                 display_song = ""
 
-            page_index = int((time.time() // SWITCH_INTERVAL) % 4)
+            # ── Page selection: only cycle through enabled pages ──────────────
+            enabled_pages = [i for i in range(4) if page_toggles[i].get()]
+            if not enabled_pages:
+                text = "No pages enabled"
+                print(text)
+                if client is not None:
+                    client.send_message("/chatbox/input", [text, True])
+                else:
+                    print("Warning: OSC client not initialized")
+                time.sleep(5.0)
+                continue
+
+            enabled_count = len(enabled_pages)
+            page_slot = int((time.time() // SWITCH_INTERVAL) % enabled_count)
+            page_index = enabled_pages[page_slot]
+            # ─────────────────────────────────────────────────────────────────
 
             if forced_text.get().strip() == "":
 
@@ -977,6 +1003,54 @@ def restart_script():
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# CIRCLE TOGGLE WIDGET
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+class CircleToggle(tk.Canvas):
+    """A clickable circle that toggles between hollow (disabled) and filled (enabled)."""
+
+    SIZE    = 22   # canvas size in pixels
+    PAD     =  3   # gap between circle edge and canvas edge
+    COLOR   = "#FFFFFF"
+
+    def __init__(self, parent, enabled=True, **kwargs):
+        super().__init__(
+            parent,
+            width=self.SIZE, height=self.SIZE,
+            bg=BG, highlightthickness=0,
+            cursor="hand2",
+            **kwargs
+        )
+        self._enabled = enabled
+        self._draw()
+        self.bind("<Button-1>", self._on_click)
+
+    # ── drawing ────────────────────────────────────────────────────────────────
+    def _draw(self):
+        self.delete("all")
+        p, s = self.PAD, self.SIZE
+        if self._enabled:
+            self.create_oval(p, p, s - p, s - p,
+                             fill=self.COLOR, outline=self.COLOR)
+        else:
+            self.create_oval(p, p, s - p, s - p,
+                             fill="", outline=self.COLOR, width=2)
+
+    # ── interaction ────────────────────────────────────────────────────────────
+    def _on_click(self, _event=None):
+        self._enabled = not self._enabled
+        self._draw()
+
+    # ── public API ─────────────────────────────────────────────────────────────
+    def get(self) -> bool:
+        return self._enabled
+
+    def set(self, value: bool):
+        self._enabled = bool(value)
+        self._draw()
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # GUI
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
@@ -990,7 +1064,7 @@ BTN_FG   = "#FFFFFF"
 
 root = tk.Tk()
 root.title("OSC Chatbox")
-root.geometry("450x480")
+root.geometry("450x560")
 root.configure(bg=BG)
 root.resizable(True, True)
 
@@ -1016,16 +1090,31 @@ def open_help():
     help_win.configure(bg=BG)
     help_win.resizable(True, True)
 
-    help_w, help_h = 460, 480
+    root.update_idletasks()
+    help_w = root.winfo_width()
+    help_h = root.winfo_height()
     root_x = root.winfo_x()
     root_y = root.winfo_y()
-    root_w = root.winfo_width()
-    root_h = root.winfo_height()
-    x = root_x + (root_w // 2) - (help_w // 2)
-    y = root_y + (root_h // 2) - (help_h // 2)
-    help_win.geometry(f"{help_w}x{help_h}+{x}+{y}")
+    help_win.geometry(f"{help_w}x{help_h}+{root_x}+{root_y}")
 
     pages = [
+        {
+            "title": "Page Toggles",
+            "content": (
+                "Page Toggles — The four circle buttons below\n"
+                "the Start/Stop/Restart buttons control which\n"
+                "pages appear in the rotation.\n\n"
+                "● Filled circle  = page is ENABLED\n"
+                "○ Hollow circle = page is DISABLED\n\n"
+                "Each toggle is labelled with the page name\n"
+                "above the circle and P1–P4 below it.\n\n"
+                "Click a circle to toggle it on or off.\n"
+                "Disabled pages are skipped entirely.\n\n"
+                "If ALL pages are disabled, the chatbox will\n"
+                "display 'No pages enabled' until at least\n"
+                "one page is turned back on."
+            )
+        },
         {
             "title": "Data Config",
             "content": (
@@ -1189,9 +1278,35 @@ page4_entry = dark_entry(11, cfg["page4_text"])
 dark_label("Text Message", 12)
 forced_text = dark_entry(12, " ")
 
+# ── Page Toggle section ────────────────────────────────────────────────────────
+toggle_outer = tk.Frame(frame, bg=BG)
+toggle_outer.grid(row=13, column=0, columnspan=2, pady=(6, 2), sticky="ew")
+
+toggle_inner = tk.Frame(toggle_outer, bg=BG)
+toggle_inner.pack(anchor="center")
+
+PAGE_NAMES        = ["Network", "CPU/GPU", "RAM", "Weather"]
+PAGE_NUMBERS      = ["P1",      "P2",      "P3", "P4"]
+PAGE_ENABLED_KEYS = ["page1_enabled", "page2_enabled", "page3_enabled", "page4_enabled"]
+
+for col, (name, num, key) in enumerate(zip(PAGE_NAMES, PAGE_NUMBERS, PAGE_ENABLED_KEYS)):
+    cell = tk.Frame(toggle_inner, bg=BG)
+    cell.grid(row=0, column=col, padx=18)
+
+    tk.Label(cell, text=name, bg=BG, fg=FG,
+             font=("Segoe UI", 8), justify="center").pack()
+
+    tog = CircleToggle(cell, enabled=bool(cfg.get(key, True)))
+    tog.pack()
+
+    tk.Label(cell, text=num, bg=BG, fg=FG,
+             font=("Segoe UI", 8), justify="center").pack()
+
+    page_toggles.append(tog)
+
 # ── Buttons ────────────────────────────────────────────────────────────────────
 button_frame = tk.Frame(frame, bg=BG)
-button_frame.grid(row=13, column=0, columnspan=2, pady=15, sticky="ew")
+button_frame.grid(row=14, column=0, columnspan=2, pady=15, sticky="ew")
 button_frame.columnconfigure(0, weight=1)
 button_frame.columnconfigure(1, weight=1)
 button_frame.columnconfigure(2, weight=1)
@@ -1209,11 +1324,11 @@ restart_btn = tk.Button(button_frame, text="Restart", command=restart_script,
 restart_btn.grid(row=0, column=2, sticky="ew", padx=2)
 
 status_label = tk.Label(frame, text="Status: Stopped", bg=BG, fg="#FF4C4C")
-status_label.grid(row=14, column=0, columnspan=2)
+status_label.grid(row=15, column=0, columnspan=2)
 
 help_btn = tk.Button(frame, text=" ？ ", command=open_help,
                      bg=BTN_BG, fg="#FFFFFF", relief="flat",
                      font=("Segoe UI", 9), cursor="question_arrow")
-help_btn.grid(row=14, column=0, sticky="w", padx=2)
+help_btn.grid(row=15, column=0, sticky="w", padx=2)
 
 root.mainloop()
