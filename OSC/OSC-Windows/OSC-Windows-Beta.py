@@ -673,11 +673,6 @@ def get_network_usage(prev, prev_time):
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def fetch_weather(lat_lon_str: str):
-    """
-    Calls the Open-Meteo free API with the given "lat,lon" string.
-    Updates the global weather_temp, weather_humidity, weather_desc variables.
-    Returns True on success, False on any failure.
-    """
     global weather_temp, weather_humidity, weather_desc
 
     try:
@@ -740,12 +735,17 @@ async def get_media_info():
         if session:
             props = await session.try_get_media_properties_async()
             timeline = session.get_timeline_properties()
+            playback = session.get_playback_info()
             pos = timeline.position.total_seconds() * 1000
             dur = timeline.end_time.total_seconds() * 1000
-            return props.title, props.artist, pos, dur
+            is_paused = (
+                playback.playback_status ==
+                wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PAUSED
+            )
+            return props.title, props.artist, pos, dur, is_paused
     except (OSError, AttributeError, RuntimeError):
         pass
-    return None, None, 0, 0
+    return None, None, 0, 0, False
 
 
 def clean_title(raw_title):
@@ -768,7 +768,7 @@ def clean_title(raw_title):
 
 def create_progress_bar(position_ms, duration_ms, length=13):
     if duration_ms <= 0:
-        return "─" * length
+        return "No music playing︎"
     percent = min(max(position_ms / duration_ms, 0), 1)
     filled_len = int(length * percent)
     return "■" * filled_len + "□" * (length - filled_len)
@@ -800,7 +800,6 @@ def run_osc_loop():
     dram = detect_dram_type()
     vram = detect_vram_type(gpu_detect)
 
-    # Initial weather fetch on startup
     fetch_weather(location_entry.get().strip())
 
     print(f"\n{'=' * 60}")
@@ -811,7 +810,6 @@ def run_osc_loop():
     print(f"{'=' * 60}")
 
     query_cooldown   = 0
-    # Weather refreshes every ~5 minutes (60 ticks × 5 s = 300 s)
     weather_cooldown = 0
     WEATHER_INTERVAL = 60
 
@@ -822,10 +820,9 @@ def run_osc_loop():
 
     while running:
         try:
-            song, artist, pos, dur = asyncio.run(get_media_info())
+            song, artist, pos, dur, is_paused = asyncio.run(get_media_info())
             clean_song = clean_title(song)
 
-            # LHM poll every 3 ticks (~15 s)
             query_cooldown += 1
             if query_cooldown >= 3:
                 lhm_data = get_lhm_data()
@@ -840,7 +837,6 @@ def run_osc_loop():
                     dram_load = vram_load = 0.0
                 query_cooldown = 0
 
-            # Weather poll every WEATHER_INTERVAL ticks (~5 min)
             weather_cooldown += 1
             if weather_cooldown >= WEATHER_INTERVAL:
                 fetch_weather(location_entry.get().strip())
@@ -856,10 +852,17 @@ def run_osc_loop():
             cur_time_str = time.strftime("%I:%M %p")
             progress_bar = create_progress_bar(pos, dur)
 
-            display_artist = f"- {artist}" if artist else ""
-            display_song   = f"🎵 {clean_song}" if clean_song else ""
+            if clean_song:
+                if is_paused:
+                   display_artist = f"- {artist}" if artist else ""
+                   display_song = f"⏸ {clean_song}" if clean_song else ""
+                else:
+                    display_artist = f"- {artist}" if artist else ""
+                    display_song = f"🎵 {clean_song}" if clean_song else ""
+            else:
+                display_artist = "⏸"
+                display_song = ""
 
-            # 4-page rotation
             page_index = int((time.time() // SWITCH_INTERVAL) % 4)
 
             if forced_text.get().strip() == "":
@@ -896,7 +899,9 @@ def run_osc_loop():
                         f"{page4_line1_text}\n"
                         f"{cur_time_str}\n"
                         f"{weather_temp}℃  {weather_humidity}% humidity\n"
-                        f"{weather_desc}"
+                        f"{weather_desc}\n"
+                        f"{progress_bar}\n"
+                        f"{display_song} {display_artist}"
                     )
                 else:
                     text = f"{error_text}"
