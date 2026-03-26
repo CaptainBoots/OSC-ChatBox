@@ -19,6 +19,9 @@ import time
 import tkinter as tk
 from tkinter import messagebox
 from enum import Enum
+from typing import Optional
+import tkinter.font as font
+
 
 def install_if_missing(package, import_name=None):
     if import_name is None:
@@ -29,6 +32,7 @@ def install_if_missing(package, import_name=None):
     except ImportError:
         print(f"Installing {package}...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
 
 install_if_missing("python-osc==1.9.3", "pythonosc")
 install_if_missing("psutil==7.2.2", "psutil")
@@ -41,6 +45,7 @@ from pythonosc.udp_client import SimpleUDPClient
 import winrt.windows.media.control as wmc
 import requests
 
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -51,19 +56,19 @@ class CPUManufacturer(Enum):
     UNKNOWN = "Unknown"
 
 
+cpu_manufacturer = CPUManufacturer.UNKNOWN
+
 print("OSC Chatbox")
 print("Made By Boots")
 
+CONFIG_FILE = "osc_config.json"
 OSC_IP = "127.0.0.1"
 OSC_PORT = 9000
-
 INTERFACE = "Ethernet"
-
 SWITCH_INTERVAL = 20
-
 LHM_REST_API = "http://localhost:8085/data.json"
 
-client = None
+client: Optional[SimpleUDPClient] = None
 running = False
 
 page1_line1_text = "-enter text-"
@@ -79,72 +84,35 @@ gpu_temp = "error"
 dram_load = "error"
 vram_load = "error"
 
-cpu_manufacturer = CPUManufacturer.UNKNOWN
-
-# Weather globals
-weather_temp     = "?"
+weather_temp = "?"
 weather_humidity = "?"
-weather_desc     = "Unknown"
+weather_desc = "Unknown"
 
-# Page toggles placeholder (populated after GUI is built)
 page_toggles = []
 
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# WMO WEATHER CODE MAP
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
-WMO_CODES = {
-    0:  "Clear sky",
-    1:  "Mainly clear",
-    2:  "Partly cloudy",
-    3:  "Overcast",
-    45: "Foggy",
-    48: "Icy fog",
-    51: "Light drizzle",
-    53: "Drizzle",
-    55: "Heavy drizzle",
-    61: "Light rain",
-    63: "Rain",
-    65: "Heavy rain",
-    66: "Freezing rain",
-    67: "Heavy freezing rain",
-    71: "Light snow",
-    73: "Snow",
-    75: "Heavy snow",
-    77: "Snow grains",
-    80: "Light showers",
-    81: "Showers",
-    82: "Heavy showers",
-    85: "Snow showers",
-    86: "Heavy snow showers",
-    95: "Thunderstorm",
-    96: "Thunderstorm w/ hail",
-    99: "Thunderstorm w/ heavy hail",
-}
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # CONFIG FILE
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-CONFIG_FILE = "osc_config.json"
-
 def get_default_config():
     return {
-        "osc_ip":          "127.0.0.1",
-        "osc_port":        9000,
-        "interface":       "Ethernet",
+        "osc_ip": "127.0.0.1",
+        "osc_port": 9000,
+        "interface": "Ethernet",
         "switch_interval": 20,
-        "lhm_api":         "http://localhost:8085/data.json",
-        "location":        "0,0",
-        "page1_text":      "Thx for using Boots's osc code",
-        "page2_text":      "Join the discord server at https://discord.gg/XdfKAWu6Ph",
-        "page3_text":      "hi put your text here :3",
-        "page4_text":      "Local Weather",
-        "page1_enabled":   True,
-        "page2_enabled":   True,
-        "page3_enabled":   True,
-        "page4_enabled":   True,
+        "lhm_api": "http://localhost:8085/data.json",
+        "location": "0,0",
+        "page1_text": "Thx for using Boots's osc code",
+        "page2_text": "Join the discord server at https://discord.gg/XdfKAWu6Ph",
+        "page3_text": "hi put your text here :3",
+        "page4_text": "Local Weather",
+        "page1_enabled": True,
+        "page2_enabled": True,
+        "page3_enabled": True,
+        "page4_enabled": True,
     }
+
 
 def load_config():
     defaults = get_default_config()
@@ -154,30 +122,31 @@ def load_config():
     except (FileNotFoundError, json.JSONDecodeError):
         return defaults
 
+
 def save_config():
     config = {
-        "osc_ip":          ip_entry.get(),
-        "osc_port":        port_entry.get(),
-        "interface":       iface_entry.get(),
+        "osc_ip": ip_entry.get(),
+        "osc_port": port_entry.get(),
+        "interface": iface_entry.get(),
         "switch_interval": interval_entry.get(),
-        "lhm_api":         lhm_entry.get(),
-        "location":        location_entry.get(),
-        "page1_text":      page1_entry.get(),
-        "page2_text":      page2_entry.get(),
-        "page3_text":      page3_entry.get(),
-        "page4_text":      page4_entry.get(),
-        "page1_enabled":   page_toggles[0].get() if page_toggles else True,
-        "page2_enabled":   page_toggles[1].get() if page_toggles else True,
-        "page3_enabled":   page_toggles[2].get() if page_toggles else True,
-        "page4_enabled":   page_toggles[3].get() if page_toggles else True,
+        "lhm_api": lhm_entry.get(),
+        "location": location_entry.get(),
+        "page1_text": page1_entry.get(),
+        "page2_text": page2_entry.get(),
+        "page3_text": page3_entry.get(),
+        "page4_text": page4_entry.get(),
+        "page1_enabled": page_toggles[0].get() if page_toggles else True,
+        "page2_enabled": page_toggles[1].get() if page_toggles else True,
+        "page3_enabled": page_toggles[2].get() if page_toggles else True,
+        "page4_enabled": page_toggles[3].get() if page_toggles else True,
     }
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
 
-def reset_to_defaults():
-    cfg = get_default_config()  # ← THIS is the fix
 
-    # update UI fields
+def reset_to_defaults():
+    defaults = get_default_config()
+
     ip_entry.delete(0, tk.END)
     ip_entry.insert(0, cfg["osc_ip"])
 
@@ -208,73 +177,25 @@ def reset_to_defaults():
     page4_entry.delete(0, tk.END)
     page4_entry.insert(0, cfg["page4_text"])
 
-    # toggles
     keys = ["page1_enabled", "page2_enabled", "page3_enabled", "page4_enabled"]
-    for i, key in enumerate(keys):
-        page_toggles[i].set(cfg[key])
+    for i, cfg_key in enumerate(keys):
+        page_toggles[i].set(defaults[cfg_key])
 
     forced_text.delete(0, tk.END)
 
-    save_config()  # saves the reset state
-
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# HARDWARE MONITORING
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
-def _clean_name(name: str):
-    name = re.sub(r"\(.*?\)|\[.*?]|\{.*?}", "", name)
-    name = name.split("@")[0]
-    name = re.sub(r"\s+", " ", name).strip()
-    return name
-
-def detect_cpu():
-    global cpu_manufacturer
-
-    try:
-        cpu_name = subprocess.check_output(
-            ["powershell", "-Command", "(Get-CimInstance Win32_Processor).Name"],
-            encoding="utf-8",
-            stderr=subprocess.DEVNULL,
-            timeout=5
-        ).strip()
-
-        clean_cpu_name = _clean_name(cpu_name)
-
-        if "intel" in cpu_name.lower():
-            cpu_manufacturer = CPUManufacturer.INTEL
-        elif "amd" in cpu_name.lower():
-            cpu_manufacturer = CPUManufacturer.AMD
-        else:
-            cpu_manufacturer = CPUManufacturer.UNKNOWN
-
-        return clean_cpu_name
-    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
-        return "CPU Unknown"
-
-
-def detect_gpu():
-    try:
-        gpu_name = subprocess.check_output(
-            ["powershell", "-Command", "(Get-CimInstance Win32_VideoController).Name"],
-            encoding="utf-8",
-            stderr=subprocess.DEVNULL,
-            timeout=5
-        ).strip()
-
-        gpu_lines = [
-            line for line in gpu_name.splitlines()
-            if "virtual desktop" not in line.lower() and "virtual monitor" not in line.lower()
-        ]
-        gpu_name = "\n".join(gpu_lines).strip()
-
-        return _clean_name(gpu_name)
-    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
-        return "GPU Unknown"
+    save_config()
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-#  LHM HELPERS
+#  HARDWARE MONITORING HELPERS
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+def _clean_name(text: str):  # was: name: str
+    text = re.sub(r"\(.*?\)|\[.*?]|\{.*?}", "", text)
+    text = text.split("@")[0]
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
 
 def _numeric(sensor_value) -> float:
     s = re.sub(r'[^\d.-]', '', str(sensor_value))
@@ -303,9 +224,10 @@ def _is_gpu(text: str) -> bool:
 
 
 def _get_hardware_nodes(data):
-    for top in data.get("Children", []):          # computer
-        for hw in top.get("Children", []):         # hardware
+    for top in data.get("Children", []):
+        for hw in top.get("Children", []):
             yield hw
+
 
 def diagnose_lhm():
     try:
@@ -338,15 +260,54 @@ def get_lhm_data():
         pass
     return None
 
+
+def _parse_gb(sensor_value) -> float:
+    numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
+    return float(numeric_str)
+
+
+def _fmt_gb(gb: float) -> str:
+    rounded = round(gb)
+    for nice in [2, 4, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64, 96, 128]:
+        if abs(rounded - nice) <= max(1, int(nice * 0.10)):
+            return f"{nice}"
+    return f"{rounded}"
+
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 #  CPU SENSORS
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+def detect_cpu():
+    global cpu_manufacturer
+
+    try:
+        cpu_name = subprocess.check_output(
+            ["powershell", "-Command", "(Get-CimInstance Win32_Processor).Name"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=5
+        ).strip()
+
+        clean_cpu_name = _clean_name(cpu_name)
+
+        if "intel" in cpu_name.lower():
+            cpu_manufacturer = CPUManufacturer.INTEL
+        elif "amd" in cpu_name.lower():
+            cpu_manufacturer = CPUManufacturer.AMD
+        else:
+            cpu_manufacturer = CPUManufacturer.UNKNOWN
+
+        return clean_cpu_name
+    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
+        return "CPU Unknown"
+
 
 def get_cpu_temp_from_lhm(data) -> int:
     if not data:
         return 0
 
-    primary   = ("cpu package", "tdie")
+    primary = ("cpu package", "tdie")
     secondary = ("core average", "cpu core", "core max")
     best: dict[str, float | None] = {"primary": None, "secondary": None}
 
@@ -383,7 +344,7 @@ def get_cpu_power_from_lhm(data) -> int:
     if not data:
         return 0
 
-    primary   = ("cpu package",)
+    primary = ("cpu package",)
     secondary = ("cpu cores", "cpu total", "package")
     best: dict[str, float | None] = {"primary": None, "secondary": None}
 
@@ -414,6 +375,7 @@ def get_cpu_power_from_lhm(data) -> int:
         return 0
     return int(result)
 
+
 def get_cpu_load_from_lhm(data) -> int:
     if not data:
         return 0
@@ -441,11 +403,31 @@ def get_cpu_load_from_lhm(data) -> int:
 #  GPU SENSORS
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+def detect_gpu():
+    try:
+        gpu_name = subprocess.check_output(
+            ["powershell", "-Command", "(Get-CimInstance Win32_VideoController).Name"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=5
+        ).strip()
+
+        gpu_lines = [
+            line for line in gpu_name.splitlines()
+            if "virtual desktop" not in line.lower() and "virtual monitor" not in line.lower()
+        ]
+        gpu_name = "\n".join(gpu_lines).strip()
+
+        return _clean_name(gpu_name)
+    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
+        return "GPU Unknown"
+
+
 def get_gpu_temp_from_lhm(data) -> int:
     if not data:
         return 0
 
-    primary   = ("gpu core", "gpu temperature", "gpu temp")
+    primary = ("gpu core", "gpu temperature", "gpu temp")
     secondary = ("gpu hot spot", "gpu")
     best: dict[str, float | None] = {"primary": None, "secondary": None}
 
@@ -532,19 +514,6 @@ def get_gpu_load_from_lhm(data) -> int:
 #  MEMORY SENSORS
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-def _parse_gb(sensor_value) -> float:
-    numeric_str = re.sub(r'[^\d.-]', '', str(sensor_value))
-    return float(numeric_str)
-
-
-def _fmt_gb(gb: float) -> str:
-    rounded = round(gb)
-    for nice in [2, 4, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64, 96, 128]:
-        if abs(rounded - nice) <= max(1, int(nice * 0.10)):
-            return f"{nice}"
-    return f"{rounded}"
-
-
 def get_dram_total_from_lhm(data) -> str:
     try:
         total_bytes = psutil.virtual_memory().total
@@ -553,10 +522,10 @@ def get_dram_total_from_lhm(data) -> str:
     except (OSError, AttributeError):
         return "error"
 
+
 def get_dram_used_from_lhm(data) -> float:
     if not data:
         return 0.0
-
     try:
         for hw in _get_hardware_nodes(data):
             if "total memory" not in hw.get("Text", "").lower():
@@ -579,7 +548,6 @@ def get_dram_used_from_lhm(data) -> float:
 def get_vram_used_from_lhm(data) -> float:
     if not data:
         return 0.0
-
     try:
         for hw in _get_hardware_nodes(data):
             if not _is_gpu(hw.get("Text", "")):
@@ -603,7 +571,6 @@ def get_vram_used_from_lhm(data) -> float:
 def get_vram_total_from_lhm(data) -> str:
     if not data:
         return "error"
-
     try:
         for hw in _get_hardware_nodes(data):
             if not _is_gpu(hw.get("Text", "")):
@@ -635,8 +602,8 @@ def get_vram_total_from_lhm(data) -> str:
 
     except (KeyError, TypeError, AttributeError, ValueError):
         pass
-
     return "error"
+
 
 def parse_lhm_data(data):
     return (
@@ -645,6 +612,7 @@ def parse_lhm_data(data):
         get_gpu_temp_from_lhm(data),
         get_gpu_power_from_lhm(data),
     )
+
 
 def detect_dram_type() -> str:
     try:
@@ -655,9 +623,9 @@ def detect_dram_type() -> str:
         ).strip()
         type_map = {
             "17": "SDRAM", "18": "SDRAM", "19": "SDRAM",
-            "20": "DDR",   "21": "DDR2",  "22": "DDR2",
-            "23": "DDR2",  "24": "DDR3",  "26": "DDR4",
-            "34": "DDR5",  "35": "DDR5"
+            "20": "DDR", "21": "DDR2", "22": "DDR2",
+            "23": "DDR2", "24": "DDR3", "26": "DDR4",
+            "34": "DDR5", "35": "DDR5"
         }
         return type_map.get(result, "DDR")
     except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
@@ -665,7 +633,7 @@ def detect_dram_type() -> str:
 
 
 def detect_vram_type(gpu_name: str) -> str:
-    name = gpu_name.lower()
+    n = gpu_name.lower()
 
     if any(x in name for x in ["5090", "5080", "5070 ti", "5070ti", "5070", "5060 ti", "5060ti", "5060"]):
         return "GDDR7"
@@ -700,6 +668,7 @@ def detect_vram_type(gpu_name: str) -> str:
 
     return "GDDR"
 
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # NETWORK MONITORING
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -726,8 +695,38 @@ def get_network_usage(prev, prev_time):
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# WEATHER MONITORING  (Open-Meteo — no API key required)
+# WEATHER MONITORING
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+WMO_CODES = {
+    0: "Clear sky",
+    1: "Mainly clear",
+    2: "Partly cloudy",
+    3: "Overcast",
+    45: "Foggy",
+    48: "Icy fog",
+    51: "Light drizzle",
+    53: "Drizzle",
+    55: "Heavy drizzle",
+    61: "Light rain",
+    63: "Rain",
+    65: "Heavy rain",
+    66: "Freezing rain",
+    67: "Heavy freezing rain",
+    71: "Light snow",
+    73: "Snow",
+    75: "Heavy snow",
+    77: "Snow grains",
+    80: "Light showers",
+    81: "Showers",
+    82: "Heavy showers",
+    85: "Snow showers",
+    86: "Heavy snow showers",
+    95: "Thunderstorm",
+    96: "Thunderstorm w/ hail",
+    99: "Thunderstorm w/ heavy hail",
+}
+
 
 def fetch_weather(lat_lon_str: str):
     global weather_temp, weather_humidity, weather_desc
@@ -739,9 +738,9 @@ def fetch_weather(lat_lon_str: str):
         lat, lon = float(parts[0]), float(parts[1])
     except (ValueError, AttributeError) as e:
         print(f"[Weather] Bad location format: {e}")
-        weather_temp     = "?"
+        weather_temp = "?"
         weather_humidity = "?"
-        weather_desc     = "Bad location"
+        weather_desc = "Bad location"
         return False
 
     url = (
@@ -758,10 +757,10 @@ def fetch_weather(lat_lon_str: str):
         resp.raise_for_status()
         data = resp.json()
 
-        current          = data["current"]
-        weather_temp     = round(current["temperature_2m"])
+        current = data["current"]
+        weather_temp = round(current["temperature_2m"])
         weather_humidity = current["relative_humidity_2m"]
-        weather_desc     = WMO_CODES.get(current["weather_code"], "Unknown")
+        weather_desc = WMO_CODES.get(current["weather_code"], "Unknown")
 
         print(f"[Weather] {weather_temp}°C  {weather_humidity}%  {weather_desc}")
         return True
@@ -775,9 +774,9 @@ def fetch_weather(lat_lon_str: str):
     except Exception as e:
         print(f"[Weather] ✗ Unexpected error: {e}")
 
-    weather_temp     = "?"
+    weather_temp = "?"
     weather_humidity = "?"
-    weather_desc     = "Unavailable"
+    weather_desc = "Unavailable"
     return False
 
 
@@ -796,8 +795,8 @@ async def get_media_info():
             pos = timeline.position.total_seconds() * 1000
             dur = timeline.end_time.total_seconds() * 1000
             is_paused = (
-                playback.playback_status ==
-                wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PAUSED
+                    playback.playback_status ==
+                    wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PAUSED
             )
             return props.title, props.artist, pos, dur, is_paused
     except (OSError, AttributeError, RuntimeError):
@@ -866,9 +865,9 @@ def run_osc_loop():
     print(f"VRAM Total: {vram_detect}")
     print(f"{'=' * 60}")
 
-    query_cooldown   = 0
+    query_cooldown = 0
     weather_cooldown = 0
-    WEATHER_INTERVAL = 60
+    weather_interval = 60
 
     cpu_load = 0
     gpu_load = 0
@@ -885,8 +884,8 @@ def run_osc_loop():
                 lhm_data = get_lhm_data()
                 if lhm_data:
                     cpu_temp, cpu_wattage, gpu_temp, gpu_wattage = parse_lhm_data(lhm_data)
-                    cpu_load  = get_cpu_load_from_lhm(lhm_data)
-                    gpu_load  = get_gpu_load_from_lhm(lhm_data)
+                    cpu_load = get_cpu_load_from_lhm(lhm_data)
+                    gpu_load = get_gpu_load_from_lhm(lhm_data)
                     dram_load = get_dram_used_from_lhm(lhm_data)
                     vram_load = get_vram_used_from_lhm(lhm_data)
                 else:
@@ -895,7 +894,7 @@ def run_osc_loop():
                 query_cooldown = 0
 
             weather_cooldown += 1
-            if weather_cooldown >= WEATHER_INTERVAL:
+            if weather_cooldown >= weather_interval:
                 fetch_weather(location_entry.get().strip())
                 weather_cooldown = 0
 
@@ -911,8 +910,8 @@ def run_osc_loop():
 
             if clean_song:
                 if is_paused:
-                   display_artist = f"- {artist}" if artist else ""
-                   display_song = f"⏸ {clean_song}" if clean_song else ""
+                    display_artist = f"- {artist}" if artist else ""
+                    display_song = f"⏸ {clean_song}" if clean_song else ""
                 else:
                     display_artist = f"- {artist}" if artist else ""
                     display_song = f"🎵 {clean_song}" if clean_song else ""
@@ -920,7 +919,6 @@ def run_osc_loop():
                 display_artist = "⏸"
                 display_song = ""
 
-            # ── Page selection: only cycle through enabled pages ──────────────
             enabled_pages = [i for i in range(4) if page_toggles[i].get()]
             if not enabled_pages:
                 text = "No pages enabled"
@@ -935,7 +933,6 @@ def run_osc_loop():
             enabled_count = len(enabled_pages)
             page_slot = int((time.time() // SWITCH_INTERVAL) % enabled_count)
             page_index = enabled_pages[page_slot]
-            # ─────────────────────────────────────────────────────────────────
 
             if forced_text.get().strip() == "":
 
@@ -993,6 +990,7 @@ def run_osc_loop():
             print(f"Error: OSC loop Error {e}")
             time.sleep(1)
 
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # SCRIPT CONTROL
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -1005,11 +1003,11 @@ def start_script():
         return
 
     try:
-        OSC_IP          = ip_entry.get()
-        OSC_PORT        = int(port_entry.get())
-        INTERFACE       = iface_entry.get()
+        OSC_IP = ip_entry.get()
+        OSC_PORT = int(port_entry.get())
+        INTERFACE = iface_entry.get()
         SWITCH_INTERVAL = int(interval_entry.get())
-        LHM_REST_API    = lhm_entry.get()
+        LHM_REST_API = lhm_entry.get()
 
         page1_line1_text = page1_entry.get()
         page2_line1_text = page2_entry.get()
@@ -1055,9 +1053,9 @@ def restart_script():
 class CircleToggle(tk.Canvas):
     """A clickable circle that toggles between hollow (disabled) and filled (enabled)."""
 
-    SIZE    = 22   # canvas size in pixels
-    PAD     =  3   # gap between circle edge and canvas edge
-    COLOR   = "#FFFFFF"
+    SIZE = 22
+    PAD = 3
+    COLOR = "#FFFFFF"
 
     def __init__(self, parent, enabled=True, **kwargs):
         super().__init__(
@@ -1071,7 +1069,6 @@ class CircleToggle(tk.Canvas):
         self._draw()
         self.bind("<Button-1>", self._on_click)
 
-    # ── drawing ────────────────────────────────────────────────────────────────
     def _draw(self):
         self.delete("all")
         p, s = self.PAD, self.SIZE
@@ -1082,12 +1079,10 @@ class CircleToggle(tk.Canvas):
             self.create_oval(p, p, s - p, s - p,
                              fill="", outline=self.COLOR, width=2)
 
-    # ── interaction ────────────────────────────────────────────────────────────
     def _on_click(self, _event=None):
         self._enabled = not self._enabled
         self._draw()
 
-    # ── public API ─────────────────────────────────────────────────────────────
     def get(self) -> bool:
         return self._enabled
 
@@ -1102,14 +1097,14 @@ class CircleToggle(tk.Canvas):
 
 cfg = load_config()
 
-BG       = "#121212"
-FG       = "#E0E0E0"
+BG = "#121212"
+FG = "#E0E0E0"
 ENTRY_BG = "#1E1E1E"
-BTN_BG   = "#2A2A2A"
-BTN_FG   = "#FFFFFF"
+BTN_BG = "#2A2A2A"
+BTN_FG = "#FFFFFF"
 
 ui_scale = 1.0
-scaleable_widgets = []
+scalable_widgets = []
 square_widgets = []  # store square buttons separately
 
 root = tk.Tk()
@@ -1121,21 +1116,21 @@ root.resizable(True, True)
 frame = tk.Frame(root, bg=BG)
 frame.pack(fill="both", expand=True, padx=10, pady=10)
 
+
 # ── Scaling ────────────────────────────────────────────────────────────────
 def apply_scale(scale):
     global ui_scale
     ui_scale = scale
 
-    import tkinter.font as tkfont
     base_default = 9
     new_default  = max(7, int(base_default * scale))
 
-    tkfont.nametofont("TkDefaultFont").configure(size=new_default)
-    tkfont.nametofont("TkTextFont").configure(size=new_default)
-    tkfont.nametofont("TkFixedFont").configure(size=new_default)
+    font.nametofont("TkDefaultFont").configure(size=new_default)
+    font.nametofont("TkTextFont").configure(size=new_default)
+    font.nametofont("TkFixedFont").configure(size=new_default)
 
     # scale normal widgets
-    for widget, base_size, extras in scaleable_widgets:
+    for widget, base_size, extras in scalable_widgets:
         try:
             widget.configure(font=("Segoe UI", max(6, int(base_size * scale)), *extras))
         except tk.TclError:
@@ -1146,6 +1141,7 @@ def apply_scale(scale):
         size = int(base_size * scale)
         container.config(width=size, height=size)
         btn.config(font=("Segoe UI", max(8, int(12 * scale))))
+
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -1190,7 +1186,7 @@ def open_settings():
         for w in content_frame.winfo_children():
             w.destroy()
 
-        tk.Label(content_frame, text="Drag to resize the UI",
+        tk.Label(content_frame, text="UI",
                  bg=BG, fg=FG, font=("Segoe UI", 10)).pack(pady=(20, 8))
 
         scale_var = tk.DoubleVar(value=ui_scale)
@@ -1214,6 +1210,9 @@ def open_settings():
         pct_label = tk.Label(content_frame, text="", bg=BG, fg=FG,
                              font=("Segoe UI", 9))
         pct_label.pack()
+
+        tk.Label(content_frame, text="Config",
+                 bg=BG, fg=FG, font=("Segoe UI", 10)).pack(pady=(20, 8))
 
         tk.Button(
             content_frame,
@@ -1418,6 +1417,7 @@ def open_help():
 
     show_page(0)
 
+
 frame.columnconfigure(1, weight=1)
 
 
@@ -1426,11 +1426,13 @@ def dark_label(text, r):
     lbl.grid(row=r, column=0, sticky="w", pady=4)
     return lbl
 
+
 def dark_entry(r, default=""):
     e = tk.Entry(frame, bg=ENTRY_BG, fg=FG, insertbackground=FG, relief="flat")
     e.insert(0, default)
     e.grid(row=r, column=1, pady=4, sticky="ew")
     return e
+
 
 def square_button(parent, text, command, base_size=32):
     container = tk.Frame(parent, bg=BTN_BG)
@@ -1452,6 +1454,7 @@ def square_button(parent, text, command, base_size=32):
     container.config(width=base_size, height=base_size)
 
     return container
+
 
 frame.columnconfigure(1, weight=1)
 
@@ -1511,14 +1514,14 @@ for col, (name, num, key) in enumerate(zip(PAGE_NAMES, PAGE_NUMBERS, PAGE_ENABLE
 
     name_lbl = tk.Label(cell, text=name, bg=BG, fg=FG, font=("Segoe UI", 8))
     name_lbl.pack()
-    scaleable_widgets.append((name_lbl, 8, ()))
+    scalable_widgets.append((name_lbl, 8, ()))
 
     tog = CircleToggle(cell, enabled=bool(cfg.get(key, True)))
     tog.pack()
 
     num_lbl = tk.Label(cell, text=num, bg=BG, fg=FG, font=("Segoe UI", 8))
     num_lbl.pack()
-    scaleable_widgets.append((num_lbl, 8, ()))
+    scalable_widgets.append((num_lbl, 8, ()))
 
     page_toggles.append(tog)
 
