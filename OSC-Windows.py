@@ -21,7 +21,7 @@ from tkinter import messagebox
 from enum import Enum
 from typing import Optional
 import tkinter.font as font
-
+import os
 
 def install_if_missing(package, import_name=None):
     if import_name is None:
@@ -124,6 +124,7 @@ def load_config():
 
 
 def save_config():
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
     config = {
         "osc_ip": ip_entry.get(),
         "osc_port": port_entry.get(),
