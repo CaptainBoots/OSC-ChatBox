@@ -50,7 +50,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.1.6"
+VERSION = "7.1.7"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
 
 
@@ -342,6 +342,7 @@ def diagnose_lhm():
         print("[DIAGNOSTIC] FIX 1: Make sure LibreHardwareMonitor.exe is RUNNING")
         print("[DIAGNOSTIC] FIX 2: Enable web server in LHM (Options → Web server)")
         print("[DIAGNOSTIC] FIX 3: Check port is 8085 (default)")
+        print("[DIAGNOSTIC] FIX 4: Get LHM at https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases")
     except requests.Timeout:
         print("[DIAGNOSTIC] ✗ REST API query timed out")
     except Exception as e:
@@ -1425,9 +1426,10 @@ def open_help():
                 "This is used to read CPU/GPU temperatures,\n"
                 "wattage, and load percentages.\n\n"
                 "To enable it:\n"
-                "1. Open LibreHardwareMonitor.exe\n"
-                "2. Go to Options → Web Server\n"
-                "3. Click 'Run' and make sure port is 8085\n"
+                "1. Get LHM at https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases\n"
+                "2. Open LibreHardwareMonitor.exe\n"
+                "3. Go to Options → Web Server\n"
+                "4. Click 'Run' and make sure port is 8085\n"
             )
         },
         {
