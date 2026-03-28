@@ -50,7 +50,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.1.5"
+VERSION = "7.1.6"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
 
 
@@ -75,10 +75,10 @@ LHM_REST_API = "http://localhost:8085/data.json"
 client: Optional[SimpleUDPClient] = None
 running = False
 
-page1_line1_text = "-enter text-"
-page2_line1_text = "-enter text-"
-page3_line1_text = "-enter text-"
-page4_line1_text = "-enter text-"
+page1_line1_text = "error"
+page2_line1_text = "error"
+page3_line1_text = "error"
+page4_line1_text = "error"
 error_text = "Error: Page error value exceeding limit"
 
 cpu_wattage = "error"
@@ -88,9 +88,9 @@ gpu_temp = "error"
 dram_load = "error"
 vram_load = "error"
 
-weather_temp = "?"
-weather_humidity = "?"
-weather_desc = "Unknown"
+weather_temp = "error"
+weather_humidity = "error"
+weather_desc = "error"
 
 page_toggles = []
 
@@ -192,7 +192,7 @@ def reset_to_defaults():
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# SELF-UPDATER
+# UPDATER
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def _parse_version(v: str):
@@ -232,9 +232,9 @@ def perform_update():
                 f_bak.write(f_cur.read())
 
         backup_files = [
-            os.path.join(config_dir, name)
-            for name in os.listdir(config_dir)
-            if name.lower().endswith(".bak")
+            os.path.join(config_dir, backup_file_name)
+            for backup_file_name in os.listdir(config_dir)
+            if backup_file_name.lower().endswith(".bak")
         ]
         if len(backup_files) > 5:
             oldest_backup = min(backup_files, key=os.path.getmtime)
