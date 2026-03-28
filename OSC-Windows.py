@@ -50,7 +50,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.1.0"
+VERSION = "7.1.1"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
 
 
@@ -196,15 +196,13 @@ def reset_to_defaults():
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def _parse_version(v: str):
-    """Turn '7.0.1' into (7, 0, 1) for comparison."""
     try:
         return tuple(int(x) for x in v.strip().split("."))
     except ValueError:
-        return (0, 0, 0)
+        return 0, 0, 0
 
 
 def get_remote_version() -> str | None:
-    """Fetch just the VERSION line from the remote script."""
     try:
         resp = requests.get(GITHUB_RAW_URL, timeout=10)
         resp.raise_for_status()
@@ -219,7 +217,6 @@ def get_remote_version() -> str | None:
 
 
 def perform_update():
-    """Download the latest script from GitHub and restart."""
     try:
         resp = requests.get(GITHUB_RAW_URL, timeout=15)
         resp.raise_for_status()
@@ -227,12 +224,10 @@ def perform_update():
         script_path = os.path.abspath(__file__)
         backup_path = script_path + ".bak"
 
-        # Keep a backup of the current version
         with open(script_path, "r", encoding="utf-8") as f_cur:
             with open(backup_path, "w", encoding="utf-8") as f_bak:
                 f_bak.write(f_cur.read())
 
-        # Write the new version
         with open(script_path, "w", encoding="utf-8") as f:
             f.write(resp.text)
 
@@ -250,11 +245,7 @@ def perform_update():
 
 
 def check_for_updates(silent=False):
-    """
-    Compare local VERSION against GitHub.
-    silent=True  → only prompt if an update is available (used on startup).
-    silent=False → always show a result (used when the button is clicked).
-    """
+
     remote = get_remote_version()
 
     if remote is None:
@@ -1225,7 +1216,7 @@ def apply_scale(scale):
     # scale normal widgets
     for widget, base_size, extras in scalable_widgets:
         try:
-            widget.configure(font=("Segoe UI", max(6, int(base_size * scale)), *extras))
+            widget.configure(font=("Segoe UI", max(6, int(base_size * scale))) + extras)
         except tk.TclError:
             pass
 
@@ -1318,7 +1309,7 @@ def open_settings():
 
         tk.Button(
             content_frame,
-            text="Update",
+            text="Update Script",
             bg=BTN_BG,
             fg=BTN_FG,
             relief="flat",
@@ -1669,10 +1660,12 @@ help_btn.grid(row=15, column=0, sticky="w", padx=2)
 settings_btn = square_button(frame, "⚙", open_settings)
 settings_btn.grid(row=15, column=1, sticky="e", padx=2)
 
-# ── Startup update check (background, silent unless update found) ──────────
-threading.Thread(
-    target=lambda: root.after(2000, lambda: check_for_updates(silent=True)),
-    daemon=True
-).start()
+# ── Startup update check ───────────────────────────────────────────────────
+def run_startup_update_check(*_args):
+    check_for_updates(silent=True)
+
+
+# noinspection PyArgumentList
+root.after(2000, run_startup_update_check, ())
 
 root.mainloop()
