@@ -50,7 +50,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.1.7"
+VERSION = "7.2.0"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
 
 
@@ -66,11 +66,11 @@ print("OSC Chatbox")
 print("Made By Boots")
 
 CONFIG_FILE = "OSC-Windows/osc_config.json"
-OSC_IP = "127.0.0.1"
-OSC_PORT = 9000
-INTERFACE = "Ethernet"
-SWITCH_INTERVAL = 20
-LHM_REST_API = "http://localhost:8085/data.json"
+OSC_IP = "error"
+OSC_PORT = "error"
+INTERFACE = "error"
+SWITCH_INTERVAL = "error"
+LHM_REST_API = "error"
 
 client: Optional[SimpleUDPClient] = None
 running = False
@@ -93,6 +93,17 @@ weather_humidity = "error"
 weather_desc = "error"
 
 page_toggles = []
+DEFAULT_PROGRESS_FILLED_CHAR = "\u2592"
+DEFAULT_PROGRESS_BORDER_CHAR = "\u2593"
+DEFAULT_PROGRESS_EMPTY_CHAR = "\u2591"
+progress_filled_char = DEFAULT_PROGRESS_FILLED_CHAR
+progress_border_char = DEFAULT_PROGRESS_BORDER_CHAR
+progress_empty_char = DEFAULT_PROGRESS_EMPTY_CHAR
+
+
+def normalize_progress_char(value, fallback):
+    text = "" if value is None else str(value).strip()
+    return text[0] if text else fallback
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -115,6 +126,9 @@ def get_default_config():
         "page2_enabled": True,
         "page3_enabled": True,
         "page4_enabled": True,
+        "progress_filled_char": DEFAULT_PROGRESS_FILLED_CHAR,
+        "progress_border_char": DEFAULT_PROGRESS_BORDER_CHAR,
+        "progress_empty_char": DEFAULT_PROGRESS_EMPTY_CHAR,
     }
 
 
@@ -144,12 +158,16 @@ def save_config():
         "page2_enabled": page_toggles[1].get() if page_toggles else True,
         "page3_enabled": page_toggles[2].get() if page_toggles else True,
         "page4_enabled": page_toggles[3].get() if page_toggles else True,
+        "progress_filled_char": progress_filled_char,
+        "progress_border_char": progress_border_char,
+        "progress_empty_char": progress_empty_char,
     }
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
 
 
 def reset_to_defaults():
+    global progress_filled_char, progress_border_char, progress_empty_char
     defaults = get_default_config()
 
     ip_entry.delete(0, tk.END)
@@ -185,6 +203,10 @@ def reset_to_defaults():
     keys = ["page1_enabled", "page2_enabled", "page3_enabled", "page4_enabled"]
     for i, cfg_key in enumerate(keys):
         page_toggles[i].set(defaults[cfg_key])
+
+    progress_filled_char = defaults["progress_filled_char"]
+    progress_border_char = defaults["progress_border_char"]
+    progress_empty_char = defaults["progress_empty_char"]
 
     forced_text.delete(0, tk.END)
 
@@ -921,12 +943,18 @@ def clean_title(raw_title):
     return re.sub(r"\s+", " ", title).strip()
 
 
-def create_progress_bar(position_ms, duration_ms, length=13):
+def create_progress_bar(position_ms, duration_ms, length=15):
     if duration_ms <= 0:
         return "No music playing︎"
     percent = min(max(position_ms / duration_ms, 0), 1)
     filled_len = int(length * percent)
-    return "■" * filled_len + "□" * (length - filled_len)
+    if 0 < filled_len < length:
+        return (
+            progress_filled_char * filled_len
+            + progress_border_char
+            + progress_empty_char * (length - filled_len - 1)
+        )
+    return progress_filled_char * filled_len + progress_empty_char * (length - filled_len)
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -1194,6 +1222,15 @@ class CircleToggle(tk.Canvas):
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 cfg = load_config()
+progress_filled_char = normalize_progress_char(
+    cfg.get("progress_filled_char"), DEFAULT_PROGRESS_FILLED_CHAR
+)
+progress_border_char = normalize_progress_char(
+    cfg.get("progress_border_char"), DEFAULT_PROGRESS_BORDER_CHAR
+)
+progress_empty_char = normalize_progress_char(
+    cfg.get("progress_empty_char"), DEFAULT_PROGRESS_EMPTY_CHAR
+)
 
 BG = "#121212"
 FG = "#E0E0E0"
@@ -1329,6 +1366,64 @@ def open_settings():
             relief="flat",
             command=lambda: check_for_updates(silent=False)
         ).pack(pady=(5, 5))
+
+        tk.Label(content_frame, text="Progress Bar",
+                 bg=BG, fg=FG, font=("Segoe UI", 10)).pack(pady=(20, 8))
+
+        chars_frame = tk.Frame(content_frame, bg=BG)
+        chars_frame.pack(pady=(0, 6))
+
+        tk.Label(chars_frame, text="Filled", bg=BG, fg=FG, font=("Segoe UI", 8)).grid(row=0, column=0, padx=4)
+        tk.Label(chars_frame, text="Border", bg=BG, fg=FG, font=("Segoe UI", 8)).grid(row=0, column=1, padx=4)
+        tk.Label(chars_frame, text="Empty", bg=BG, fg=FG, font=("Segoe UI", 8)).grid(row=0, column=2, padx=4)
+
+        filled_char_entry = tk.Entry(
+            chars_frame, width=4, justify="center",
+            bg=ENTRY_BG, fg=FG, insertbackground=FG, relief="flat"
+        )
+        border_char_entry = tk.Entry(
+            chars_frame, width=4, justify="center",
+            bg=ENTRY_BG, fg=FG, insertbackground=FG, relief="flat"
+        )
+        empty_char_entry = tk.Entry(
+            chars_frame, width=4, justify="center",
+            bg=ENTRY_BG, fg=FG, insertbackground=FG, relief="flat"
+        )
+
+        filled_char_entry.grid(row=1, column=0, padx=4, pady=(2, 0))
+        border_char_entry.grid(row=1, column=1, padx=4, pady=(2, 0))
+        empty_char_entry.grid(row=1, column=2, padx=4, pady=(2, 0))
+
+        filled_char_entry.insert(0, progress_filled_char)
+        border_char_entry.insert(0, progress_border_char)
+        empty_char_entry.insert(0, progress_empty_char)
+
+        def set_entry_char(entry, value):
+            if entry.get() != value:
+                entry.delete(0, tk.END)
+                entry.insert(0, value)
+
+        def apply_progress_char_settings(_event=None):
+            global progress_filled_char, progress_border_char, progress_empty_char
+
+            progress_filled_char = normalize_progress_char(
+                filled_char_entry.get(), DEFAULT_PROGRESS_FILLED_CHAR
+            )
+            progress_border_char = normalize_progress_char(
+                border_char_entry.get(), DEFAULT_PROGRESS_BORDER_CHAR
+            )
+            progress_empty_char = normalize_progress_char(
+                empty_char_entry.get(), DEFAULT_PROGRESS_EMPTY_CHAR
+            )
+
+            set_entry_char(filled_char_entry, progress_filled_char)
+            set_entry_char(border_char_entry, progress_border_char)
+            set_entry_char(empty_char_entry, progress_empty_char)
+            save_config()
+
+        for progress_entry in (filled_char_entry, border_char_entry, empty_char_entry):
+            progress_entry.bind("<KeyRelease>", apply_progress_char_settings)
+            progress_entry.bind("<FocusOut>", apply_progress_char_settings)
 
         def update_pct(*_):
             pct_label.config(text=f"{int(scale_var.get() * 100)}%")
