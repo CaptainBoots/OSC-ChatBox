@@ -50,7 +50,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.1.1"
+VERSION = "7.1.2"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
 
 
@@ -222,7 +222,9 @@ def perform_update():
         resp.raise_for_status()
 
         script_path = os.path.abspath(__file__)
-        backup_path = script_path + ".bak"
+        config_dir = os.path.dirname(os.path.abspath(CONFIG_FILE))
+        os.makedirs(config_dir, exist_ok=True)
+        backup_path = os.path.join(config_dir, os.path.basename(script_path) + ".bak")
 
         with open(script_path, "r", encoding="utf-8") as f_cur:
             with open(backup_path, "w", encoding="utf-8") as f_bak:
