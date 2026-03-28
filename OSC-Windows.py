@@ -50,6 +50,10 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+VERSION = "7.0.1"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
+
+
 class CPUManufacturer(Enum):
     INTEL = "Intel"
     AMD = "AMD"
@@ -185,6 +189,94 @@ def reset_to_defaults():
     forced_text.delete(0, tk.END)
 
     save_config()
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# SELF-UPDATER
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+def _parse_version(v: str):
+    """Turn '7.0.1' into (7, 0, 1) for comparison."""
+    try:
+        return tuple(int(x) for x in v.strip().split("."))
+    except ValueError:
+        return (0, 0, 0)
+
+
+def get_remote_version() -> str | None:
+    """Fetch just the VERSION line from the remote script."""
+    try:
+        resp = requests.get(GITHUB_RAW_URL, timeout=10)
+        resp.raise_for_status()
+        for line in resp.text.splitlines():
+            if line.strip().startswith("VERSION"):
+                match = re.search(r'["\']([^"\']+)["\']', line)
+                if match:
+                    return match.group(1)
+    except Exception as e:
+        print(f"[Updater] Could not reach GitHub: {e}")
+    return None
+
+
+def perform_update():
+    """Download the latest script from GitHub and restart."""
+    try:
+        resp = requests.get(GITHUB_RAW_URL, timeout=15)
+        resp.raise_for_status()
+
+        script_path = os.path.abspath(__file__)
+        backup_path = script_path + ".bak"
+
+        # Keep a backup of the current version
+        with open(script_path, "r", encoding="utf-8") as f_cur:
+            with open(backup_path, "w", encoding="utf-8") as f_bak:
+                f_bak.write(f_cur.read())
+
+        # Write the new version
+        with open(script_path, "w", encoding="utf-8") as f:
+            f.write(resp.text)
+
+        print("[Updater] Update downloaded. Restarting…")
+        subprocess.Popen([sys.executable, script_path])
+        root.destroy()
+        sys.exit(0)
+
+    except Exception as e:
+        messagebox.showerror(
+            "Update Failed",
+            f"Could not apply update:\n{e}\n\nYour original file is intact."
+        )
+        print(f"[Updater] Update failed: {e}")
+
+
+def check_for_updates(silent=False):
+    """
+    Compare local VERSION against GitHub.
+    silent=True  → only prompt if an update is available (used on startup).
+    silent=False → always show a result (used when the button is clicked).
+    """
+    remote = get_remote_version()
+
+    if remote is None:
+        if not silent:
+            messagebox.showinfo(
+                "Update Check",
+                "Could not reach GitHub.\nCheck your internet connection."
+            )
+        return
+
+    if _parse_version(remote) > _parse_version(VERSION):
+        answer = messagebox.askyesno(
+            "Update Available",
+            f"New version {remote} is available (you have {VERSION}).\n\nUpdate and restart now?"
+        )
+        if answer:
+            perform_update()
+    else:
+        if not silent:
+            messagebox.showinfo("Up to Date", f"You're on the latest version ({VERSION}).")
+        else:
+            print(f"[Updater] Up to date ({VERSION})")
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -636,35 +728,35 @@ def detect_dram_type() -> str:
 def detect_vram_type(gpu_name: str) -> str:
     n = gpu_name.lower()
 
-    if any(x in name for x in ["5090", "5080", "5070 ti", "5070ti", "5070", "5060 ti", "5060ti", "5060"]):
+    if any(x in n for x in ["5090", "5080", "5070 ti", "5070ti", "5070", "5060 ti", "5060ti", "5060"]):
         return "GDDR7"
-    if any(x in name for x in ["4090", "4080", "4070 ti", "4070ti", "4070 super", "4070super"]):
+    if any(x in n for x in ["4090", "4080", "4070 ti", "4070ti", "4070 super", "4070super"]):
         return "GDDR6X"
-    if any(x in name for x in ["4070", "4060 ti", "4060ti", "4060"]):
+    if any(x in n for x in ["4070", "4060 ti", "4060ti", "4060"]):
         return "GDDR6"
-    if any(x in name for x in ["3090", "3080"]):
+    if any(x in n for x in ["3090", "3080"]):
         return "GDDR6X"
-    if any(x in name for x in ["3070", "3060", "rtx 30", "rtx30"]):
+    if any(x in n for x in ["3070", "3060", "rtx 30", "rtx30"]):
         return "GDDR6"
-    if any(x in name for x in ["rtx 20", "rtx20", "2080", "2070", "2060"]):
+    if any(x in n for x in ["rtx 20", "rtx20", "2080", "2070", "2060"]):
         return "GDDR6"
-    if any(x in name for x in ["1080 ti", "1080ti", "1080"]):
+    if any(x in n for x in ["1080 ti", "1080ti", "1080"]):
         return "GDDR5X"
-    if any(x in name for x in ["gtx 10", "gtx10", "1070", "1060", "1050"]):
+    if any(x in n for x in ["gtx 10", "gtx10", "1070", "1060", "1050"]):
         return "GDDR5"
-    if any(x in name for x in ["980 ti", "980ti", "980", "970"]):
+    if any(x in n for x in ["980 ti", "980ti", "980", "970"]):
         return "GDDR5"
-    if any(x in name for x in ["rx 9", "rx9"]):
+    if any(x in n for x in ["rx 9", "rx9"]):
         return "GDDR6"
-    if any(x in name for x in ["rx 7", "rx7"]):
+    if any(x in n for x in ["rx 7", "rx7"]):
         return "GDDR6"
-    if any(x in name for x in ["rx 6", "rx6"]):
+    if any(x in n for x in ["rx 6", "rx6"]):
         return "GDDR6"
-    if any(x in name for x in ["rx 5", "rx5"]):
+    if any(x in n for x in ["rx 5", "rx5"]):
         return "GDDR6"
-    if any(x in name for x in ["rx 5", "rx 4", "rx5", "rx4", "rx 580", "rx 570", "rx 480", "rx 470"]):
+    if any(x in n for x in ["rx 5", "rx 4", "rx5", "rx4", "rx 580", "rx 570", "rx 480", "rx 470"]):
         return "GDDR5"
-    if any(x in name for x in ["radeon", "nvidia", "geforce"]):
+    if any(x in n for x in ["radeon", "nvidia", "geforce"]):
         return "GDDR6"
 
     return "GDDR"
@@ -1224,6 +1316,15 @@ def open_settings():
             command=confirm_reset
         ).pack(pady=(20, 5))
 
+        tk.Button(
+            content_frame,
+            text="Update",
+            bg=BTN_BG,
+            fg=BTN_FG,
+            relief="flat",
+            command=lambda: check_for_updates(silent=False)
+        ).pack(pady=(5, 5))
+
         def update_pct(*_):
             pct_label.config(text=f"{int(scale_var.get() * 100)}%")
             set_win.update_idletasks()
@@ -1367,6 +1468,20 @@ def open_help():
                 "to the normal rotating pages.\n\n"
                 "Useful for quickly sending a custom message\n"
                 "without stopping the script."
+            )
+        },
+        {
+            "title": "Auto-Updater",
+            "content": (
+                "Auto-Updater — The script checks GitHub for\n"
+                "a newer version 2 seconds after launch.\n\n"
+                "If a new version is found, you'll be asked\n"
+                "whether to update and restart.\n\n"
+                "You can also check manually at any time by\n"
+                "clicking the ↑ button in the bottom bar.\n\n"
+                "When an update is applied, a backup of your\n"
+                "current script is saved as OSC-Windows.py.bak\n"
+                "in the same folder."
             )
         },
     ]
@@ -1550,7 +1665,14 @@ status_label.grid(row=15, column=0, columnspan=2)
 help_btn = square_button(frame, "？", open_help)
 help_btn.grid(row=15, column=0, sticky="w", padx=2)
 
+
 settings_btn = square_button(frame, "⚙", open_settings)
 settings_btn.grid(row=15, column=1, sticky="e", padx=2)
+
+# ── Startup update check (background, silent unless update found) ──────────
+threading.Thread(
+    target=lambda: root.after(2000, lambda: check_for_updates(silent=True)),
+    daemon=True
+).start()
 
 root.mainloop()
