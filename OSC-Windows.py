@@ -1149,7 +1149,6 @@ def restart_script():
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 class CircleToggle(tk.Canvas):
-    """A clickable circle that toggles between hollow (disabled) and filled (enabled)."""
 
     SIZE = 22
     PAD = 3
