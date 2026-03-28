@@ -50,7 +50,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.1.4"
+VERSION = "7.1.5"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
 
 
@@ -230,6 +230,17 @@ def perform_update():
         with open(script_path, "r", encoding="utf-8") as f_cur:
             with open(backup_path, "w", encoding="utf-8") as f_bak:
                 f_bak.write(f_cur.read())
+
+        backup_files = [
+            os.path.join(config_dir, name)
+            for name in os.listdir(config_dir)
+            if name.lower().endswith(".bak")
+        ]
+        if len(backup_files) > 5:
+            oldest_backup = min(backup_files, key=os.path.getmtime)
+            if os.path.abspath(oldest_backup) != os.path.abspath(backup_path):
+                os.remove(oldest_backup)
+                print(f"[Updater] Removed old backup: {os.path.basename(oldest_backup)}")
 
         with open(script_path, "w", encoding="utf-8") as f:
             f.write(resp.text)
