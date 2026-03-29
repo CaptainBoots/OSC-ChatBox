@@ -36,14 +36,20 @@ def install_if_missing(package, import_name=None):
 
 install_if_missing("python-osc==1.9.3", "pythonosc")
 install_if_missing("psutil==7.2.2", "psutil")
-install_if_missing("winrt-Windows.Media.Control==3.2.1", "winrt")
-install_if_missing("winrt-windows.foundation==3.2.1", "winrt.windows.foundation")
 install_if_missing("requests==2.32.5", "requests")
+
+if sys.platform == "win32":
+    install_if_missing("winrt-Windows.Media.Control==3.2.1", "winrt")
+    install_if_missing("winrt-windows.foundation==3.2.1", "winrt.windows.foundation")
 
 import psutil
 from pythonosc.udp_client import SimpleUDPClient
-import winrt.windows.media.control as wmc
 import requests
+
+if sys.platform == "win32":
+    import winrt.windows.media.control as wmc
+else:
+    wmc = None
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -906,22 +912,23 @@ def fetch_weather(lat_lon_str: str):
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 async def get_media_info():
-    try:
-        manager = await wmc.GlobalSystemMediaTransportControlsSessionManager.request_async()
-        session = manager.get_current_session()
-        if session:
-            props = await session.try_get_media_properties_async()
-            timeline = session.get_timeline_properties()
-            playback = session.get_playback_info()
-            pos = timeline.position.total_seconds() * 1000
-            dur = timeline.end_time.total_seconds() * 1000
-            is_paused = (
-                    playback.playback_status ==
-                    wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PAUSED
-            )
-            return props.title, props.artist, pos, dur, is_paused
-    except (OSError, AttributeError, RuntimeError):
-        pass
+    if sys.platform == "win32" and wmc is not None:
+        try:
+            manager = await wmc.GlobalSystemMediaTransportControlsSessionManager.request_async()
+            session = manager.get_current_session()
+            if session:
+                props = await session.try_get_media_properties_async()
+                timeline = session.get_timeline_properties()
+                playback = session.get_playback_info()
+                pos = timeline.position.total_seconds() * 1000
+                dur = timeline.end_time.total_seconds() * 1000
+                is_paused = (
+                        playback.playback_status ==
+                        wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PAUSED
+                )
+                return props.title, props.artist, pos, dur, is_paused
+        except (OSError, AttributeError, RuntimeError):
+            pass
 
     try:
         players = subprocess.check_output(
