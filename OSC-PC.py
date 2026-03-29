@@ -79,8 +79,9 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.3.1"
+VERSION = "7.3.2"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-PC.py"
+LEGACY_GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
 
 
 class CPUManufacturer(Enum):
@@ -281,30 +282,71 @@ def reset_to_defaults():
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def _parse_version(v: str):
-    try:
-        return tuple(int(x) for x in v.strip().split("."))
-    except ValueError:
+    nums = [int(x) for x in re.findall(r"\d+", (v or "").strip())]
+    if not nums:
         return 0, 0, 0
+    while len(nums) < 3:
+        nums.append(0)
+    return tuple(nums[:3])
 
 
-def get_remote_version() -> str | None:
-    try:
-        resp = requests.get(GITHUB_RAW_URL, timeout=10)
-        resp.raise_for_status()
-        for line in resp.text.splitlines():
-            if line.strip().startswith("VERSION"):
-                match = re.search(r'["\']([^"\']+)["\']', line)
-                if match:
-                    return match.group(1)
-    except Exception as e:
-        print(f"[Updater] Could not reach GitHub: {e}")
+def _extract_version_from_source(source_text: str) -> str | None:
+    for line in source_text.splitlines():
+        if line.strip().startswith("VERSION"):
+            match = re.search(r'["\']([^"\']+)["\']', line)
+            if match:
+                return match.group(1)
     return None
 
 
-def perform_update():
+def _fetch_remote_script(url: str, timeout: int = 10):
     try:
-        resp = requests.get(GITHUB_RAW_URL, timeout=15)
+        resp = requests.get(
+            url,
+            timeout=timeout,
+            params={"_": int(time.time())},
+            headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
+        )
         resp.raise_for_status()
+        return resp.text, _extract_version_from_source(resp.text), url
+    except Exception:
+        return None, None, None
+
+
+def get_remote_script_info():
+    urls = [GITHUB_RAW_URL, LEGACY_GITHUB_RAW_URL]
+    errors = []
+    best = None
+
+    for url in urls:
+        text, remote_version, used_url = _fetch_remote_script(url, timeout=10)
+        if text is None:
+            errors.append(url)
+            continue
+
+        info = {
+            "text": text,
+            "version": remote_version or "0.0.0",
+            "url": used_url or url,
+        }
+        if best is None or _parse_version(info["version"]) > _parse_version(best["version"]):
+            best = info
+
+    if best is not None:
+        return best
+
+    print(f"[Updater] Could not reach GitHub URLs: {errors}")
+    return None
+
+
+def perform_update(remote_text=None, source_url=None):
+    try:
+        if remote_text is None:
+            info = get_remote_script_info()
+            if not info:
+                raise RuntimeError("No remote script source available")
+            remote_text = info["text"]
+            source_url = info["url"]
 
         script_path = os.path.abspath(__file__)
         config_dir = os.path.dirname(os.path.abspath(CONFIG_FILE))
@@ -328,9 +370,9 @@ def perform_update():
                 print(f"[Updater] Removed old backup: {os.path.basename(oldest_backup)}")
 
         with open(script_path, "w", encoding="utf-8") as f:
-            f.write(resp.text)
+            f.write(remote_text)
 
-        print("[Updater] Update downloaded. Restarting…")
+        print(f"[Updater] Update downloaded from {source_url or GITHUB_RAW_URL}. Restarting...")
         subprocess.Popen([sys.executable, script_path])
         root.destroy()
         sys.exit(0)
@@ -344,10 +386,8 @@ def perform_update():
 
 
 def check_for_updates(silent=False):
-
-    remote = get_remote_version()
-
-    if remote is None:
+    info = get_remote_script_info()
+    if not info:
         if not silent:
             messagebox.showinfo(
                 "Update Check",
@@ -355,18 +395,44 @@ def check_for_updates(silent=False):
             )
         return
 
-    if _parse_version(remote) > _parse_version(VERSION):
+    remote_version = info["version"]
+    remote_text = info["text"]
+    remote_url = info["url"]
+
+    try:
+        with open(os.path.abspath(__file__), "r", encoding="utf-8") as f:
+            local_text = f.read()
+    except OSError:
+        local_text = ""
+
+    local_norm = local_text.replace("\r\n", "\n")
+    remote_norm = remote_text.replace("\r\n", "\n")
+    remote_newer = _parse_version(remote_version) > _parse_version(VERSION)
+    content_differs = remote_norm != local_norm
+
+    if remote_newer or content_differs:
+        if remote_newer:
+            prompt = (
+                f"New version {remote_version} is available (you have {VERSION}).\n\n"
+                "Update and restart now?"
+            )
+        else:
+            prompt = (
+                "A remote script update is available (content changed,\n"
+                "but version string may not have been bumped).\n\n"
+                "Update and restart now?"
+            )
         answer = messagebox.askyesno(
             "Update Available",
-            f"New version {remote} is available (you have {VERSION}).\n\nUpdate and restart now?"
+            prompt
         )
         if answer:
-            perform_update()
+            perform_update(remote_text=remote_text, source_url=remote_url)
     else:
         if not silent:
             messagebox.showinfo("Up to Date", f"You're on the latest version ({VERSION}).")
         else:
-            print(f"[Updater] Up to date ({VERSION})")
+            print(f"[Updater] Up to date ({VERSION}) vs remote ({remote_version}) from {remote_url}")
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -2503,6 +2569,6 @@ def run_startup_update_check(*_args):
 
 
 # noinspection PyArgumentList
-root.after(2000, run_startup_update_check, ())
+root.after(2000, run_startup_update_check)
 
 root.mainloop()
