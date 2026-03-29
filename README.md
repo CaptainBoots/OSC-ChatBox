@@ -1,11 +1,11 @@
-# OSC ChatBox - Windows
+# OSC ChatBox - PC
 OSC Chatbox
 
 INSTALL INTRUCTTIONS
 
 ⠀
 
-1 / Download OSC-Windows.py from Releases
+1 / Download OSC-PC.py from Releases
 
 <img width="841" height="676" alt="{1C82C0ED-4958-4429-B02B-BA7166ABFA10}" src="https://github.com/user-attachments/assets/80c2a4e5-494a-4474-b760-02ff06a38a35" />
 
