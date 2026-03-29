@@ -50,7 +50,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.2.0"
+VERSION = "7.2.1"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
 
 
@@ -922,6 +922,58 @@ async def get_media_info():
             return props.title, props.artist, pos, dur, is_paused
     except (OSError, AttributeError, RuntimeError):
         pass
+
+    try:
+        players = subprocess.check_output(
+            ["playerctl", "-l"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=2
+        ).splitlines()
+
+        if not players:
+            return None, None, 0, 0, False
+
+        browser_player = next(
+            (p for p in players if any(k in p.lower() for k in ["chrome", "chromium", "firefox"])),
+            players[0]
+        )
+
+        output = subprocess.check_output(
+            ["playerctl", "-p", browser_player, "metadata",
+             "--format", "{{title}}\n{{artist}}\n{{position}}\n{{mpris:length}}"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=2
+        ).strip().split("\n")
+
+        if len(output) >= 4:
+            title = output[0].strip()
+            artist = output[1].strip()
+            pos = int(output[2]) / 1000
+            dur = int(output[3]) / 1000
+            is_paused = False
+
+            try:
+                status = subprocess.check_output(
+                    ["playerctl", "-p", browser_player, "status"],
+                    encoding="utf-8",
+                    stderr=subprocess.DEVNULL,
+                    timeout=2
+                ).strip().lower()
+                is_paused = status == "paused"
+            except subprocess.CalledProcessError:
+                pass
+
+            return title, artist, pos, dur, is_paused
+
+    except FileNotFoundError:
+        pass
+    except subprocess.CalledProcessError:
+        pass
+    except Exception as e:
+        print(f"[MEDIA ERROR] {e}")
+
     return None, None, 0, 0, False
 
 
