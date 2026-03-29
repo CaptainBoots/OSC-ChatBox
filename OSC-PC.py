@@ -413,34 +413,226 @@ def _get_hardware_nodes(data):
 
 
 linux_gpu_id_map = {
+
+    # ══════════════════════════════════════════════════════════════
+    # NVIDIA — RTX 50 series (Blackwell)
+    # ══════════════════════════════════════════════════════════════
+    "10de:2c04": "GeForce RTX 5090",
+    "10de:2c03": "GeForce RTX 5080",
+    "10de:2c02": "GeForce RTX 5070 Ti",
+    "10de:2c01": "GeForce RTX 5070",
+    "10de:2c00": "GeForce RTX 5060 Ti",
+
+    # ══════════════════════════════════════════════════════════════
+    # NVIDIA — RTX 40 series (Ada Lovelace)
+    # ══════════════════════════════════════════════════════════════
+    "10de:2684": "GeForce RTX 4090",
+    "10de:2704": "GeForce RTX 4080",
+    "10de:2702": "GeForce RTX 4080 Super",
+    "10de:2782": "GeForce RTX 4070 Ti",
+    "10de:2705": "GeForce RTX 4070 Ti Super",
+    "10de:2786": "GeForce RTX 4070",
+    "10de:2860": "GeForce RTX 4070 Super",
+    "10de:2803": "GeForce RTX 4060 Ti",
+    "10de:2882": "GeForce RTX 4060",
+    "10de:27ba": "GeForce RTX 4090 Laptop",
+    "10de:27b8": "GeForce RTX 4080 Laptop",
+    "10de:27b0": "GeForce RTX 4070 Ti Laptop",
+    "10de:27b9": "GeForce RTX 4070 Laptop",
+    "10de:28e0": "GeForce RTX 4060 Laptop",
+    "10de:28a1": "GeForce RTX 4050 Laptop",
+
+    # ══════════════════════════════════════════════════════════════
+    # NVIDIA — RTX 30 series (Ampere)
+    # ══════════════════════════════════════════════════════════════
+    "10de:2203": "GeForce RTX 3090 Ti",
+    "10de:2204": "GeForce RTX 3090",
+    "10de:2208": "GeForce RTX 3080 Ti",
+    "10de:2206": "GeForce RTX 3080",
+    "10de:2216": "GeForce RTX 3080 12GB",
+    "10de:2482": "GeForce RTX 3070 Ti",
+    "10de:2484": "GeForce RTX 3070",
+    "10de:2489": "GeForce RTX 3060 Ti",
+    "10de:2503": "GeForce RTX 3060",
+    "10de:2507": "GeForce RTX 3050",
+    "10de:2420": "GeForce RTX 3080 Ti Laptop",
+    "10de:2460": "GeForce RTX 3080 Laptop",
+    "10de:24b9": "GeForce RTX 3070 Ti Laptop",
+    "10de:24dd": "GeForce RTX 3070 Laptop",
+    "10de:2520": "GeForce RTX 3060 Laptop",
+    "10de:25a0": "GeForce RTX 3050 Ti Laptop",
+    "10de:25a2": "GeForce RTX 3050 Laptop",
+
+    # ══════════════════════════════════════════════════════════════
+    # NVIDIA — RTX 20 series (Turing)
+    # ══════════════════════════════════════════════════════════════
+    "10de:1e04": "GeForce RTX 2080 Ti",
+    "10de:1e87": "GeForce RTX 2080",
+    "10de:1e84": "GeForce RTX 2080 Super",
+    "10de:1f02": "GeForce RTX 2070",
+    "10de:1e91": "GeForce RTX 2070 Super",
+    "10de:1f08": "GeForce RTX 2060",
+    "10de:1f06": "GeForce RTX 2060 Super",
+    "10de:1e90": "GeForce RTX 2080 Laptop",
+    "10de:1f91": "GeForce RTX 2070 Laptop",
+    "10de:1f15": "GeForce RTX 2060 Laptop",
+
+    # ══════════════════════════════════════════════════════════════
+    # NVIDIA — GTX 16 series (Turing)
+    # ══════════════════════════════════════════════════════════════
+    "10de:2182": "GeForce GTX 1660 Ti",
+    "10de:2184": "GeForce GTX 1660",
+    "10de:21c4": "GeForce GTX 1660 Super",
+    "10de:1f82": "GeForce GTX 1650",
+    "10de:2187": "GeForce GTX 1650 Super",
+    "10de:1f9d": "GeForce GTX 1650 Ti Laptop",
+    "10de:1f99": "GeForce GTX 1650 Laptop",
+
+    # ══════════════════════════════════════════════════════════════
+    # NVIDIA — GTX 10 series (Pascal)
+    # ══════════════════════════════════════════════════════════════
+    "10de:1b06": "GeForce GTX 1080 Ti",
+    "10de:1b80": "GeForce GTX 1080",
+    "10de:1b81": "GeForce GTX 1070",
+    "10de:1b82": "GeForce GTX 1070 Ti",
+    "10de:1c03": "GeForce GTX 1060 6GB",
+    "10de:1c02": "GeForce GTX 1060 3GB",
+    "10de:1c82": "GeForce GTX 1050 Ti",
+    "10de:1c81": "GeForce GTX 1050",
+    "10de:1c8d": "GeForce GTX 1050 Laptop",
+    "10de:1be1": "GeForce GTX 1080 Laptop",
+    "10de:1be0": "GeForce GTX 1070 Laptop",
+    "10de:1c20": "GeForce GTX 1060 Laptop",
+
+    # ══════════════════════════════════════════════════════════════
+    # NVIDIA — GTX 900 series (Maxwell)
+    # ══════════════════════════════════════════════════════════════
+    "10de:17c8": "GeForce GTX 980 Ti",
+    "10de:13c0": "GeForce GTX 980",
+    "10de:13c2": "GeForce GTX 970",
+    "10de:1401": "GeForce GTX 960",
+    "10de:1402": "GeForce GTX 950",
+    "10de:1617": "GeForce GTX 980M",
+    "10de:1618": "GeForce GTX 970M",
+    "10de:1619": "GeForce GTX 960M",
+
+    # ══════════════════════════════════════════════════════════════
+    # NVIDIA — GTX 700 series (Kepler)
+    # ══════════════════════════════════════════════════════════════
+    "10de:1004": "GeForce GTX 780 Ti",
+    "10de:1005": "GeForce GTX 780",
+    "10de:1187": "GeForce GTX 770",
+    "10de:1189": "GeForce GTX 760",
+
+    # ══════════════════════════════════════════════════════════════
+    # AMD — RX 9000 series (RDNA 4)
+    # ══════════════════════════════════════════════════════════════
+    "1002:7518": "Radeon RX 9070 XT",
+    "1002:7580": "Radeon RX 9070",
     "1002:7590": "Radeon RX 9060 XT",
-    "1002:7340": "Radeon RX 7900 XTX",
-    "1002:7341": "Radeon RX 7900 XT",
-    "1002:71b0": "Radeon RX 7800 XT",
-    "1002:7438": "Radeon RX 7700 XT",
-    "1002:7439": "Radeon RX 7700",
-    "1002:7540": "Radeon RX 7600",
-    "1002:7541": "Radeon RX 7600 XT",
+
+    # ══════════════════════════════════════════════════════════════
+    # AMD — RX 7000 series (RDNA 3)
+    # ══════════════════════════════════════════════════════════════
+    "1002:744c": "Radeon RX 7900 XTX",
+    "1002:7448": "Radeon RX 7900 XT",
+    "1002:744e": "Radeon RX 7900 GRE",
+    "1002:747e": "Radeon RX 7800 XT",
+    "1002:7483": "Radeon RX 7700 XT",
+    "1002:7489": "Radeon RX 7700",
+    "1002:7422": "Radeon RX 7600",
+    "1002:7424": "Radeon RX 7600 XT",
+    "1002:7466": "Radeon RX 7600M Laptop",
+    "1002:7474": "Radeon RX 7600S Laptop",
+    "1002:743f": "Radeon RX 7700S Laptop",
+
+    # ══════════════════════════════════════════════════════════════
+    # AMD — RX 6000 series (RDNA 2)
+    # ══════════════════════════════════════════════════════════════
     "1002:73bf": "Radeon RX 6950 XT",
-    "1002:73b7": "Radeon RX 6900 XT",
+    "1002:73b7": "Radeon RX 6800 XT",
     "1002:73b8": "Radeon RX 6800",
-    "1002:73ab": "Radeon RX 6600 XT",
+    "1002:73ef": "Radeon RX 6750 XT",
+    "1002:73df": "Radeon RX 6700 XT",
+    "1002:73e3": "Radeon RX 6700",
+    "1002:73e4": "Radeon RX 6750 GRE",
+    "1002:73ff": "Radeon RX 6600 XT",
     "1002:73a0": "Radeon RX 6600",
     "1002:73a4": "Radeon RX 6500 XT",
-    "10de:2498": "GeForce RTX 4090",
-    "10de:2487": "GeForce RTX 4080",
-    "10de:2490": "GeForce RTX 4070 Ti",
-    "10de:248e": "GeForce RTX 4070",
-    "10de:2481": "GeForce RTX 4060 Ti",
-    "10de:2480": "GeForce RTX 4060",
-    "10de:2204": "GeForce RTX 3090",
-    "10de:2206": "GeForce RTX 3080 Ti",
-    "10de:1e87": "GeForce RTX 3080",
-    "10de:1e84": "GeForce RTX 3070",
-    "10de:2485": "GeForce RTX 3060 Ti",
-    "10de:2483": "GeForce RTX 3060",
+    "1002:743f": "Radeon RX 6400",
+    "1002:73e1": "Radeon RX 6700M Laptop",
+    "1002:7360": "Radeon RX 6600M Laptop",
+
+    # ══════════════════════════════════════════════════════════════
+    # AMD — RX 5000 series (RDNA 1)
+    # ══════════════════════════════════════════════════════════════
+    "1002:731f": "Radeon RX 5700 XT",
+    "1002:7310": "Radeon RX 5700",
+    "1002:7362": "Radeon RX 5600 XT",
+    "1002:7340": "Radeon RX 5500 XT",
+    "1002:7341": "Radeon RX 5500",
+    "1002:7347": "Radeon RX 5500M Laptop",
+
+    # ══════════════════════════════════════════════════════════════
+    # AMD — RX 500 / Vega series (Polaris / Vega)
+    # ══════════════════════════════════════════════════════════════
+    "1002:687f": "Radeon RX Vega 64",
+    "1002:6863": "Radeon RX Vega 56",
+    "1002:67df": "Radeon RX 580",
+    "1002:67ef": "Radeon RX 570",
+    "1002:67ff": "Radeon RX 560",
+    "1002:699f": "Radeon RX 550",
+
+    # ══════════════════════════════════════════════════════════════
+    # Intel — Arc (Alchemist)
+    # ══════════════════════════════════════════════════════════════
+    "8086:56a0": "Intel Arc A770",
+    "8086:56a1": "Intel Arc A750",
+    "8086:56a5": "Intel Arc A580",
+    "8086:56a6": "Intel Arc A380",
+    "8086:56b0": "Intel Arc A770M Laptop",
+    "8086:56b1": "Intel Arc A730M Laptop",
+    "8086:56b2": "Intel Arc A550M Laptop",
+    "8086:56c0": "Intel Arc A370M Laptop",
+    "8086:56c1": "Intel Arc A350M Laptop",
+    "8086:5690": "Intel Arc A370M Laptop",
+    "8086:5691": "Intel Arc A350M Laptop",
+
+    # ══════════════════════════════════════════════════════════════
+    # Intel — Iris Xe (Tiger / Alder / Raptor Lake)
+    # ══════════════════════════════════════════════════════════════
+    "8086:9a40": "Intel Iris Xe Graphics",
+    "8086:9a49": "Intel Iris Xe Graphics",
+    "8086:9a60": "Intel Iris Xe Graphics",
+    "8086:9a68": "Intel Iris Xe Graphics",
+    "8086:9a70": "Intel Iris Xe Graphics",
+    "8086:9a78": "Intel Iris Xe Graphics",
+    "8086:46a6": "Intel Iris Xe Graphics",
+    "8086:46a8": "Intel Iris Xe Graphics",
+    "8086:4626": "Intel Iris Xe Graphics",
+    "8086:4628": "Intel Iris Xe Graphics",
+    "8086:46d0": "Intel Iris Xe Graphics",
+    "8086:46d1": "Intel Iris Xe Graphics",
+    "8086:46d2": "Intel Iris Xe Graphics",
+    "8086:a780": "Intel Iris Xe Graphics",
+    "8086:a781": "Intel Iris Xe Graphics",
+    "8086:a788": "Intel Iris Xe Graphics",
+    "8086:a789": "Intel Iris Xe Graphics",
+
+    # ══════════════════════════════════════════════════════════════
+    # Intel — UHD (integrated)
+    # ══════════════════════════════════════════════════════════════
     "8086:3e92": "Intel UHD Graphics 630",
-    "8086:9bc5": "Intel Iris Xe Graphics",
+    "8086:3e9b": "Intel UHD Graphics 630",
+    "8086:3e98": "Intel UHD Graphics 630",
+    "8086:9bc5": "Intel UHD Graphics 630",
+    "8086:9bc8": "Intel UHD Graphics 630",
+    "8086:4680": "Intel UHD Graphics 770",
+    "8086:4682": "Intel UHD Graphics 770",
+    "8086:4692": "Intel UHD Graphics 730",
+    "8086:4693": "Intel UHD Graphics 730",
+    "8086:4698": "Intel UHD Graphics 710",
+    "8086:4699": "Intel UHD Graphics 710",
 }
 
 
@@ -449,11 +641,17 @@ def _linux_detect_gpu_pci_id():
         output = subprocess.check_output(
             ["lspci", "-nn"], encoding="utf-8", stderr=subprocess.DEVNULL
         )
+        intel_id = None
         for line in output.splitlines():
             if "VGA" in line or "3D controller" in line:
                 match = re.search(r"\[(\w{4}:\w{4})\]", line)
                 if match:
-                    return match.group(1).lower()
+                    pci_id = match.group(1).lower()
+                    if pci_id.startswith("8086"):
+                        intel_id = pci_id
+                    else:
+                        return pci_id
+        return intel_id
     except Exception:
         pass
     return None
@@ -464,6 +662,28 @@ def _read_sysfs(path):
         with open(path, "r") as f:
             return int(f.read().strip())
     except (OSError, ValueError):
+        return None
+
+
+def _read_text(path):
+    try:
+        with open(path, "r") as f:
+            return f.read().strip()
+    except OSError:
+        return None
+
+
+def _parse_first_number(value):
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    match = re.search(r"[-+]?\d*\.?\d+", str(value))
+    if not match:
+        return None
+    try:
+        return float(match.group(0))
+    except ValueError:
         return None
 
 
@@ -501,35 +721,89 @@ def _linux_get_cpu_temp_celsius():
 def _linux_get_cpu_power_watts():
     import glob
 
-    rapl = "/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj"
-    if os.path.exists(rapl):
-        try:
-            with open(rapl, "r") as f:
-                e1 = int(f.read().strip())
-            time.sleep(0.2)
-            with open(rapl, "r") as f:
-                e2 = int(f.read().strip())
-            if e2 > e1:
-                return int((e2 - e1) / 0.2 / 1_000_000)
-        except (OSError, ValueError):
-            pass
+    sample_interval = 0.2
 
+    energy_files = glob.glob("/sys/class/powercap/**/energy_uj", recursive=True)
+    preferred = []
+    fallback = []
+    for energy_file in energy_files:
+        name = _read_text(os.path.join(os.path.dirname(energy_file), "name"))
+        name_l = (name or "").lower()
+        if any(k in name_l for k in ("package", "cpu", "core", "amd", "intel")):
+            preferred.append(energy_file)
+        else:
+            fallback.append(energy_file)
+
+    energy_candidates = preferred + fallback
+    first_reads = {}
+    for energy_file in energy_candidates:
+        e1 = _read_sysfs(energy_file)
+        if e1 is not None:
+            first_reads[energy_file] = e1
+
+    if first_reads:
+        time.sleep(sample_interval)
+        for energy_file, e1 in first_reads.items():
+            e2 = _read_sysfs(energy_file)
+            if e2 is not None and e2 > e1:
+                return int((e2 - e1) / sample_interval / 1_000_000)
+
+    best_guess = 0
     for hwmon in glob.glob("/sys/class/hwmon/hwmon*"):
-        try:
-            with open(f"{hwmon}/name", "r") as f:
-                name = f.read().strip().lower()
-            if name in ("k10temp", "fam17h", "zenpower"):
-                raw = _read_sysfs(f"{hwmon}/power1_input")
-                if raw:
-                    return raw // 1_000_000
-        except OSError:
+        name_l = (_read_text(f"{hwmon}/name") or "").lower()
+        raw = _read_sysfs(f"{hwmon}/power1_average")
+        if raw is None:
+            raw = _read_sysfs(f"{hwmon}/power1_input")
+        if raw is None or raw <= 0:
             continue
 
+        watts = raw / 1_000_000 if raw > 10_000 else float(raw)
+        watts_i = int(watts)
+        if watts_i <= 0:
+            continue
+
+        if any(k in name_l for k in ("cpu", "k10temp", "fam17h", "zenpower", "coretemp", "rapl", "intel", "amd")):
+            return watts_i
+        best_guess = max(best_guess, watts_i)
+
+    try:
+        sensors_json = subprocess.check_output(
+            ["sensors", "-j"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        )
+        sensors_data = json.loads(sensors_json)
+        for chip_name, chip_metrics in sensors_data.items():
+            if not isinstance(chip_metrics, dict):
+                continue
+            chip_l = str(chip_name).lower()
+            if not any(k in chip_l for k in ("k10temp", "coretemp", "cpu", "package", "fam17h", "zen")):
+                continue
+            for sensor_name, sensor_data in chip_metrics.items():
+                if "power" not in str(sensor_name).lower() or not isinstance(sensor_data, dict):
+                    continue
+                for metric_name, metric_value in sensor_data.items():
+                    metric_l = str(metric_name).lower()
+                    if "input" not in metric_l and "average" not in metric_l:
+                        continue
+                    num = _parse_first_number(metric_value)
+                    if num is not None and num > 0:
+                        return int(num)
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        pass
+
+    if best_guess > 0:
+        return best_guess
     return 0
 
 
 def _linux_get_gpu_stats():
     import glob
+
+    best_temp = 0
+    best_power = 0
+    best_load = 0
 
     for hwmon in glob.glob("/sys/class/drm/card*/device/hwmon/hwmon*"):
         temp = _read_sysfs(f"{hwmon}/temp1_input")
@@ -540,12 +814,80 @@ def _linux_get_gpu_stats():
         card_device = hwmon.split("/hwmon/")[0]
         load = _read_sysfs(f"{card_device}/gpu_busy_percent")
 
-        if temp is not None:
-            temp = temp // 1000
-        if power is not None:
-            power = power // 1_000_000
+        if temp is not None and temp > 0:
+            best_temp = max(best_temp, int(temp // 1000))
+        if power is not None and power > 0:
+            watts = int(power // 1_000_000) if power > 10_000 else int(power)
+            best_power = max(best_power, watts)
+        if load is not None and load >= 0:
+            best_load = max(best_load, int(load))
 
-        return temp or 0, power or 0, load or 0
+    if best_temp or best_power or best_load:
+        return best_temp, best_power, best_load
+
+    for hwmon in glob.glob("/sys/class/hwmon/hwmon*"):
+        name_l = (_read_text(f"{hwmon}/name") or "").lower()
+        if not any(k in name_l for k in ("amdgpu", "radeon", "nouveau", "nvidia")):
+            continue
+
+        temp = _read_sysfs(f"{hwmon}/temp1_input")
+        power = (
+            _read_sysfs(f"{hwmon}/power1_average")
+            or _read_sysfs(f"{hwmon}/power1_input")
+        )
+        if temp is not None and temp > 0:
+            best_temp = max(best_temp, int(temp // 1000))
+        if power is not None and power > 0:
+            watts = int(power // 1_000_000) if power > 10_000 else int(power)
+            best_power = max(best_power, watts)
+
+    if best_temp or best_power:
+        return best_temp, best_power, best_load
+
+    try:
+        out = subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=temperature.gpu,power.draw,utilization.gpu", "--format=csv,noheader,nounits"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        ).strip()
+        if out:
+            first = out.splitlines()[0]
+            parts = [p.strip() for p in first.split(",")]
+            temp = _parse_first_number(parts[0] if len(parts) > 0 else None)
+            power = _parse_first_number(parts[1] if len(parts) > 1 else None)
+            load = _parse_first_number(parts[2] if len(parts) > 2 else None)
+            return int(temp or 0), int(power or 0), int(load or 0)
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        pass
+
+    try:
+        out = subprocess.check_output(
+            ["rocm-smi", "--showtemp", "--showpower", "--showuse", "--json"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        )
+        data = json.loads(out)
+        temp = power = load = 0.0
+        for _, metrics in data.items():
+            if not isinstance(metrics, dict):
+                continue
+            for metric_name, metric_value in metrics.items():
+                name_l = str(metric_name).lower()
+                num = _parse_first_number(metric_value)
+                if num is None or num <= 0:
+                    continue
+                if "temp" in name_l:
+                    temp = max(temp, num)
+                elif "power" in name_l:
+                    power = max(power, num)
+                elif "use" in name_l:
+                    load = max(load, num)
+        if temp or power or load:
+            return int(temp), int(power), int(load)
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        pass
 
     return 0, 0, 0
 
