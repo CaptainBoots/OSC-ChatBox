@@ -22,6 +22,7 @@ from enum import Enum
 from typing import Optional
 import tkinter.font as font
 import os
+import site
 
 def install_if_missing(package, import_name=None):
     if import_name is None:
@@ -31,7 +32,29 @@ def install_if_missing(package, import_name=None):
         importlib.import_module(import_name)
     except ImportError:
         print(f"Installing {package}...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+        install_attempts = [
+            [sys.executable, "-m", "pip", "install", package],
+        ]
+        if sys.platform != "win32":
+            install_attempts.append([sys.executable, "-m", "pip", "install", package, "--break-system-packages"])
+            install_attempts.append([sys.executable, "-m", "pip", "install", package, "--user"])
+
+        last_error = None
+        for cmd in install_attempts:
+            try:
+                subprocess.check_call(cmd)
+                last_error = None
+                break
+            except subprocess.CalledProcessError as e:
+                last_error = e
+
+        if last_error is not None:
+            raise last_error
+
+        if sys.platform != "win32":
+            user_site = site.getusersitepackages()
+            if user_site and user_site not in sys.path:
+                sys.path.insert(0, user_site)
 
 
 install_if_missing("python-osc==1.9.3", "pythonosc")
@@ -57,7 +80,7 @@ else:
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 VERSION = "7.2.1"
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-PC.py"
 
 
 class CPUManufacturer(Enum):
@@ -71,7 +94,9 @@ cpu_manufacturer = CPUManufacturer.UNKNOWN
 print("OSC Chatbox")
 print("Made By Boots")
 
-CONFIG_FILE = "OSC-Windows/osc_config.json"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(SCRIPT_DIR, "OSC-PC", "osc_config.json")
+LEGACY_CONFIG_FILE = os.path.join(SCRIPT_DIR, "OSC-Windows", "osc_config.json")
 OSC_IP = "error"
 OSC_PORT = "error"
 INTERFACE = "error"
@@ -112,6 +137,29 @@ def normalize_progress_char(value, fallback):
     return text[0] if text else fallback
 
 
+def detect_default_interface():
+    fallback = "Ethernet" if sys.platform == "win32" else "eth0"
+    try:
+        interfaces = list(psutil.net_io_counters(pernic=True).keys())
+        if not interfaces:
+            return fallback
+
+        if sys.platform == "win32":
+            for preferred in ("Ethernet", "Wi-Fi", "WiFi"):
+                if preferred in interfaces:
+                    return preferred
+
+        for iface in interfaces:
+            lower = iface.lower()
+            if lower.startswith("lo") or "loopback" in lower:
+                continue
+            return iface
+
+        return interfaces[0]
+    except (OSError, AttributeError):
+        return fallback
+
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # CONFIG FILE
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -120,7 +168,7 @@ def get_default_config():
     return {
         "osc_ip": "127.0.0.1",
         "osc_port": 9000,
-        "interface": "Ethernet",
+        "interface": detect_default_interface(),
         "switch_interval": 20,
         "lhm_api": "http://localhost:8085/data.json",
         "location": "0,0",
@@ -140,11 +188,20 @@ def get_default_config():
 
 def load_config():
     defaults = get_default_config()
-    try:
-        with open(CONFIG_FILE, "r") as f:
-            return {**defaults, **json.load(f)}
-    except (FileNotFoundError, json.JSONDecodeError):
-        return defaults
+    for path in (CONFIG_FILE, LEGACY_CONFIG_FILE):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+
+            if path == LEGACY_CONFIG_FILE and not os.path.exists(CONFIG_FILE):
+                os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+                with open(CONFIG_FILE, "w", encoding="utf-8") as migrated:
+                    json.dump(loaded, migrated, indent=2)
+
+            return {**defaults, **loaded}
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            continue
+    return defaults
 
 
 def save_config():
@@ -168,7 +225,7 @@ def save_config():
         "progress_border_char": progress_border_char,
         "progress_empty_char": progress_empty_char,
     }
-    with open(CONFIG_FILE, "w") as f:
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2)
 
 
@@ -177,34 +234,34 @@ def reset_to_defaults():
     defaults = get_default_config()
 
     ip_entry.delete(0, tk.END)
-    ip_entry.insert(0, cfg["osc_ip"])
+    ip_entry.insert(0, defaults["osc_ip"])
 
     port_entry.delete(0, tk.END)
-    port_entry.insert(0, str(cfg["osc_port"]))
+    port_entry.insert(0, str(defaults["osc_port"]))
 
     iface_entry.delete(0, tk.END)
-    iface_entry.insert(0, cfg["interface"])
+    iface_entry.insert(0, defaults["interface"])
 
     interval_entry.delete(0, tk.END)
-    interval_entry.insert(0, str(cfg["switch_interval"]))
+    interval_entry.insert(0, str(defaults["switch_interval"]))
 
     lhm_entry.delete(0, tk.END)
-    lhm_entry.insert(0, cfg["lhm_api"])
+    lhm_entry.insert(0, defaults["lhm_api"])
 
     location_entry.delete(0, tk.END)
-    location_entry.insert(0, cfg["location"])
+    location_entry.insert(0, defaults["location"])
 
     page1_entry.delete(0, tk.END)
-    page1_entry.insert(0, cfg["page1_text"])
+    page1_entry.insert(0, defaults["page1_text"])
 
     page2_entry.delete(0, tk.END)
-    page2_entry.insert(0, cfg["page2_text"])
+    page2_entry.insert(0, defaults["page2_text"])
 
     page3_entry.delete(0, tk.END)
-    page3_entry.insert(0, cfg["page3_text"])
+    page3_entry.insert(0, defaults["page3_text"])
 
     page4_entry.delete(0, tk.END)
-    page4_entry.insert(0, cfg["page4_text"])
+    page4_entry.insert(0, defaults["page4_text"])
 
     keys = ["page1_enabled", "page2_enabled", "page3_enabled", "page4_enabled"]
     for i, cfg_key in enumerate(keys):
@@ -355,7 +412,202 @@ def _get_hardware_nodes(data):
             yield hw
 
 
+linux_gpu_id_map = {
+    "1002:7590": "Radeon RX 9060 XT",
+    "1002:7340": "Radeon RX 7900 XTX",
+    "1002:7341": "Radeon RX 7900 XT",
+    "1002:71b0": "Radeon RX 7800 XT",
+    "1002:7438": "Radeon RX 7700 XT",
+    "1002:7439": "Radeon RX 7700",
+    "1002:7540": "Radeon RX 7600",
+    "1002:7541": "Radeon RX 7600 XT",
+    "1002:73bf": "Radeon RX 6950 XT",
+    "1002:73b7": "Radeon RX 6900 XT",
+    "1002:73b8": "Radeon RX 6800",
+    "1002:73ab": "Radeon RX 6600 XT",
+    "1002:73a0": "Radeon RX 6600",
+    "1002:73a4": "Radeon RX 6500 XT",
+    "10de:2498": "GeForce RTX 4090",
+    "10de:2487": "GeForce RTX 4080",
+    "10de:2490": "GeForce RTX 4070 Ti",
+    "10de:248e": "GeForce RTX 4070",
+    "10de:2481": "GeForce RTX 4060 Ti",
+    "10de:2480": "GeForce RTX 4060",
+    "10de:2204": "GeForce RTX 3090",
+    "10de:2206": "GeForce RTX 3080 Ti",
+    "10de:1e87": "GeForce RTX 3080",
+    "10de:1e84": "GeForce RTX 3070",
+    "10de:2485": "GeForce RTX 3060 Ti",
+    "10de:2483": "GeForce RTX 3060",
+    "8086:3e92": "Intel UHD Graphics 630",
+    "8086:9bc5": "Intel Iris Xe Graphics",
+}
+
+
+def _linux_detect_gpu_pci_id():
+    try:
+        output = subprocess.check_output(
+            ["lspci", "-nn"], encoding="utf-8", stderr=subprocess.DEVNULL
+        )
+        for line in output.splitlines():
+            if "VGA" in line or "3D controller" in line:
+                match = re.search(r"\[(\w{4}:\w{4})\]", line)
+                if match:
+                    return match.group(1).lower()
+    except Exception:
+        pass
+    return None
+
+
+def _read_sysfs(path):
+    try:
+        with open(path, "r") as f:
+            return int(f.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _linux_get_cpu_temp_celsius():
+    import glob
+
+    for hwmon_dir in glob.glob("/sys/class/hwmon/hwmon*"):
+        try:
+            with open(f"{hwmon_dir}/name") as f:
+                name = f.read().strip()
+        except OSError:
+            continue
+
+        if name in ("coretemp", "k10temp"):
+            for label_path in sorted(glob.glob(f"{hwmon_dir}/temp*_label")):
+                try:
+                    with open(label_path) as f:
+                        label = f.read().strip().lower()
+                except OSError:
+                    continue
+
+                if any(k in label for k in ["package", "tctl", "tdie"]):
+                    input_path = label_path.replace("_label", "_input")
+                    raw = _read_sysfs(input_path)
+                    if raw is not None:
+                        return raw // 1000
+
+            raw = _read_sysfs(f"{hwmon_dir}/temp1_input")
+            if raw is not None:
+                return raw // 1000
+
+    return 0
+
+
+def _linux_get_cpu_power_watts():
+    import glob
+
+    rapl = "/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj"
+    if os.path.exists(rapl):
+        try:
+            with open(rapl, "r") as f:
+                e1 = int(f.read().strip())
+            time.sleep(0.2)
+            with open(rapl, "r") as f:
+                e2 = int(f.read().strip())
+            if e2 > e1:
+                return int((e2 - e1) / 0.2 / 1_000_000)
+        except (OSError, ValueError):
+            pass
+
+    for hwmon in glob.glob("/sys/class/hwmon/hwmon*"):
+        try:
+            with open(f"{hwmon}/name", "r") as f:
+                name = f.read().strip().lower()
+            if name in ("k10temp", "fam17h", "zenpower"):
+                raw = _read_sysfs(f"{hwmon}/power1_input")
+                if raw:
+                    return raw // 1_000_000
+        except OSError:
+            continue
+
+    return 0
+
+
+def _linux_get_gpu_stats():
+    import glob
+
+    for hwmon in glob.glob("/sys/class/drm/card*/device/hwmon/hwmon*"):
+        temp = _read_sysfs(f"{hwmon}/temp1_input")
+        power = (
+            _read_sysfs(f"{hwmon}/power1_average")
+            or _read_sysfs(f"{hwmon}/power1_input")
+        )
+        card_device = hwmon.split("/hwmon/")[0]
+        load = _read_sysfs(f"{card_device}/gpu_busy_percent")
+
+        if temp is not None:
+            temp = temp // 1000
+        if power is not None:
+            power = power // 1_000_000
+
+        return temp or 0, power or 0, load or 0
+
+    return 0, 0, 0
+
+
+def _linux_get_vram_usage_gb():
+    import glob
+
+    for card in glob.glob("/sys/class/drm/card*/device"):
+        total = _read_sysfs(f"{card}/mem_info_vram_total")
+        used = _read_sysfs(f"{card}/mem_info_vram_used")
+        if total is not None and used is not None and total > 0:
+            return used / (1024 ** 3), total / (1024 ** 3)
+
+    try:
+        out = subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        ).strip()
+        if out:
+            first = out.splitlines()[0]
+            used_str, total_str = [x.strip() for x in first.split(",")[:2]]
+            used_mib = float(used_str)
+            total_mib = float(total_str)
+            return used_mib / 1024, total_mib / 1024
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
+        pass
+
+    return None, None
+
+
 def diagnose_lhm():
+    if sys.platform != "win32":
+        print("[DIAGNOSTIC] Running Linux hardware diagnostics...")
+
+        cpu_t = _linux_get_cpu_temp_celsius()
+        if cpu_t:
+            print(f"[DIAGNOSTIC] ✓ CPU Temperature: {cpu_t}°C")
+        else:
+            print("[DIAGNOSTIC] ✗ CPU Temperature: not found")
+            print("[DIAGNOSTIC]   FIX: sudo apt install lm-sensors && sudo sensors-detect")
+
+        cpu_p = _linux_get_cpu_power_watts()
+        if cpu_p:
+            print(f"[DIAGNOSTIC] ✓ CPU Power: {cpu_p}W")
+        else:
+            print("[DIAGNOSTIC] ✗ CPU Power: not found")
+
+        gpu_t, gpu_p, gpu_l = _linux_get_gpu_stats()
+        if gpu_t or gpu_p or gpu_l:
+            print(f"[DIAGNOSTIC] ✓ GPU: {gpu_t}°C  {gpu_p}W  {gpu_l}% load")
+        else:
+            print("[DIAGNOSTIC] ✗ GPU stats: not found")
+
+        all_ifaces = list(psutil.net_io_counters(pernic=True).keys())
+        if INTERFACE in all_ifaces:
+            print(f"[DIAGNOSTIC] ✓ Network interface '{INTERFACE}' found")
+        else:
+            print(f"[DIAGNOSTIC] ✗ Interface '{INTERFACE}' not found. Available: {all_ifaces}")
+        return True
+
     try:
         response = requests.get(LHM_REST_API, timeout=5)
         if response.status_code == 200:
@@ -379,6 +631,17 @@ def diagnose_lhm():
 
 
 def get_lhm_data():
+    if sys.platform != "win32":
+        gpu_temp, gpu_power, gpu_load = _linux_get_gpu_stats()
+        return {
+            "cpu_temp": _linux_get_cpu_temp_celsius(),
+            "cpu_power": _linux_get_cpu_power_watts(),
+            "gpu_temp": gpu_temp,
+            "gpu_power": gpu_power,
+            "gpu_load": gpu_load,
+            "cpu_load": int(psutil.cpu_percent(interval=None)),
+        }
+
     try:
         response = requests.get(LHM_REST_API, timeout=5)
         if response.status_code == 200:
@@ -408,26 +671,43 @@ def _fmt_gb(gb: float) -> str:
 def detect_cpu():
     global cpu_manufacturer
 
+    if sys.platform == "win32":
+        try:
+            cpu_name = subprocess.check_output(
+                ["powershell", "-Command", "(Get-CimInstance Win32_Processor).Name"],
+                encoding="utf-8",
+                stderr=subprocess.DEVNULL,
+                timeout=5
+            ).strip()
+
+            clean_cpu_name = _clean_name(cpu_name)
+
+            if "intel" in cpu_name.lower():
+                cpu_manufacturer = CPUManufacturer.INTEL
+            elif "amd" in cpu_name.lower():
+                cpu_manufacturer = CPUManufacturer.AMD
+            else:
+                cpu_manufacturer = CPUManufacturer.UNKNOWN
+
+            return clean_cpu_name
+        except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
+            return "CPU Unknown"
+
     try:
-        cpu_name = subprocess.check_output(
-            ["powershell", "-Command", "(Get-CimInstance Win32_Processor).Name"],
-            encoding="utf-8",
-            stderr=subprocess.DEVNULL,
-            timeout=5
-        ).strip()
-
-        clean_cpu_name = _clean_name(cpu_name)
-
-        if "intel" in cpu_name.lower():
-            cpu_manufacturer = CPUManufacturer.INTEL
-        elif "amd" in cpu_name.lower():
-            cpu_manufacturer = CPUManufacturer.AMD
-        else:
-            cpu_manufacturer = CPUManufacturer.UNKNOWN
-
-        return clean_cpu_name
-    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
-        return "CPU Unknown"
+        with open("/proc/cpuinfo", "r") as f:
+            for line in f:
+                if line.startswith("model name"):
+                    cpu_name = line.split(":", 1)[1].strip()
+                    if "intel" in cpu_name.lower():
+                        cpu_manufacturer = CPUManufacturer.INTEL
+                    elif "amd" in cpu_name.lower():
+                        cpu_manufacturer = CPUManufacturer.AMD
+                    else:
+                        cpu_manufacturer = CPUManufacturer.UNKNOWN
+                    return _clean_name(cpu_name)
+    except (OSError, IOError):
+        pass
+    return "CPU Unknown"
 
 
 def get_cpu_temp_from_lhm(data) -> int:
@@ -504,6 +784,11 @@ def get_cpu_power_from_lhm(data) -> int:
 
 
 def get_cpu_load_from_lhm(data) -> int:
+    if sys.platform != "win32":
+        if not data:
+            return 0
+        return int(data.get("cpu_load", 0))
+
     if not data:
         return 0
 
@@ -531,23 +816,27 @@ def get_cpu_load_from_lhm(data) -> int:
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def detect_gpu():
-    try:
-        gpu_name = subprocess.check_output(
-            ["powershell", "-Command", "(Get-CimInstance Win32_VideoController).Name"],
-            encoding="utf-8",
-            stderr=subprocess.DEVNULL,
-            timeout=5
-        ).strip()
+    if sys.platform == "win32":
+        try:
+            gpu_name = subprocess.check_output(
+                ["powershell", "-Command", "(Get-CimInstance Win32_VideoController).Name"],
+                encoding="utf-8",
+                stderr=subprocess.DEVNULL,
+                timeout=5
+            ).strip()
 
-        gpu_lines = [
-            line for line in gpu_name.splitlines()
-            if "virtual desktop" not in line.lower() and "virtual monitor" not in line.lower()
-        ]
-        gpu_name = "\n".join(gpu_lines).strip()
+            gpu_lines = [
+                line for line in gpu_name.splitlines()
+                if "virtual desktop" not in line.lower() and "virtual monitor" not in line.lower()
+            ]
+            gpu_name = "\n".join(gpu_lines).strip()
 
-        return _clean_name(gpu_name)
-    except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
-        return "GPU Unknown"
+            return _clean_name(gpu_name)
+        except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
+            return "GPU Unknown"
+
+    pci_id = _linux_detect_gpu_pci_id()
+    return linux_gpu_id_map.get(pci_id, f"Unknown GPU ({pci_id})" if pci_id else "GPU Unknown")
 
 
 def get_gpu_temp_from_lhm(data) -> int:
@@ -615,6 +904,11 @@ def get_gpu_power_from_lhm(data) -> int:
 
 
 def get_gpu_load_from_lhm(data) -> int:
+    if sys.platform != "win32":
+        if not data:
+            return 0
+        return int(data.get("gpu_load", 0))
+
     if not data:
         return 0
 
@@ -651,6 +945,13 @@ def get_dram_total_from_lhm(data) -> str:
 
 
 def get_dram_used_from_lhm(data) -> float:
+    if sys.platform != "win32":
+        try:
+            used_bytes = psutil.virtual_memory().used
+            return round(used_bytes / (1024 ** 3), 1)
+        except (OSError, AttributeError):
+            return 0.0
+
     if not data:
         return 0.0
     try:
@@ -673,6 +974,12 @@ def get_dram_used_from_lhm(data) -> float:
 
 
 def get_vram_used_from_lhm(data) -> float:
+    if sys.platform != "win32":
+        used_gb, _ = _linux_get_vram_usage_gb()
+        if used_gb is None:
+            return 0.0
+        return round(used_gb, 1)
+
     if not data:
         return 0.0
     try:
@@ -696,6 +1003,12 @@ def get_vram_used_from_lhm(data) -> float:
 
 
 def get_vram_total_from_lhm(data) -> str:
+    if sys.platform != "win32":
+        _, total_gb = _linux_get_vram_usage_gb()
+        if total_gb is None:
+            return "error"
+        return _fmt_gb(total_gb)
+
     if not data:
         return "error"
     try:
@@ -733,6 +1046,16 @@ def get_vram_total_from_lhm(data) -> str:
 
 
 def parse_lhm_data(data):
+    if sys.platform != "win32":
+        if not data:
+            return 0, 0, 0, 0
+        return (
+            int(data.get("cpu_temp", 0)),
+            int(data.get("cpu_power", 0)),
+            int(data.get("gpu_temp", 0)),
+            int(data.get("gpu_power", 0)),
+        )
+
     return (
         get_cpu_temp_from_lhm(data),
         get_cpu_power_from_lhm(data),
@@ -742,6 +1065,9 @@ def parse_lhm_data(data):
 
 
 def detect_dram_type() -> str:
+    if sys.platform != "win32":
+        return "DDR"
+
     try:
         result = subprocess.check_output(
             ["powershell", "-Command",
@@ -1640,7 +1966,7 @@ def open_help():
                 "You can also check manually at any time by\n"
                 "clicking the ↑ button in the bottom bar.\n\n"
                 "When an update is applied, a backup of your\n"
-                "current script is saved as OSC-Windows.py.bak\n"
+                "current script is saved as OSC-PC.py.bak\n"
                 "in the same folder."
             )
         },
