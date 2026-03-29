@@ -383,7 +383,6 @@ def get_network_usage(prev, prev_time):
 
 def get_media_info():
     try:
-        # List all active MPRIS players
         players = subprocess.check_output(
             ["playerctl", "-l"],
             encoding="utf-8",
@@ -394,13 +393,11 @@ def get_media_info():
         if not players:
             return None, None, 0, 0
 
-        # Match any browser player (chrome, chromium, firefox) including instance suffix
         browser_player = next(
             (p for p in players if any(k in p.lower() for k in ["chrome", "chromium", "firefox"])),
             players[0]  # fallback to first player
         )
 
-        # Query metadata
         output = subprocess.check_output(
             ["playerctl", "-p", browser_player, "metadata",
              "--format", "{{title}}\n{{artist}}\n{{position}}\n{{mpris:length}}"],
