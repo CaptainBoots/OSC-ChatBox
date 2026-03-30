@@ -463,6 +463,63 @@ def get_remote_script_info() -> dict[str, str] | None:
     return None
 
 
+def check_for_face_tracking_debugger_updates(silent=False):
+    if not ensure_face_tracking_debugger_script(show_errors=not silent):
+        return False
+
+    remote_text, remote_version, remote_url = _fetch_remote_script(
+        FACE_TRACKING_DEBUGGER_SOURCE_URL,
+        timeout=10,
+    )
+    if remote_text is None:
+        if not silent:
+            messagebox.showinfo(
+                "Face Debugger Update",
+                "Could not reach GitHub to check Face Tracking Debugger updates."
+            )
+        return False
+
+    remote_version = remote_version or "0.0.0"
+
+    try:
+        with open(FACE_TRACKING_DEBUGGER_SCRIPT, "r", encoding="utf-8") as local_file:
+            local_text = local_file.read()
+    except OSError:
+        local_text = ""
+
+    local_version = _extract_version_from_source(local_text) or "0.0.0"
+
+    if _parse_version(remote_version) <= _parse_version(local_version):
+        if silent:
+            print(
+                f"[Face Debugger] Up to date ({local_version}) "
+                f"vs remote ({remote_version}) from {remote_url}"
+            )
+        return False
+
+    try:
+        with open(FACE_TRACKING_DEBUGGER_SCRIPT, "w", encoding="utf-8") as local_file:
+            local_file.write(remote_text)
+        print(
+            f"[Face Debugger] Updated from {local_version} to {remote_version} "
+            f"from {remote_url}"
+        )
+        if not silent:
+            messagebox.showinfo(
+                "Face Debugger Updated",
+                f"Face Tracking Debugger updated from {local_version} to {remote_version}."
+            )
+        return True
+    except OSError as e:
+        print(f"[Face Debugger] Failed to write update: {e}")
+        if not silent:
+            messagebox.showerror(
+                "Face Debugger Update Failed",
+                f"Could not update Face Tracking Debugger:\n{e}"
+            )
+        return False
+
+
 def perform_update(remote_text=None, source_url=None):
     try:
         if remote_text is None:
@@ -517,6 +574,7 @@ def check_for_updates(silent=False):
                 "Update Check",
                 "Could not reach GitHub.\nCheck your internet connection."
             )
+        check_for_face_tracking_debugger_updates(silent=silent)
         return
 
     remote_version = info["version"]
@@ -534,6 +592,7 @@ def check_for_updates(silent=False):
     remote_newer = _parse_version(remote_version) > _parse_version(VERSION)
     content_differs = remote_norm != local_norm
 
+    main_update_available = remote_newer or content_differs
     if remote_newer or content_differs:
         if remote_newer:
             prompt = (
@@ -552,11 +611,14 @@ def check_for_updates(silent=False):
         )
         if answer:
             perform_update(remote_text=remote_text, source_url=remote_url)
-    else:
-        if not silent:
-            messagebox.showinfo("Up to Date", f"You're on the latest version ({VERSION}).")
-        else:
-            print(f"[Updater] Up to date ({VERSION}) vs remote ({remote_version}) from {remote_url}")
+
+    if not main_update_available and silent:
+        print(f"[Updater] Up to date ({VERSION}) vs remote ({remote_version}) from {remote_url}")
+
+    face_updated = check_for_face_tracking_debugger_updates(silent=silent)
+
+    if not silent and not main_update_available and not face_updated:
+        messagebox.showinfo("Up to Date", f"You're on the latest version ({VERSION}).")
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
