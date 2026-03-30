@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.3.3"
+VERSION = "7.3.4"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-PC.py"
 LEGACY_GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
 
@@ -753,6 +753,46 @@ def _parse_first_number(value):
         return None
 
 
+def _safe_linux_probe(probe, default):
+    try:
+        return probe()
+    except Exception as e:
+        print(f"[LINUX] Probe failed for {getattr(probe, '__name__', 'probe')}: {e}")
+        return default
+
+
+def _linux_powercap_energy_files():
+    base_dir = "/sys/class/powercap"
+    energy_files = []
+
+    try:
+        entries = list(os.scandir(base_dir))
+    except OSError:
+        return energy_files
+
+    for entry in entries:
+        if not entry.is_dir(follow_symlinks=False):
+            continue
+
+        direct_energy = os.path.join(entry.path, "energy_uj")
+        if os.path.isfile(direct_energy):
+            energy_files.append(direct_energy)
+
+        try:
+            children = list(os.scandir(entry.path))
+        except OSError:
+            continue
+
+        for child in children:
+            if not child.is_dir(follow_symlinks=False):
+                continue
+            child_energy = os.path.join(child.path, "energy_uj")
+            if os.path.isfile(child_energy):
+                energy_files.append(child_energy)
+
+    return energy_files
+
+
 def _linux_get_cpu_temp_celsius():
     import glob
 
@@ -789,7 +829,7 @@ def _linux_get_cpu_power_watts():
 
     sample_interval = 0.2
 
-    energy_files = glob.glob("/sys/class/powercap/**/energy_uj", recursive=True)
+    energy_files = _linux_powercap_energy_files()
     preferred = []
     fallback = []
     for energy_file in energy_files:
@@ -1075,14 +1115,17 @@ def diagnose_lhm():
 
 def get_lhm_data():
     if sys.platform != "win32":
-        gpu_temp, gpu_power, gpu_load = _linux_get_gpu_stats()
+        gpu_temp, gpu_power, gpu_load = _safe_linux_probe(_linux_get_gpu_stats, (0, 0, 0))
+        cpu_temp = _safe_linux_probe(_linux_get_cpu_temp_celsius, 0)
+        cpu_power = _safe_linux_probe(_linux_get_cpu_power_watts, 0)
+        cpu_load = _safe_linux_probe(lambda: int(psutil.cpu_percent(interval=None)), 0)
         return {
-            "cpu_temp": _linux_get_cpu_temp_celsius(),
-            "cpu_power": _linux_get_cpu_power_watts(),
+            "cpu_temp": cpu_temp,
+            "cpu_power": cpu_power,
             "gpu_temp": gpu_temp,
             "gpu_power": gpu_power,
             "gpu_load": gpu_load,
-            "cpu_load": int(psutil.cpu_percent(interval=None)),
+            "cpu_load": cpu_load,
         }
 
     try:
@@ -1418,7 +1461,7 @@ def get_dram_used_from_lhm(data) -> float:
 
 def get_vram_used_from_lhm(data) -> float:
     if sys.platform != "win32":
-        used_gb, _ = _linux_get_vram_usage_gb()
+        used_gb, _ = _safe_linux_probe(_linux_get_vram_usage_gb, (None, None))
         if used_gb is None:
             return 0.0
         return round(used_gb, 1)
@@ -1447,7 +1490,7 @@ def get_vram_used_from_lhm(data) -> float:
 
 def get_vram_total_from_lhm(data) -> str:
     if sys.platform != "win32":
-        _, total_gb = _linux_get_vram_usage_gb()
+        _, total_gb = _safe_linux_probe(_linux_get_vram_usage_gb, (None, None))
         if total_gb is None:
             return "error"
         return _fmt_gb(total_gb)
