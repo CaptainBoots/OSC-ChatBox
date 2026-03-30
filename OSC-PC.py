@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.3.2"
+VERSION = "7.3.3"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-PC.py"
 LEGACY_GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
 
@@ -840,23 +840,31 @@ def _linux_get_cpu_power_watts():
             timeout=2,
         )
         sensors_data = json.loads(sensors_json)
-        for chip_name, chip_metrics in sensors_data.items():
-            if not isinstance(chip_metrics, dict):
-                continue
-            chip_l = str(chip_name).lower()
-            if not any(k in chip_l for k in ("k10temp", "coretemp", "cpu", "package", "fam17h", "zen")):
-                continue
-            for sensor_name, sensor_data in chip_metrics.items():
-                if "power" not in str(sensor_name).lower() or not isinstance(sensor_data, dict):
+        if isinstance(sensors_data, dict):
+            for chip_name, chip_metrics in sensors_data.items():
+                if not isinstance(chip_metrics, dict):
                     continue
-                for metric_name, metric_value in sensor_data.items():
-                    metric_l = str(metric_name).lower()
-                    if "input" not in metric_l and "average" not in metric_l:
+                chip_l = str(chip_name).lower()
+                if not any(k in chip_l for k in ("k10temp", "coretemp", "cpu", "package", "fam17h", "zen")):
+                    continue
+                for sensor_name, sensor_data in chip_metrics.items():
+                    if "power" not in str(sensor_name).lower() or not isinstance(sensor_data, dict):
                         continue
-                    num = _parse_first_number(metric_value)
-                    if num is not None and num > 0:
-                        return int(num)
-    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError):
+                    for metric_name, metric_value in sensor_data.items():
+                        metric_l = str(metric_name).lower()
+                        if "input" not in metric_l and "average" not in metric_l:
+                            continue
+                        num = _parse_first_number(metric_value)
+                        if num is not None and num > 0:
+                            return int(num)
+    except (
+        FileNotFoundError,
+        OSError,
+        UnicodeDecodeError,
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        json.JSONDecodeError,
+    ):
         pass
 
     if best_guess > 0:
@@ -924,7 +932,7 @@ def _linux_get_gpu_stats():
             power = _parse_first_number(parts[1] if len(parts) > 1 else None)
             load = _parse_first_number(parts[2] if len(parts) > 2 else None)
             return int(temp or 0), int(power or 0), int(load or 0)
-    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+    except (FileNotFoundError, OSError, UnicodeDecodeError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         pass
 
     try:
@@ -952,7 +960,17 @@ def _linux_get_gpu_stats():
                     load = max(load, num)
         if temp or power or load:
             return int(temp), int(power), int(load)
-    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError):
+    except (
+        FileNotFoundError,
+        OSError,
+        UnicodeDecodeError,
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        json.JSONDecodeError,
+        AttributeError,
+        TypeError,
+        ValueError,
+    ):
         pass
 
     return 0, 0, 0
@@ -980,7 +998,7 @@ def _linux_get_vram_usage_gb():
             used_mib = float(used_str)
             total_mib = float(total_str)
             return used_mib / 1024, total_mib / 1024
-    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
+    except (FileNotFoundError, OSError, UnicodeDecodeError, subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
         pass
 
     return None, None
@@ -990,26 +1008,43 @@ def diagnose_lhm():
     if sys.platform != "win32":
         print("[DIAGNOSTIC] Running Linux hardware diagnostics...")
 
-        cpu_t = _linux_get_cpu_temp_celsius()
+        try:
+            cpu_t = _linux_get_cpu_temp_celsius()
+        except Exception as e:
+            cpu_t = 0
+            print(f"[DIAGNOSTIC] ✗ CPU Temperature probe failed: {e}")
         if cpu_t:
             print(f"[DIAGNOSTIC] ✓ CPU Temperature: {cpu_t}°C")
         else:
             print("[DIAGNOSTIC] ✗ CPU Temperature: not found")
             print("[DIAGNOSTIC]   FIX: sudo apt install lm-sensors && sudo sensors-detect")
 
-        cpu_p = _linux_get_cpu_power_watts()
+        try:
+            cpu_p = _linux_get_cpu_power_watts()
+        except Exception as e:
+            cpu_p = 0
+            print(f"[DIAGNOSTIC] ✗ CPU Power probe failed: {e}")
         if cpu_p:
             print(f"[DIAGNOSTIC] ✓ CPU Power: {cpu_p}W")
         else:
             print("[DIAGNOSTIC] ✗ CPU Power: not found")
 
-        gpu_t, gpu_p, gpu_l = _linux_get_gpu_stats()
+        try:
+            gpu_t, gpu_p, gpu_l = _linux_get_gpu_stats()
+        except Exception as e:
+            gpu_t, gpu_p, gpu_l = 0, 0, 0
+            print(f"[DIAGNOSTIC] ✗ GPU probe failed: {e}")
         if gpu_t or gpu_p or gpu_l:
             print(f"[DIAGNOSTIC] ✓ GPU: {gpu_t}°C  {gpu_p}W  {gpu_l}% load")
         else:
             print("[DIAGNOSTIC] ✗ GPU stats: not found")
 
-        all_ifaces = list(psutil.net_io_counters(pernic=True).keys())
+        try:
+            net_io = psutil.net_io_counters(pernic=True) or {}
+            all_ifaces = list(net_io.keys())
+        except Exception as e:
+            all_ifaces = []
+            print(f"[DIAGNOSTIC] ✗ Network interfaces probe failed: {e}")
         if INTERFACE in all_ifaces:
             print(f"[DIAGNOSTIC] ✓ Network interface '{INTERFACE}' found")
         else:
