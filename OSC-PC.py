@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.3.6"
+VERSION = "7.3.7"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-PC.py"
 
 
@@ -2152,7 +2152,7 @@ def start_script():
         client = SimpleUDPClient(OSC_IP, OSC_PORT)
 
         running = True
-        status_label.config(text="Status: Running", fg="#4CFF4C")
+        status_label.config(text="Status: Running", fg=GREEN)
 
         diagnose_lhm()
 
@@ -2161,16 +2161,16 @@ def start_script():
 
     except ValueError as e:
         messagebox.showerror("Error", f"Invalid input: {e}")
-        status_label.config(text="Status: Error", fg="#FF4C4C")
+        status_label.config(text="Status: Error", fg=RED)
     except Exception as e:
         messagebox.showerror("Error", f"Failed to start: {e}")
-        status_label.config(text="Status: Error", fg="#FF4C4C")
+        status_label.config(text="Status: Error", fg=RED)
 
 
 def stop_script():
     global running
     running = False
-    status_label.config(text="Status: Stopped", fg="#FF4C4C")
+    status_label.config(text="Status: Stopped", fg=RED)
 
 
 def restart_script():
@@ -2187,7 +2187,7 @@ class CircleToggle(tk.Canvas):
 
     SIZE = 22
     PAD = 3
-    COLOR = "#FFFFFF"
+    COLOR = "#a78bfa"
 
     def __init__(self, parent, enabled=True, **kwargs):
         super().__init__(
@@ -2238,11 +2238,20 @@ progress_empty_char = normalize_progress_char(
     cfg.get("progress_empty_char"), DEFAULT_PROGRESS_EMPTY_CHAR
 )
 
-BG = "#121212"
-FG = "#E0E0E0"
-ENTRY_BG = "#1E1E1E"
-BTN_BG = "#2A2A2A"
-BTN_FG = "#FFFFFF"
+BG = "#0f0f13"
+PANEL = "#17171f"
+BORDER = "#2a2a38"
+ACCENT = "#7c5cfc"
+ACCENT2 = "#a78bfa"
+TEXT = "#e2e0f0"
+SUBTEXT = "#7e7b9a"
+GREEN = "#4ade80"
+RED = "#f87171"
+FG = TEXT
+ENTRY_BG = PANEL
+BTN_BG = PANEL
+BTN_FG = TEXT
+UI_FONT = "Consolas"
 
 ui_scale = 1.0
 scalable_widgets = []
@@ -2250,12 +2259,36 @@ square_widgets = []  # store square buttons separately
 
 root = tk.Tk()
 root.title("OSC Chatbox")
-root.geometry("450x560")
+root.geometry("560x620")
+root.minsize(520, 560)
 root.configure(bg=BG)
 root.resizable(True, True)
 
+title_bar = tk.Frame(root, bg=PANEL, pady=10)
+title_bar.pack(fill="x")
+
+header_title_label = tk.Label(
+    title_bar,
+    text="◈  OSC CHATBOX",
+    bg=PANEL,
+    fg=ACCENT2,
+    font=(UI_FONT, 13, "bold")
+)
+header_title_label.pack(side="left", padx=16)
+
+status_label = tk.Label(
+    title_bar,
+    text="Status: Stopped",
+    bg=PANEL,
+    fg=RED,
+    font=(UI_FONT, 9)
+)
+status_label.pack(side="right", padx=16)
+
+tk.Frame(root, bg=BORDER, height=1).pack(fill="x")
+
 frame = tk.Frame(root, bg=BG)
-frame.pack(fill="both", expand=True, padx=10, pady=10)
+frame.pack(fill="both", expand=True, padx=12, pady=10)
 
 
 # ── Scaling ────────────────────────────────────────────────────────────────
@@ -2273,7 +2306,7 @@ def apply_scale(scale):
     # scale normal widgets
     for widget, base_size, extras in scalable_widgets:
         try:
-            widget.configure(font=("Segoe UI", max(6, int(base_size * scale))) + extras)
+            widget.configure(font=(UI_FONT, max(6, int(base_size * scale))) + extras)
         except tk.TclError:
             pass
 
@@ -2281,7 +2314,7 @@ def apply_scale(scale):
     for container, base_size, btn in square_widgets:
         size = int(base_size * scale)
         container.config(width=size, height=size)
-        btn.config(font=("Segoe UI", max(8, int(12 * scale))))
+        btn.config(font=(UI_FONT, max(8, int(12 * scale))))
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -2301,23 +2334,38 @@ def open_settings():
 
     pages = [
         {
-            "title": "UI Scale",
+            "title": "Settings",
             "content_type": "scale",
         },
     ]
 
     current_page = [0]
 
-    title_label = tk.Label(set_win, text="", bg=BG, fg="#FFFFFF",
-                           font=("Segoe UI", 16, "bold"))
-    title_label.pack(pady=(14, 4))
+    header = tk.Frame(set_win, bg=PANEL, pady=10)
+    header.pack(fill="x")
 
-    content_frame = tk.Frame(set_win, bg=BG)
-    content_frame.pack(padx=20, fill="both", expand=True)
+    title_label = tk.Label(
+        header,
+        text="",
+        bg=PANEL,
+        fg=ACCENT2,
+        font=(UI_FONT, 12, "bold")
+    )
+    title_label.pack(side="left", padx=16)
 
-    page_indicator = tk.Label(set_win, text="", bg=BG, fg="#888888",
-                              font=("Segoe UI", 8))
-    page_indicator.pack(pady=(0, 4))
+    page_indicator = tk.Label(
+        header,
+        text="",
+        bg=PANEL,
+        fg=SUBTEXT,
+        font=(UI_FONT, 8)
+    )
+    page_indicator.pack(side="right", padx=16)
+
+    tk.Frame(set_win, bg=BORDER, height=1).pack(fill="x")
+
+    content_frame = tk.Frame(set_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+    content_frame.pack(padx=20, pady=(14, 0), fill="both", expand=True)
 
     def confirm_reset():
         if messagebox.askyesno("Reset", "Reset all settings to defaults?"):
@@ -2327,8 +2375,8 @@ def open_settings():
         for w in content_frame.winfo_children():
             w.destroy()
 
-        tk.Label(content_frame, text="UI",
-                 bg=BG, fg=FG, font=("Segoe UI", 10)).pack(pady=(20, 8))
+        tk.Label(content_frame, text="UI Scale",
+                 bg=PANEL, fg=ACCENT2, font=(UI_FONT, 10, "bold")).pack(pady=(20, 8))
 
         scale_var = tk.DoubleVar(value=ui_scale)
 
@@ -2338,9 +2386,9 @@ def open_settings():
             resolution=0.05,
             orient="horizontal",
             variable=scale_var,
-            bg=BG, fg=FG,
-            troughcolor=ENTRY_BG,
-            activebackground=BTN_BG,
+            bg=PANEL, fg=TEXT,
+            troughcolor=BORDER,
+            activebackground=ACCENT2,
             highlightthickness=0,
             sliderrelief="flat",
             length=300,
@@ -2348,52 +2396,66 @@ def open_settings():
         )
         slider.pack(pady=4)
 
-        pct_label = tk.Label(content_frame, text="", bg=BG, fg=FG,
-                             font=("Segoe UI", 9))
+        pct_label = tk.Label(content_frame, text="", bg=PANEL, fg=SUBTEXT,
+                             font=(UI_FONT, 9))
         pct_label.pack()
 
         tk.Label(content_frame, text="Config",
-                 bg=BG, fg=FG, font=("Segoe UI", 10)).pack(pady=(20, 8))
+                 bg=PANEL, fg=ACCENT2, font=(UI_FONT, 10, "bold")).pack(pady=(20, 8))
 
         tk.Button(
             content_frame,
             text="Reset to Defaults",
             bg=BTN_BG,
-            fg=BTN_FG,
+            fg=SUBTEXT,
             relief="flat",
+            activebackground=BORDER,
+            activeforeground=TEXT,
+            cursor="hand2",
+            font=(UI_FONT, 9, "bold"),
             command=confirm_reset
         ).pack(pady=(20, 5))
 
         tk.Button(
             content_frame,
             text="Update Script",
-            bg=BTN_BG,
-            fg=BTN_FG,
+            bg=ACCENT,
+            fg="#FFFFFF",
             relief="flat",
+            activebackground=ACCENT2,
+            activeforeground="#FFFFFF",
+            cursor="hand2",
+            font=(UI_FONT, 9, "bold"),
             command=lambda: check_for_updates(silent=False)
         ).pack(pady=(5, 5))
 
         tk.Label(content_frame, text="Progress Bar",
-                 bg=BG, fg=FG, font=("Segoe UI", 10)).pack(pady=(20, 8))
+                 bg=PANEL, fg=ACCENT2, font=(UI_FONT, 10, "bold")).pack(pady=(20, 8))
 
-        chars_frame = tk.Frame(content_frame, bg=BG)
+        chars_frame = tk.Frame(content_frame, bg=PANEL)
         chars_frame.pack(pady=(0, 6))
 
-        tk.Label(chars_frame, text="Filled", bg=BG, fg=FG, font=("Segoe UI", 8)).grid(row=0, column=0, padx=4)
-        tk.Label(chars_frame, text="Border", bg=BG, fg=FG, font=("Segoe UI", 8)).grid(row=0, column=1, padx=4)
-        tk.Label(chars_frame, text="Empty", bg=BG, fg=FG, font=("Segoe UI", 8)).grid(row=0, column=2, padx=4)
+        tk.Label(chars_frame, text="Filled", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)).grid(row=0, column=0, padx=4)
+        tk.Label(chars_frame, text="Border", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)).grid(row=0, column=1, padx=4)
+        tk.Label(chars_frame, text="Empty", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)).grid(row=0, column=2, padx=4)
 
         filled_char_entry = tk.Entry(
             chars_frame, width=4, justify="center",
-            bg=ENTRY_BG, fg=FG, insertbackground=FG, relief="flat"
+            bg=ENTRY_BG, fg=TEXT, insertbackground=ACCENT, relief="flat",
+            font=(UI_FONT, 9), highlightthickness=1,
+            highlightbackground=BORDER, highlightcolor=ACCENT
         )
         border_char_entry = tk.Entry(
             chars_frame, width=4, justify="center",
-            bg=ENTRY_BG, fg=FG, insertbackground=FG, relief="flat"
+            bg=ENTRY_BG, fg=TEXT, insertbackground=ACCENT, relief="flat",
+            font=(UI_FONT, 9), highlightthickness=1,
+            highlightbackground=BORDER, highlightcolor=ACCENT
         )
         empty_char_entry = tk.Entry(
             chars_frame, width=4, justify="center",
-            bg=ENTRY_BG, fg=FG, insertbackground=FG, relief="flat"
+            bg=ENTRY_BG, fg=ACCENT2, insertbackground=ACCENT, relief="flat",
+            font=(UI_FONT, 9), highlightthickness=1,
+            highlightbackground=BORDER, highlightcolor=ACCENT
         )
 
         filled_char_entry.grid(row=1, column=0, padx=4, pady=(2, 0))
@@ -2404,10 +2466,58 @@ def open_settings():
         border_char_entry.insert(0, progress_border_char)
         empty_char_entry.insert(0, progress_empty_char)
 
+        preview_frame = tk.Frame(content_frame, bg=PANEL)
+        preview_frame.pack(pady=(2, 8))
+
+        tk.Label(preview_frame, text="Preview", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)).grid(
+            row=0, column=0, columnspan=3, pady=(0, 3)
+        )
+
+        filled_preview = tk.Label(
+            preview_frame,
+            text=progress_filled_char * 6,
+            bg=BORDER,
+            fg=TEXT,
+            font=(UI_FONT, 10),
+            width=8,
+            padx=4,
+            pady=2,
+        )
+        filled_preview.grid(row=1, column=0, padx=4)
+
+        border_preview = tk.Label(
+            preview_frame,
+            text=progress_border_char * 6,
+            bg=BORDER,
+            fg=TEXT,
+            font=(UI_FONT, 10),
+            width=8,
+            padx=4,
+            pady=2,
+        )
+        border_preview.grid(row=1, column=1, padx=4)
+
+        empty_preview = tk.Label(
+            preview_frame,
+            text=progress_empty_char * 6,
+            bg=BORDER,
+            fg=ACCENT2,
+            font=(UI_FONT, 10),
+            width=8,
+            padx=4,
+            pady=2,
+        )
+        empty_preview.grid(row=1, column=2, padx=4)
+
         def set_entry_char(entry, value):
             if entry.get() != value:
                 entry.delete(0, tk.END)
                 entry.insert(0, value)
+
+        def refresh_progress_previews():
+            filled_preview.config(text=progress_filled_char * 6)
+            border_preview.config(text=progress_border_char * 6)
+            empty_preview.config(text=progress_empty_char * 6)
 
         def apply_progress_char_settings(_event=None):
             global progress_filled_char, progress_border_char, progress_empty_char
@@ -2425,6 +2535,7 @@ def open_settings():
             set_entry_char(filled_char_entry, progress_filled_char)
             set_entry_char(border_char_entry, progress_border_char)
             set_entry_char(empty_char_entry, progress_empty_char)
+            refresh_progress_previews()
             save_config()
 
         for progress_entry in (filled_char_entry, border_char_entry, empty_char_entry):
@@ -2459,6 +2570,13 @@ def open_settings():
                          command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
                                           show_page(current_page[0])))
     prev_btn.grid(row=0, column=0, sticky="w")
+    prev_btn.configure(
+        fg=SUBTEXT,
+        activebackground=BORDER,
+        activeforeground=TEXT,
+        cursor="hand2",
+        font=(UI_FONT, 9, "bold"),
+    )
 
     def next_or_finish():
         if current_page[0] < len(pages) - 1:
@@ -2470,6 +2588,14 @@ def open_settings():
     next_btn = tk.Button(nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG,
                          relief="flat", width=10, command=next_or_finish)
     next_btn.grid(row=0, column=2, sticky="e")
+    next_btn.configure(
+        bg=ACCENT,
+        fg="#FFFFFF",
+        activebackground=ACCENT2,
+        activeforeground="#FFFFFF",
+        cursor="hand2",
+        font=(UI_FONT, 9, "bold"),
+    )
 
     show_page(0)
 
@@ -2595,18 +2721,43 @@ def open_help():
 
     current_page = [0]
 
-    title_label = tk.Label(help_win, text="", bg=BG, fg="#FFFFFF",
-                           font=("Segoe UI", 16, "bold"))
-    title_label.pack(pady=(14, 4))
+    header = tk.Frame(help_win, bg=PANEL, pady=10)
+    header.pack(fill="x")
 
-    content_label = tk.Label(help_win, text="", bg=BG, fg=FG,
-                             justify="left", wraplength=400,
-                             font=("Segoe UI", 10))
-    content_label.pack(padx=20, fill="both", expand=True)
+    title_label = tk.Label(
+        header,
+        text="",
+        bg=PANEL,
+        fg=ACCENT2,
+        font=(UI_FONT, 12, "bold")
+    )
+    title_label.pack(side="left", padx=16)
 
-    page_indicator = tk.Label(help_win, text="", bg=BG, fg="#888888",
-                              font=("Segoe UI", 8))
-    page_indicator.pack(pady=(0, 4))
+    page_indicator = tk.Label(
+        header,
+        text="",
+        bg=PANEL,
+        fg=SUBTEXT,
+        font=(UI_FONT, 8)
+    )
+    page_indicator.pack(side="right", padx=16)
+
+    tk.Frame(help_win, bg=BORDER, height=1).pack(fill="x")
+
+    content_panel = tk.Frame(help_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+    content_panel.pack(padx=20, pady=(14, 0), fill="both", expand=True)
+
+    content_label = tk.Label(
+        content_panel,
+        text="",
+        bg=PANEL,
+        fg=TEXT,
+        justify="left",
+        wraplength=460,
+        anchor="nw",
+        font=(UI_FONT, 10)
+    )
+    content_label.pack(padx=14, pady=14, fill="both", expand=True)
 
     def show_page(idx):
         p = pages[idx]
@@ -2626,6 +2777,13 @@ def open_help():
                          command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
                                           show_page(current_page[0])))
     prev_btn.grid(row=0, column=0, sticky="w")
+    prev_btn.configure(
+        fg=SUBTEXT,
+        activebackground=BORDER,
+        activeforeground=TEXT,
+        cursor="hand2",
+        font=(UI_FONT, 9, "bold"),
+    )
 
     def next_or_finish():
         if current_page[0] < len(pages) - 1:
@@ -2637,6 +2795,14 @@ def open_help():
     next_btn = tk.Button(nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG,
                          relief="flat", width=10, command=next_or_finish)
     next_btn.grid(row=0, column=2, sticky="e")
+    next_btn.configure(
+        bg=ACCENT,
+        fg="#FFFFFF",
+        activebackground=ACCENT2,
+        activeforeground="#FFFFFF",
+        cursor="hand2",
+        font=(UI_FONT, 9, "bold"),
+    )
 
     show_page(0)
 
@@ -2645,20 +2811,30 @@ frame.columnconfigure(1, weight=1)
 
 
 def dark_label(text, r):
-    lbl = tk.Label(frame, text=text, bg=BG, fg=FG, anchor="w")
+    lbl = tk.Label(frame, text=text, bg=BG, fg=SUBTEXT, anchor="w", font=(UI_FONT, 9))
     lbl.grid(row=r, column=0, sticky="w", pady=4)
     return lbl
 
 
 def dark_entry(r, default=""):
-    e = tk.Entry(frame, bg=ENTRY_BG, fg=FG, insertbackground=FG, relief="flat")
+    e = tk.Entry(
+        frame,
+        bg=ENTRY_BG,
+        fg=TEXT,
+        insertbackground=ACCENT,
+        relief="flat",
+        font=(UI_FONT, 9),
+        highlightthickness=1,
+        highlightbackground=BORDER,
+        highlightcolor=ACCENT,
+    )
     e.insert(0, default)
     e.grid(row=r, column=1, pady=4, sticky="ew")
     return e
 
 
 def square_button(parent, text, command, base_size=32):
-    container = tk.Frame(parent, bg=BTN_BG)
+    container = tk.Frame(parent, bg=BTN_BG, highlightthickness=1, highlightbackground=BORDER)
     container.pack_propagate(False)
 
     btn = tk.Button(
@@ -2666,10 +2842,13 @@ def square_button(parent, text, command, base_size=32):
         text=text,
         command=command,
         bg=BTN_BG,
-        fg="#FFFFFF",
+        fg=SUBTEXT,
         relief="flat",
         borderwidth=0,
-        font=("Segoe UI", 12)
+        font=(UI_FONT, 12),
+        activebackground=BORDER,
+        activeforeground=TEXT,
+        cursor="hand2",
     )
     btn.pack(fill="both", expand=True)
 
@@ -2682,7 +2861,13 @@ def square_button(parent, text, command, base_size=32):
 frame.columnconfigure(1, weight=1)
 
 # ── Data Config ────────────────────────────────────────────────────────────
-tk.Label(frame, text="Data config", bg=BG, fg="#FFFFFF").grid(row=0, column=0, columnspan=2)
+tk.Label(
+    frame,
+    text="Data Config",
+    bg=BG,
+    fg=ACCENT2,
+    font=(UI_FONT, 11, "bold"),
+).grid(row=0, column=0, columnspan=2, pady=(2, 6))
 
 dark_label("OSC IP", 1)
 ip_entry = dark_entry(1, cfg["osc_ip"])
@@ -2703,7 +2888,13 @@ dark_label("Location (lat,lon)", 6)
 location_entry = dark_entry(6, cfg["location"])
 
 # ── Page Text ──────────────────────────────────────────────────────────────
-tk.Label(frame, text="Page Text", bg=BG, fg="#FFFFFF").grid(row=7, column=0, columnspan=2)
+tk.Label(
+    frame,
+    text="Page Text",
+    bg=BG,
+    fg=ACCENT2,
+    font=(UI_FONT, 11, "bold"),
+).grid(row=7, column=0, columnspan=2, pady=(8, 6))
 
 dark_label("Page 1 Text", 8)
 page1_entry = dark_entry(8, cfg["page1_text"])
@@ -2735,14 +2926,14 @@ for col, (name, num, key) in enumerate(zip(PAGE_NAMES, PAGE_NUMBERS, PAGE_ENABLE
     cell = tk.Frame(toggle_inner, bg=BG)
     cell.grid(row=0, column=col, padx=18)
 
-    name_lbl = tk.Label(cell, text=name, bg=BG, fg=FG, font=("Segoe UI", 8))
+    name_lbl = tk.Label(cell, text=name, bg=BG, fg=SUBTEXT, font=(UI_FONT, 8))
     name_lbl.pack()
     scalable_widgets.append((name_lbl, 8, ()))
 
     tog = CircleToggle(cell, enabled=bool(cfg.get(key, True)))
     tog.pack()
 
-    num_lbl = tk.Label(cell, text=num, bg=BG, fg=FG, font=("Segoe UI", 8))
+    num_lbl = tk.Label(cell, text=num, bg=BG, fg=ACCENT2, font=(UI_FONT, 8, "bold"))
     num_lbl.pack()
     scalable_widgets.append((num_lbl, 8, ()))
 
@@ -2756,18 +2947,46 @@ button_frame.columnconfigure(0, weight=1)
 button_frame.columnconfigure(1, weight=1)
 button_frame.columnconfigure(2, weight=1)
 
-tk.Button(button_frame, text="Start", command=start_script,
-          bg=BTN_BG, fg=BTN_FG, relief="flat").grid(row=0, column=0, sticky="ew", padx=2)
+tk.Button(
+    button_frame,
+    text="Start",
+    command=start_script,
+    bg=ACCENT,
+    fg="#FFFFFF",
+    relief="flat",
+    activebackground=ACCENT2,
+    activeforeground="#FFFFFF",
+    cursor="hand2",
+    font=(UI_FONT, 9, "bold"),
+).grid(row=0, column=0, sticky="ew", padx=2)
 
-tk.Button(button_frame, text="Stop", command=stop_script,
-          bg=BTN_BG, fg=BTN_FG, relief="flat").grid(row=0, column=1, sticky="ew", padx=2)
+tk.Button(
+    button_frame,
+    text="Stop",
+    command=stop_script,
+    bg=BTN_BG,
+    fg=SUBTEXT,
+    relief="flat",
+    activebackground=BORDER,
+    activeforeground=TEXT,
+    cursor="hand2",
+    font=(UI_FONT, 9, "bold"),
+).grid(row=0, column=1, sticky="ew", padx=2)
 
-tk.Button(button_frame, text="Restart", command=restart_script,
-          bg=BTN_BG, fg=BTN_FG, relief="flat").grid(row=0, column=2, sticky="ew", padx=2)
+tk.Button(
+    button_frame,
+    text="Restart",
+    command=restart_script,
+    bg=BTN_BG,
+    fg=SUBTEXT,
+    relief="flat",
+    activebackground=BORDER,
+    activeforeground=TEXT,
+    cursor="hand2",
+    font=(UI_FONT, 9, "bold"),
+).grid(row=0, column=2, sticky="ew", padx=2)
 
 # ── Status + Square Buttons ────────────────────────────────────────────────
-status_label = tk.Label(frame, text="Status: Stopped", bg=BG, fg="#FF4C4C")
-status_label.grid(row=15, column=0, columnspan=2)
 
 help_btn = square_button(frame, "？", open_help)
 help_btn.grid(row=15, column=0, sticky="w", padx=2)
