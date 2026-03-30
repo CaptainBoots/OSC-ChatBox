@@ -1,8 +1,8 @@
 """
 Legacy compatibility shim.
 
-This file exists so older builds that still fetch `OSC-Windows.py`
-are redirected to the new `OSC-PC.py` script.
+This file exists so older builds that still fetch the legacy entry script
+are redirected to the `OSC-PC.py` script.
 """
 
 import os
