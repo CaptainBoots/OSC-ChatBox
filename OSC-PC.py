@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.3.4"
+VERSION = "7.3.5"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-PC.py"
 LEGACY_GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
 
@@ -525,6 +525,7 @@ linux_gpu_id_map = {
     "10de:2460": "GeForce RTX 3080 Laptop",
     "10de:24b9": "GeForce RTX 3070 Ti Laptop",
     "10de:24dd": "GeForce RTX 3070 Laptop",
+    "10de:249d": "GeForce RTX 3070 Laptop GPU",
     "10de:2520": "GeForce RTX 3060 Laptop",
     "10de:25a0": "GeForce RTX 3050 Ti Laptop",
     "10de:25a2": "GeForce RTX 3050 Laptop",
@@ -723,6 +724,49 @@ def _linux_detect_gpu_pci_id():
     return None
 
 
+def _linux_detect_gpu_name():
+    import glob
+
+    for proc_gpu_info in glob.glob("/proc/driver/nvidia/gpus/*/information"):
+        try:
+            with open(proc_gpu_info, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.lower().startswith("model:"):
+                        return line.split(":", 1)[1].strip()
+        except OSError:
+            continue
+
+    try:
+        output = subprocess.check_output(
+            ["lspci", "-nn"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        )
+        intel_name = None
+        for line in output.splitlines():
+            if "VGA" not in line and "3D controller" not in line:
+                continue
+
+            match = re.search(r":\s(.+?)\s\[[0-9a-fA-F]{4}:[0-9a-fA-F]{4}\](?:\s\(rev .+\))?$", line)
+            if not match:
+                continue
+
+            gpu_name = match.group(1).strip()
+            gpu_name = re.sub(
+                r"^(NVIDIA Corporation|Intel Corporation|Advanced Micro Devices, Inc\. \[AMD/ATI\])\s+",
+                "",
+                gpu_name,
+            )
+            if "[8086:" in line:
+                intel_name = gpu_name
+            else:
+                return gpu_name
+        return intel_name
+    except Exception:
+        return None
+
+
 def _read_sysfs(path):
     try:
         with open(path, "r") as f:
@@ -771,7 +815,7 @@ def _linux_powercap_energy_files():
         return energy_files
 
     for entry in entries:
-        if not entry.is_dir(follow_symlinks=False):
+        if not entry.is_dir(follow_symlinks=True):
             continue
 
         direct_energy = os.path.join(entry.path, "energy_uj")
@@ -784,7 +828,7 @@ def _linux_powercap_energy_files():
             continue
 
         for child in children:
-            if not child.is_dir(follow_symlinks=False):
+            if not child.is_dir(follow_symlinks=True):
                 continue
             child_energy = os.path.join(child.path, "energy_uj")
             if os.path.isfile(child_energy):
@@ -1322,7 +1366,14 @@ def detect_gpu():
             return "GPU Unknown"
 
     pci_id = _linux_detect_gpu_pci_id()
-    return linux_gpu_id_map.get(pci_id, f"Unknown GPU ({pci_id})" if pci_id else "GPU Unknown")
+    if pci_id in linux_gpu_id_map:
+        return linux_gpu_id_map[pci_id]
+
+    gpu_name = _linux_detect_gpu_name()
+    if gpu_name:
+        return _clean_name(gpu_name)
+
+    return f"Unknown GPU ({pci_id})" if pci_id else "GPU Unknown"
 
 
 def get_gpu_temp_from_lhm(data) -> int:
@@ -1816,7 +1867,7 @@ def clean_title(raw_title):
 
 def create_progress_bar(position_ms, duration_ms, length=15):
     if duration_ms <= 0:
-        return "No music playing︎"
+        return "No music playing"
     percent = min(max(position_ms / duration_ms, 0), 1)
     filled_len = int(length * percent)
     if 0 < filled_len < length:
@@ -1826,6 +1877,19 @@ def create_progress_bar(position_ms, duration_ms, length=15):
             + progress_empty_char * (length - filled_len - 1)
         )
     return progress_filled_char * filled_len + progress_empty_char * (length - filled_len)
+
+
+def format_telemetry(value, suffix=""):
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "N/A"
+
+    if numeric <= 0:
+        return "N/A"
+    if numeric.is_integer():
+        return f"{int(numeric)}{suffix}"
+    return f"{numeric:.1f}{suffix}"
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -1905,6 +1969,10 @@ def run_osc_loop():
 
             cur_time_str = time.strftime("%I:%M %p")
             progress_bar = create_progress_bar(pos, dur)
+            cpu_power_text = format_telemetry(cpu_wattage, "w")
+            cpu_temp_text = format_telemetry(cpu_temp, "℃")
+            gpu_power_text = format_telemetry(gpu_wattage, "w")
+            gpu_temp_text = format_telemetry(gpu_temp, "℃")
 
             if clean_song:
                 if is_paused:
@@ -1914,8 +1982,12 @@ def run_osc_loop():
                     display_artist = f"- {artist}" if artist else ""
                     display_song = f"🎵 {clean_song}" if clean_song else ""
             else:
-                display_artist = "⏸"
-                display_song = ""
+                display_artist = ""
+                display_song = "⏸"
+
+            media_line = display_song
+            if display_artist:
+                media_line = f"{media_line} {display_artist}" if media_line else display_artist
 
             enabled_pages = [i for i in range(4) if page_toggles[i].get()]
             if not enabled_pages:
@@ -1941,16 +2013,16 @@ def run_osc_loop():
                         f"Download {fmt(down_raw)}\n"
                         f"Upload {fmt(up_raw)}\n"
                         f"{progress_bar}\n"
-                        f"{display_song} {display_artist}"
+                        f"{media_line}"
                     )
                 elif page_index == 1:
                     text = (
                         f"{page2_line1_text}\n"
                         f"{cur_time_str}\n"
                         f"{cpu_detect} {cpu_load}%\n"
-                        f"{cpu_wattage}w {cpu_temp}℃\n"
+                        f"{cpu_power_text} {cpu_temp_text}\n"
                         f"{gpu_detect} {gpu_load}%\n"
-                        f"{gpu_wattage}w {gpu_temp}℃\n"
+                        f"{gpu_power_text} {gpu_temp_text}\n"
                     )
                 elif page_index == 2:
                     text = (
@@ -1959,7 +2031,7 @@ def run_osc_loop():
                         f"{dram} {dram_load}GB/{dram_detect}GB\n"
                         f"{vram} {vram_load}GB/{vram_detect}GB\n"
                         f"{progress_bar}\n"
-                        f"{display_song} {display_artist}"
+                        f"{media_line}"
                     )
                 elif page_index == 3:
                     text = (
@@ -1968,7 +2040,7 @@ def run_osc_loop():
                         f"{weather_temp}℃  {weather_humidity}% humidity\n"
                         f"{weather_desc}\n"
                         f"{progress_bar}\n"
-                        f"{display_song} {display_artist}"
+                        f"{media_line}"
                     )
                 else:
                     text = f"{error_text}"
