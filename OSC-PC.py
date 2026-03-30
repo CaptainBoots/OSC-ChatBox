@@ -81,7 +81,6 @@ else:
 
 VERSION = "7.3.5"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-PC.py"
-LEGACY_GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Windows.py"
 
 
 class CPUManufacturer(Enum):
@@ -96,8 +95,8 @@ print("OSC Chatbox")
 print("Made By Boots")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_FILE = os.path.join(SCRIPT_DIR, "OSC-PC", "osc_config.json")
-LEGACY_CONFIG_FILE = os.path.join(SCRIPT_DIR, "OSC-Windows", "osc_config.json")
+CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-PC")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "osc_config.json")
 OSC_IP = "error"
 OSC_PORT = "error"
 INTERFACE = "error"
@@ -128,9 +127,9 @@ page_toggles = []
 DEFAULT_PROGRESS_FILLED_CHAR = "\u2592"
 DEFAULT_PROGRESS_BORDER_CHAR = "\u2593"
 DEFAULT_PROGRESS_EMPTY_CHAR = "\u2591"
-progress_filled_char = DEFAULT_PROGRESS_FILLED_CHAR
-progress_border_char = DEFAULT_PROGRESS_BORDER_CHAR
-progress_empty_char = DEFAULT_PROGRESS_EMPTY_CHAR
+progress_filled_char: str
+progress_border_char: str
+progress_empty_char: str
 
 
 def normalize_progress_char(value, fallback):
@@ -187,14 +186,72 @@ def get_default_config():
     }
 
 
+def _legacy_config_dirs():
+    legacy_dirs = []
+    current_config_dir_name = os.path.basename(CONFIG_DIR)
+    try:
+        for entry in os.scandir(SCRIPT_DIR):
+            if not entry.is_dir():
+                continue
+            if entry.name == current_config_dir_name or not entry.name.startswith("OSC-"):
+                continue
+            if os.path.isfile(os.path.join(entry.path, "osc_config.json")):
+                legacy_dirs.append(entry.path)
+    except OSError:
+        return []
+    legacy_dirs.sort()
+    return legacy_dirs
+
+
+def migrate_legacy_config_directory():
+    if os.path.isdir(CONFIG_DIR):
+        return
+
+    legacy_dirs = _legacy_config_dirs()
+    if not legacy_dirs:
+        return
+
+    legacy_dir = legacy_dirs[0]
+    try:
+        os.rename(legacy_dir, CONFIG_DIR)
+        print(
+            f"[Config] Migrated config directory: "
+            f"{os.path.basename(legacy_dir)} -> {os.path.basename(CONFIG_DIR)}"
+        )
+        return
+    except OSError:
+        pass
+
+    legacy_config_file = os.path.join(legacy_dir, "osc_config.json")
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+        with open(legacy_config_file, "r", encoding="utf-8") as src:
+            with open(CONFIG_FILE, "w", encoding="utf-8") as dst:
+                dst.write(src.read())
+        print(
+            f"[Config] Copied legacy config into {os.path.basename(CONFIG_DIR)} "
+            f"from {os.path.basename(legacy_dir)}"
+        )
+    except OSError:
+        pass
+
+
 def load_config():
     defaults = get_default_config()
-    for path in (CONFIG_FILE, LEGACY_CONFIG_FILE):
+    migrate_legacy_config_directory()
+
+    candidate_paths = [CONFIG_FILE]
+    for legacy_dir in _legacy_config_dirs():
+        candidate = os.path.join(legacy_dir, "osc_config.json")
+        if candidate not in candidate_paths:
+            candidate_paths.append(candidate)
+
+    for path in candidate_paths:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 loaded = json.load(f)
 
-            if path == LEGACY_CONFIG_FILE and not os.path.exists(CONFIG_FILE):
+            if path != CONFIG_FILE and not os.path.exists(CONFIG_FILE):
                 os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
                 with open(CONFIG_FILE, "w", encoding="utf-8") as migrated:
                     json.dump(loaded, migrated, indent=2)
@@ -299,7 +356,7 @@ def _extract_version_from_source(source_text: str) -> str | None:
     return None
 
 
-def _fetch_remote_script(url: str, timeout: int = 10):
+def _fetch_remote_script(url: str, timeout: int = 10) -> tuple[str | None, str | None, str | None]:
     try:
         resp = requests.get(
             url,
@@ -309,14 +366,14 @@ def _fetch_remote_script(url: str, timeout: int = 10):
         )
         resp.raise_for_status()
         return resp.text, _extract_version_from_source(resp.text), url
-    except Exception:
+    except requests.RequestException:
         return None, None, None
 
 
-def get_remote_script_info():
-    urls = [GITHUB_RAW_URL, LEGACY_GITHUB_RAW_URL]
+def get_remote_script_info() -> dict[str, str] | None:
+    urls = [GITHUB_RAW_URL]
     errors = []
-    best = None
+    best: dict[str, str] | None = None
 
     for url in urls:
         text, remote_version, used_url = _fetch_remote_script(url, timeout=10)
@@ -324,12 +381,16 @@ def get_remote_script_info():
             errors.append(url)
             continue
 
-        info = {
+        info: dict[str, str] = {
             "text": text,
             "version": remote_version or "0.0.0",
             "url": used_url or url,
         }
-        if best is None or _parse_version(info["version"]) > _parse_version(best["version"]):
+        if best is None:
+            best = info
+            continue
+        current_best_version = best["version"] if best is not None else "0.0.0"
+        if _parse_version(info["version"]) > _parse_version(current_best_version):
             best = info
 
     if best is not None:
@@ -611,7 +672,6 @@ linux_gpu_id_map = {
     "1002:7424": "Radeon RX 7600 XT",
     "1002:7466": "Radeon RX 7600M Laptop",
     "1002:7474": "Radeon RX 7600S Laptop",
-    "1002:743f": "Radeon RX 7700S Laptop",
 
     # ══════════════════════════════════════════════════════════════
     # AMD — RX 6000 series (RDNA 2)
@@ -711,7 +771,7 @@ def _linux_detect_gpu_pci_id():
         intel_id = None
         for line in output.splitlines():
             if "VGA" in line or "3D controller" in line:
-                match = re.search(r"\[(\w{4}:\w{4})\]", line)
+                match = re.search(r"\[(\w{4}:\w{4})]", line)
                 if match:
                     pci_id = match.group(1).lower()
                     if pci_id.startswith("8086"):
@@ -719,7 +779,7 @@ def _linux_detect_gpu_pci_id():
                     else:
                         return pci_id
         return intel_id
-    except Exception:
+    except (OSError, subprocess.CalledProcessError, UnicodeDecodeError):
         pass
     return None
 
@@ -748,13 +808,13 @@ def _linux_detect_gpu_name():
             if "VGA" not in line and "3D controller" not in line:
                 continue
 
-            match = re.search(r":\s(.+?)\s\[[0-9a-fA-F]{4}:[0-9a-fA-F]{4}\](?:\s\(rev .+\))?$", line)
+            match = re.search(r":\s(.+?)\s\[[0-9a-fA-F]{4}:[0-9a-fA-F]{4}](?:\s\(rev .+\))?$", line)
             if not match:
                 continue
 
             gpu_name = match.group(1).strip()
             gpu_name = re.sub(
-                r"^(NVIDIA Corporation|Intel Corporation|Advanced Micro Devices, Inc\. \[AMD/ATI\])\s+",
+                r"^(NVIDIA Corporation|Intel Corporation|Advanced Micro Devices, Inc\. \[AMD/ATI])\s+",
                 "",
                 gpu_name,
             )
@@ -763,7 +823,7 @@ def _linux_detect_gpu_name():
             else:
                 return gpu_name
         return intel_name
-    except Exception:
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired, UnicodeDecodeError):
         return None
 
 
@@ -843,11 +903,11 @@ def _linux_get_cpu_temp_celsius():
     for hwmon_dir in glob.glob("/sys/class/hwmon/hwmon*"):
         try:
             with open(f"{hwmon_dir}/name") as f:
-                name = f.read().strip()
+                chip_name = f.read().strip()
         except OSError:
             continue
 
-        if name in ("coretemp", "k10temp"):
+        if chip_name in ("coretemp", "k10temp"):
             for label_path in sorted(glob.glob(f"{hwmon_dir}/temp*_label")):
                 try:
                     with open(label_path) as f:
@@ -877,9 +937,9 @@ def _linux_get_cpu_power_watts():
     preferred = []
     fallback = []
     for energy_file in energy_files:
-        name = _read_text(os.path.join(os.path.dirname(energy_file), "name"))
-        name_l = (name or "").lower()
-        if any(k in name_l for k in ("package", "cpu", "core", "amd", "intel")):
+        sensor_name = _read_text(os.path.join(os.path.dirname(energy_file), "name"))
+        sensor_name_l = (sensor_name or "").lower()
+        if any(k in sensor_name_l for k in ("package", "cpu", "core", "amd", "intel")):
             preferred.append(energy_file)
         else:
             fallback.append(energy_file)
@@ -938,9 +998,9 @@ def _linux_get_cpu_power_watts():
                         metric_l = str(metric_name).lower()
                         if "input" not in metric_l and "average" not in metric_l:
                             continue
-                        num = _parse_first_number(metric_value)
-                        if num is not None and num > 0:
-                            return int(num)
+                        value_num = _parse_first_number(metric_value)
+                        if value_num is not None and value_num > 0:
+                            return int(value_num)
     except (
         FileNotFoundError,
         OSError,
@@ -1033,15 +1093,15 @@ def _linux_get_gpu_stats():
                 continue
             for metric_name, metric_value in metrics.items():
                 name_l = str(metric_name).lower()
-                num = _parse_first_number(metric_value)
-                if num is None or num <= 0:
+                value_num = _parse_first_number(metric_value)
+                if value_num is None or value_num <= 0:
                     continue
                 if "temp" in name_l:
-                    temp = max(temp, num)
+                    temp = max(temp, value_num)
                 elif "power" in name_l:
-                    power = max(power, num)
+                    power = max(power, value_num)
                 elif "use" in name_l:
-                    load = max(load, num)
+                    load = max(load, value_num)
         if temp or power or load:
             return int(temp), int(power), int(load)
     except (
@@ -1159,17 +1219,17 @@ def diagnose_lhm():
 
 def get_lhm_data():
     if sys.platform != "win32":
-        gpu_temp, gpu_power, gpu_load = _safe_linux_probe(_linux_get_gpu_stats, (0, 0, 0))
-        cpu_temp = _safe_linux_probe(_linux_get_cpu_temp_celsius, 0)
-        cpu_power = _safe_linux_probe(_linux_get_cpu_power_watts, 0)
-        cpu_load = _safe_linux_probe(lambda: int(psutil.cpu_percent(interval=None)), 0)
+        gpu_temp_value, gpu_power_value, gpu_load_value = _safe_linux_probe(_linux_get_gpu_stats, (0, 0, 0))
+        cpu_temp_value = _safe_linux_probe(_linux_get_cpu_temp_celsius, 0)
+        cpu_power_value = _safe_linux_probe(_linux_get_cpu_power_watts, 0)
+        cpu_load_value = _safe_linux_probe(lambda: int(psutil.cpu_percent(interval=None)), 0)
         return {
-            "cpu_temp": cpu_temp,
-            "cpu_power": cpu_power,
-            "gpu_temp": gpu_temp,
-            "gpu_power": gpu_power,
-            "gpu_load": gpu_load,
-            "cpu_load": cpu_load,
+            "cpu_temp": cpu_temp_value,
+            "cpu_power": cpu_power_value,
+            "gpu_temp": gpu_temp_value,
+            "gpu_power": gpu_power_value,
+            "gpu_load": gpu_load_value,
+            "cpu_load": cpu_load_value,
         }
 
     try:
@@ -1789,6 +1849,8 @@ async def get_media_info():
                         playback.playback_status ==
                         wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PAUSED
                 )
+                if props is None:
+                    return None, None, pos, dur, is_paused
                 return props.title, props.artist, pos, dur, is_paused
         except (OSError, AttributeError, RuntimeError):
             pass
@@ -2001,7 +2063,8 @@ def run_osc_loop():
                 continue
 
             enabled_count = len(enabled_pages)
-            page_slot = int((time.time() // SWITCH_INTERVAL) % enabled_count)
+            switch_interval = max(1, int(SWITCH_INTERVAL))
+            page_slot = int((time.time() // switch_interval) % enabled_count)
             page_index = enabled_pages[page_slot]
 
             if forced_text.get().strip() == "":
@@ -2714,11 +2777,10 @@ settings_btn = square_button(frame, "⚙", open_settings)
 settings_btn.grid(row=15, column=1, sticky="e", padx=2)
 
 # ── Startup update check ───────────────────────────────────────────────────
-def run_startup_update_check(*_args):
+def run_startup_update_check(_unused=None):
     check_for_updates(silent=True)
 
 
-# noinspection PyArgumentList
-root.after(2000, run_startup_update_check)
+root.after(2000, run_startup_update_check, None)
 
 root.mainloop()
