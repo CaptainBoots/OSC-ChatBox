@@ -95,9 +95,14 @@ print("OSC Chatbox")
 print("Made By Boots")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-FACE_TRACKING_DEBUGGER_SCRIPT = os.path.join(SCRIPT_DIR, "OSC-FaceTrackingDebuger.py")
 CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-PC")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "osc_config.json")
+FACE_TRACKING_DEBUGGER_NAME = "OSC-FaceTrackingDebuger.py"
+FACE_TRACKING_DEBUGGER_SOURCE_URL = (
+    "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-FaceTrackingDebuger.py"
+)
+FACE_TRACKING_DEBUGGER_BUNDLED_SCRIPT = os.path.join(SCRIPT_DIR, FACE_TRACKING_DEBUGGER_NAME)
+FACE_TRACKING_DEBUGGER_SCRIPT = os.path.join(CONFIG_DIR, FACE_TRACKING_DEBUGGER_NAME)
 OSC_IP = "error"
 OSC_PORT = "error"
 INTERFACE = "error"
@@ -287,6 +292,62 @@ def save_config():
     }
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2)
+
+
+def ensure_face_tracking_debugger_script(show_errors=False):
+    if os.path.isfile(FACE_TRACKING_DEBUGGER_SCRIPT):
+        return True
+
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+    except OSError as e:
+        print(f"[Face Debugger] Could not create config directory: {e}")
+        if show_errors:
+            messagebox.showerror("Face Debugger Error", f"Could not create config directory:\n{e}")
+        return False
+
+    remote_text = None
+    try:
+        response = requests.get(
+            FACE_TRACKING_DEBUGGER_SOURCE_URL,
+            timeout=10,
+            params={"_": int(time.time())},
+            headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
+        )
+        response.raise_for_status()
+        remote_text = response.text
+    except requests.RequestException as e:
+        print(f"[Face Debugger] Download failed: {e}")
+
+    if remote_text:
+        try:
+            with open(FACE_TRACKING_DEBUGGER_SCRIPT, "w", encoding="utf-8") as f:
+                f.write(remote_text)
+            print(f"[Face Debugger] Downloaded to {FACE_TRACKING_DEBUGGER_SCRIPT}")
+            return True
+        except OSError as e:
+            print(f"[Face Debugger] Could not save downloaded script: {e}")
+
+    if os.path.isfile(FACE_TRACKING_DEBUGGER_BUNDLED_SCRIPT):
+        try:
+            with open(FACE_TRACKING_DEBUGGER_BUNDLED_SCRIPT, "r", encoding="utf-8") as src:
+                with open(FACE_TRACKING_DEBUGGER_SCRIPT, "w", encoding="utf-8") as dst:
+                    dst.write(src.read())
+            print(
+                "[Face Debugger] Using bundled fallback copy "
+                f"from {FACE_TRACKING_DEBUGGER_BUNDLED_SCRIPT}"
+            )
+            return True
+        except OSError as e:
+            print(f"[Face Debugger] Could not copy bundled fallback: {e}")
+
+    if show_errors:
+        messagebox.showerror(
+            "Face Debugger Error",
+            "Could not download Face Tracking Debugger.\n"
+            "Check your internet connection and try again.",
+        )
+    return False
 
 
 def reset_to_defaults():
@@ -2184,11 +2245,7 @@ def restart_script():
 def start_face_tracking_debugger():
     global face_tracking_debugger_process
 
-    if not os.path.isfile(FACE_TRACKING_DEBUGGER_SCRIPT):
-        messagebox.showerror(
-            "Face Debugger Missing",
-            f"Could not find:\n{FACE_TRACKING_DEBUGGER_SCRIPT}",
-        )
+    if not ensure_face_tracking_debugger_script(show_errors=True):
         return
 
     if face_tracking_debugger_process is not None and face_tracking_debugger_process.poll() is None:
@@ -2198,7 +2255,7 @@ def start_face_tracking_debugger():
     try:
         face_tracking_debugger_process = subprocess.Popen(
             [sys.executable, FACE_TRACKING_DEBUGGER_SCRIPT],
-            cwd=SCRIPT_DIR,
+            cwd=CONFIG_DIR,
         )
     except Exception as e:
         face_tracking_debugger_process = None
@@ -2254,6 +2311,7 @@ class CircleToggle(tk.Canvas):
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 cfg = load_config()
+ensure_face_tracking_debugger_script(show_errors=False)
 progress_filled_char = normalize_progress_char(
     cfg.get("progress_filled_char"), DEFAULT_PROGRESS_FILLED_CHAR
 )
