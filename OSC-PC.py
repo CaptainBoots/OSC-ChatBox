@@ -95,6 +95,7 @@ print("OSC Chatbox")
 print("Made By Boots")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+FACE_TRACKING_DEBUGGER_SCRIPT = os.path.join(SCRIPT_DIR, "OSC-FaceTrackingDebuger.py")
 CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-PC")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "osc_config.json")
 OSC_IP = "error"
@@ -105,6 +106,7 @@ LHM_REST_API = "error"
 
 client: Optional[SimpleUDPClient] = None
 running = False
+face_tracking_debugger_process = None
 
 page1_line1_text = "error"
 page2_line1_text = "error"
@@ -2179,6 +2181,30 @@ def restart_script():
     start_script()
 
 
+def start_face_tracking_debugger():
+    global face_tracking_debugger_process
+
+    if not os.path.isfile(FACE_TRACKING_DEBUGGER_SCRIPT):
+        messagebox.showerror(
+            "Face Debugger Missing",
+            f"Could not find:\n{FACE_TRACKING_DEBUGGER_SCRIPT}",
+        )
+        return
+
+    if face_tracking_debugger_process is not None and face_tracking_debugger_process.poll() is None:
+        messagebox.showinfo("Face Debugger", "Face Tracking Debugger is already running.")
+        return
+
+    try:
+        face_tracking_debugger_process = subprocess.Popen(
+            [sys.executable, FACE_TRACKING_DEBUGGER_SCRIPT],
+            cwd=SCRIPT_DIR,
+        )
+    except Exception as e:
+        face_tracking_debugger_process = None
+        messagebox.showerror("Face Debugger Error", f"Failed to start Face Tracking Debugger:\n{e}")
+
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # CIRCLE TOGGLE WIDGET
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -2946,6 +2972,7 @@ button_frame.grid(row=14, column=0, columnspan=2, pady=15, sticky="ew")
 button_frame.columnconfigure(0, weight=1)
 button_frame.columnconfigure(1, weight=1)
 button_frame.columnconfigure(2, weight=1)
+button_frame.columnconfigure(3, weight=1)
 
 tk.Button(
     button_frame,
@@ -2985,6 +3012,19 @@ tk.Button(
     cursor="hand2",
     font=(UI_FONT, 9, "bold"),
 ).grid(row=0, column=2, sticky="ew", padx=2)
+
+tk.Button(
+    button_frame,
+    text="Face Debug",
+    command=start_face_tracking_debugger,
+    bg=BTN_BG,
+    fg=SUBTEXT,
+    relief="flat",
+    activebackground=BORDER,
+    activeforeground=TEXT,
+    cursor="hand2",
+    font=(UI_FONT, 9, "bold"),
+).grid(row=0, column=3, sticky="ew", padx=2)
 
 # ── Status + Square Buttons ────────────────────────────────────────────────
 
