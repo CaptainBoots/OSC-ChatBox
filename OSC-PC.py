@@ -97,9 +97,9 @@ print("Made By Boots")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-PC")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "osc_config.json")
-FACE_TRACKING_DEBUGGER_NAME = "OSC-FaceTrackingDebuger.py"
+FACE_TRACKING_DEBUGGER_NAME = "OSC-FaceTrackingController.py"
 FACE_TRACKING_DEBUGGER_SOURCE_URL = (
-    "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-FaceTrackingDebuger.py"
+    "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-FaceTrackingController.py"
 )
 FACE_TRACKING_DEBUGGER_BUNDLED_SCRIPT = os.path.join(SCRIPT_DIR, FACE_TRACKING_DEBUGGER_NAME)
 FACE_TRACKING_DEBUGGER_SCRIPT = os.path.join(CONFIG_DIR, FACE_TRACKING_DEBUGGER_NAME)
@@ -301,9 +301,9 @@ def ensure_face_tracking_debugger_script(show_errors=False):
     try:
         os.makedirs(CONFIG_DIR, exist_ok=True)
     except OSError as e:
-        print(f"[Face Debugger] Could not create config directory: {e}")
+        print(f"[Face Controller] Could not create config directory: {e}")
         if show_errors:
-            messagebox.showerror("Face Debugger Error", f"Could not create config directory:\n{e}")
+            messagebox.showerror("Face Controller Error", f"Could not create config directory:\n{e}")
         return False
 
     remote_text = None
@@ -317,16 +317,16 @@ def ensure_face_tracking_debugger_script(show_errors=False):
         response.raise_for_status()
         remote_text = response.text
     except requests.RequestException as e:
-        print(f"[Face Debugger] Download failed: {e}")
+        print(f"[Face Controller] Download failed: {e}")
 
     if remote_text:
         try:
             with open(FACE_TRACKING_DEBUGGER_SCRIPT, "w", encoding="utf-8") as f:
                 f.write(remote_text)
-            print(f"[Face Debugger] Downloaded to {FACE_TRACKING_DEBUGGER_SCRIPT}")
+            print(f"[Face Controller] Downloaded to {FACE_TRACKING_DEBUGGER_SCRIPT}")
             return True
         except OSError as e:
-            print(f"[Face Debugger] Could not save downloaded script: {e}")
+            print(f"[Face Controller] Could not save downloaded script: {e}")
 
     if os.path.isfile(FACE_TRACKING_DEBUGGER_BUNDLED_SCRIPT):
         try:
@@ -334,17 +334,17 @@ def ensure_face_tracking_debugger_script(show_errors=False):
                 with open(FACE_TRACKING_DEBUGGER_SCRIPT, "w", encoding="utf-8") as dst:
                     dst.write(src.read())
             print(
-                "[Face Debugger] Using bundled fallback copy "
+                "[Face Controller] Using bundled fallback copy "
                 f"from {FACE_TRACKING_DEBUGGER_BUNDLED_SCRIPT}"
             )
             return True
         except OSError as e:
-            print(f"[Face Debugger] Could not copy bundled fallback: {e}")
+            print(f"[Face Controller] Could not copy bundled fallback: {e}")
 
     if show_errors:
         messagebox.showerror(
-            "Face Debugger Error",
-            "Could not download Face Tracking Debugger.\n"
+            "Face Controller Error",
+            "Could not download Face Tracking Controller.\n"
             "Check your internet connection and try again.",
         )
     return False
@@ -474,8 +474,8 @@ def check_for_face_tracking_debugger_updates(silent=False):
     if remote_text is None:
         if not silent:
             messagebox.showinfo(
-                "Face Debugger Update",
-                "Could not reach GitHub to check Face Tracking Debugger updates."
+                "Face Controller Update",
+                "Could not reach GitHub to check Face Tracking Controller updates."
             )
         return False
 
@@ -492,7 +492,7 @@ def check_for_face_tracking_debugger_updates(silent=False):
     if _parse_version(remote_version) <= _parse_version(local_version):
         if silent:
             print(
-                f"[Face Debugger] Up to date ({local_version}) "
+                f"[Face Controller] Up to date ({local_version}) "
                 f"vs remote ({remote_version}) from {remote_url}"
             )
         return False
@@ -501,21 +501,21 @@ def check_for_face_tracking_debugger_updates(silent=False):
         with open(FACE_TRACKING_DEBUGGER_SCRIPT, "w", encoding="utf-8") as local_file:
             local_file.write(remote_text)
         print(
-            f"[Face Debugger] Updated from {local_version} to {remote_version} "
+            f"[Face Controller] Updated from {local_version} to {remote_version} "
             f"from {remote_url}"
         )
         if not silent:
             messagebox.showinfo(
-                "Face Debugger Updated",
-                f"Face Tracking Debugger updated from {local_version} to {remote_version}."
+                "Face Controller Updated",
+                f"Face Tracking Controller updated from {local_version} to {remote_version}."
             )
         return True
     except OSError as e:
-        print(f"[Face Debugger] Failed to write update: {e}")
+        print(f"[Face Controller] Failed to write update: {e}")
         if not silent:
             messagebox.showerror(
-                "Face Debugger Update Failed",
-                f"Could not update Face Tracking Debugger:\n{e}"
+                "Face Controller Update Failed",
+                f"Could not update Face Tracking Controller:\n{e}"
             )
         return False
 
@@ -2311,7 +2311,7 @@ def start_face_tracking_debugger():
         return
 
     if face_tracking_debugger_process is not None and face_tracking_debugger_process.poll() is None:
-        messagebox.showinfo("Face Debugger", "Face Tracking Debugger is already running.")
+        messagebox.showinfo("Face Controller", "Face Tracking Controller is already running.")
         return
 
     try:
@@ -2321,7 +2321,7 @@ def start_face_tracking_debugger():
         )
     except Exception as e:
         face_tracking_debugger_process = None
-        messagebox.showerror("Face Debugger Error", f"Failed to start Face Tracking Debugger:\n{e}")
+        messagebox.showerror("Face Controller Error", f"Failed to start Face Tracking Controller:\n{e}")
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -2506,7 +2506,7 @@ def open_tools():
             width=22,
         ).pack(pady=4, fill="x")
 
-    tool_btn("Face Tracking Debugger", start_face_tracking_debugger)
+    tool_btn("Face Tracking Controller", start_face_tracking_debugger)
 
 
 def open_settings():
