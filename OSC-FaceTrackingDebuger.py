@@ -36,11 +36,16 @@ from pythonosc import udp_client
 # CONFIGURATION
 # =============================================================================
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 
 DEFAULT_OSC_IP = "127.0.0.1"
 DEFAULT_OSC_PORT = "9000"
-DEFAULT_OSC_PREFIX = "/avatar/parameters/"
+DEFAULT_OSC_PREFIX = "/avatar/parameters/v2/"
+
+PREFIX_PRESETS = {
+    "VRCFT v2 (default)": "/avatar/parameters/v2/",
+    "Direct / v1": "/avatar/parameters/",
+}
 
 BG = "#0f0f13"
 PANEL = "#17171f"
@@ -166,7 +171,7 @@ class OscFaceController(tk.Tk):
 
         tk.Label(
             title_bar,
-            text="\u25C8  OSC FACE TRACKING",
+            text="\u25C8  OSC FACE TRACKING  ·  VRCFT",
             font=self.f_title,
             bg=PANEL,
             fg=ACCENT2,
@@ -236,7 +241,25 @@ class OscFaceController(tk.Tk):
             highlightbackground=BORDER,
             highlightcolor=ACCENT,
         )
-        prefix_entry.pack(side="left", padx=(4, 12))
+        prefix_entry.pack(side="left", padx=(4, 4))
+
+        # Preset dropdown
+        preset_var = tk.StringVar(value=list(PREFIX_PRESETS.keys())[0])
+
+        def _on_preset_select(*_args) -> None:
+            chosen = preset_var.get()
+            if chosen in PREFIX_PRESETS:
+                self._prefix_var.set(PREFIX_PRESETS[chosen])
+
+        preset_var.trace_add("write", _on_preset_select)
+        preset_menu = tk.OptionMenu(conn_row, preset_var, *PREFIX_PRESETS.keys())
+        preset_menu.config(
+            bg=PANEL, fg=SUBTEXT, activebackground=BORDER, activeforeground=TEXT,
+            highlightthickness=0, relief="flat", font=self.f_small, cursor="hand2",
+            indicatoron=True, bd=0,
+        )
+        preset_menu["menu"].config(bg=PANEL, fg=TEXT, activebackground=ACCENT, activeforeground="#fff")
+        preset_menu.pack(side="left", padx=(0, 8))
 
         tk.Button(
             conn_row,
@@ -418,13 +441,64 @@ class OscFaceController(tk.Tk):
             self._connected = False
             self._set_status(False, str(exc))
 
+    def _normalize_prefix(self) -> str:
+        prefix = self._prefix_var.get().strip() or DEFAULT_OSC_PREFIX
+        if not prefix.startswith("/"):
+            prefix = "/" + prefix
+        if not prefix.endswith("/"):
+            prefix += "/"
+        return prefix
+
+    def _prefix_variants(self, normalized_prefix: str) -> list[str]:
+        variants = [normalized_prefix]
+        marker = "/avatar/parameters/"
+        marker_pos = normalized_prefix.find(marker)
+        if marker_pos == -1:
+            return variants
+
+        prefix_head = normalized_prefix[: marker_pos + len(marker)]
+        prefix_tail = normalized_prefix[marker_pos + len(marker):]
+
+        if prefix_tail.startswith("v2/"):
+            alt = prefix_head + prefix_tail[len("v2/"):]
+        else:
+            alt = prefix_head + prefix_tail + "v2/"
+
+        if alt not in variants:
+            variants.append(alt)
+        return variants
+
+    def _param_payloads(self, param: str, value: float) -> list[tuple[str, float]]:
+        payloads = [(param, value)]
+
+        if param == "JawForward":
+            payloads.append(("JawZ", value))
+        elif param == "TongueBendDown":
+            payloads.append(("TongueArchY", value))
+        elif param == "TongueCurlUp":
+            payloads.append(("TongueArchY", -value))
+        elif param == "TongueSquish":
+            payloads.append(("TongueShape", value))
+        elif param == "TongueFlat":
+            payloads.append(("TongueShape", -value))
+
+        return payloads
+
     def _send_osc(self, param: str, value: float) -> None:
         if not self._connected or self._client is None:
             return
-        address = self._prefix_var.get() + param
+        prefixes = self._prefix_variants(self._normalize_prefix())
+        payloads = self._param_payloads(param, value)
+        sent_addresses: set[str] = set()
         try:
             with self._lock:
-                self._client.send_message(address, value)
+                for prefix in prefixes:
+                    for param_name, param_value in payloads:
+                        address = prefix + param_name
+                        if address in sent_addresses:
+                            continue
+                        self._client.send_message(address, param_value)
+                        sent_addresses.add(address)
         except Exception:
             pass
 
