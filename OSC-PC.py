@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.5.2"
+VERSION = "7.5.3"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-PC.py"
 
 
@@ -2449,14 +2449,12 @@ def apply_scale(scale):
     font.nametofont("TkTextFont").configure(size=new_default)
     font.nametofont("TkFixedFont").configure(size=new_default)
 
-    # scale normal widgets
     for widget, base_size, extras in scalable_widgets:
         try:
             widget.configure(font=(UI_FONT, max(6, int(base_size * scale))) + extras)
         except tk.TclError:
             pass
 
-    # scale square buttons
     for container, base_size, btn in square_widgets:
         size = int(base_size * scale)
         container.config(width=size, height=size)
@@ -2464,6 +2462,52 @@ def apply_scale(scale):
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
+def open_tools():
+    tools_win = tk.Toplevel(root)
+    tools_win.title("Tools")
+    tools_win.configure(bg=BG)
+    tools_win.resizable(True,True)
+
+    root.update_idletasks()
+    help_w = root.winfo_width()
+    help_h = root.winfo_height()
+    root_x = root.winfo_x()
+    root_y = root.winfo_y()
+    tools_win.geometry(f"{help_w}x{help_h}+{root_x}+{root_y}")
+
+
+    header = tk.Frame(tools_win, bg=PANEL, pady=10)
+    header.pack(fill="x")
+    tk.Label(
+        header,
+        text="TOOLS",
+        bg=PANEL,
+        fg=ACCENT2,
+        font=(UI_FONT, 11, "bold")
+    ).pack(side="left", padx=16)
+    tk.Frame(tools_win, bg=BORDER, height=1).pack(fill="x")
+
+    content = tk.Frame(tools_win, bg=BG)
+    content.pack(fill="both", expand=True, padx=16, pady=16)
+
+    def tool_btn(text, cmd, accent=False):
+        tk.Button(
+            content,
+            text=text,
+            command=cmd,
+            bg=ACCENT if accent else BTN_BG,
+            fg="#FFFFFF" if accent else SUBTEXT,
+            relief="flat",
+            activebackground=ACCENT2 if accent else BORDER,
+            activeforeground="#FFFFFF" if accent else TEXT,
+            cursor="hand2",
+            font=(UI_FONT, 9, "bold"),
+            width=22,
+        ).pack(pady=4, fill="x")
+
+    tool_btn("Face Tracking Debugger", start_face_tracking_debugger)
+
 
 def open_settings():
     set_win = tk.Toplevel(root)
@@ -2583,7 +2627,7 @@ def open_settings():
 
         tk.Label(chars_frame, text="Filled", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)).grid(row=0, column=0, padx=4)
         tk.Label(chars_frame, text="Border", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)).grid(row=0, column=1, padx=4)
-        tk.Label(chars_frame, text="Empty", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)).grid(row=0, column=2, padx=4)
+        tk.Label(chars_frame, text="Empty",  bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)).grid(row=0, column=2, padx=4)
 
         filled_char_entry = tk.Entry(
             chars_frame, width=4, justify="center",
@@ -2622,36 +2666,24 @@ def open_settings():
         filled_preview = tk.Label(
             preview_frame,
             text=progress_filled_char * 6,
-            bg=BORDER,
-            fg=TEXT,
-            font=(UI_FONT, 10),
-            width=8,
-            padx=4,
-            pady=2,
+            bg=BORDER, fg=TEXT,
+            font=(UI_FONT, 10), width=8, padx=4, pady=2,
         )
         filled_preview.grid(row=1, column=0, padx=4)
 
         border_preview = tk.Label(
             preview_frame,
             text=progress_border_char * 6,
-            bg=BORDER,
-            fg=TEXT,
-            font=(UI_FONT, 10),
-            width=8,
-            padx=4,
-            pady=2,
+            bg=BORDER, fg=TEXT,
+            font=(UI_FONT, 10), width=8, padx=4, pady=2,
         )
         border_preview.grid(row=1, column=1, padx=4)
 
         empty_preview = tk.Label(
             preview_frame,
             text=progress_empty_char * 6,
-            bg=BORDER,
-            fg=ACCENT2,
-            font=(UI_FONT, 10),
-            width=8,
-            padx=4,
-            pady=2,
+            bg=BORDER, fg=ACCENT2,
+            font=(UI_FONT, 10), width=8, padx=4, pady=2,
         )
         empty_preview.grid(row=1, column=2, padx=4)
 
@@ -2686,7 +2718,7 @@ def open_settings():
 
         for progress_entry in (filled_char_entry, border_char_entry, empty_char_entry):
             progress_entry.bind("<KeyRelease>", apply_progress_char_settings)
-            progress_entry.bind("<FocusOut>", apply_progress_char_settings)
+            progress_entry.bind("<FocusOut>",   apply_progress_char_settings)
 
         def update_pct(*_):
             pct_label.config(text=f"{int(scale_var.get() * 100)}%")
@@ -2711,17 +2743,15 @@ def open_settings():
     nav_frame.pack(fill="x", padx=20, pady=(0, 14))
     nav_frame.columnconfigure(1, weight=1)
 
-    prev_btn = tk.Button(nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG,
-                         relief="flat", width=10,
-                         command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
-                                          show_page(current_page[0])))
+    prev_btn = tk.Button(
+        nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
+                         show_page(current_page[0]))
+    )
     prev_btn.grid(row=0, column=0, sticky="w")
     prev_btn.configure(
-        fg=SUBTEXT,
-        activebackground=BORDER,
-        activeforeground=TEXT,
-        cursor="hand2",
-        font=(UI_FONT, 9, "bold"),
+        fg=SUBTEXT, activebackground=BORDER, activeforeground=TEXT,
+        cursor="hand2", font=(UI_FONT, 9, "bold"),
     )
 
     def next_or_finish():
@@ -2731,16 +2761,14 @@ def open_settings():
         else:
             set_win.destroy()
 
-    next_btn = tk.Button(nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG,
-                         relief="flat", width=10, command=next_or_finish)
+    next_btn = tk.Button(
+        nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        command=next_or_finish
+    )
     next_btn.grid(row=0, column=2, sticky="e")
     next_btn.configure(
-        bg=ACCENT,
-        fg="#FFFFFF",
-        activebackground=ACCENT2,
-        activeforeground="#FFFFFF",
-        cursor="hand2",
-        font=(UI_FONT, 9, "bold"),
+        bg=ACCENT, fg="#FFFFFF", activebackground=ACCENT2, activeforeground="#FFFFFF",
+        cursor="hand2", font=(UI_FONT, 9, "bold"),
     )
 
     show_page(0)
@@ -2871,20 +2899,12 @@ def open_help():
     header.pack(fill="x")
 
     title_label = tk.Label(
-        header,
-        text="",
-        bg=PANEL,
-        fg=ACCENT2,
-        font=(UI_FONT, 12, "bold")
+        header, text="", bg=PANEL, fg=ACCENT2, font=(UI_FONT, 12, "bold")
     )
     title_label.pack(side="left", padx=16)
 
     page_indicator = tk.Label(
-        header,
-        text="",
-        bg=PANEL,
-        fg=SUBTEXT,
-        font=(UI_FONT, 8)
+        header, text="", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)
     )
     page_indicator.pack(side="right", padx=16)
 
@@ -2896,8 +2916,7 @@ def open_help():
     content_label = tk.Label(
         content_panel,
         text="",
-        bg=PANEL,
-        fg=TEXT,
+        bg=PANEL, fg=TEXT,
         justify="left",
         wraplength=460,
         anchor="nw",
@@ -2918,17 +2937,15 @@ def open_help():
     nav_frame.pack(fill="x", padx=20, pady=(0, 14))
     nav_frame.columnconfigure(1, weight=1)
 
-    prev_btn = tk.Button(nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG,
-                         relief="flat", width=10,
-                         command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
-                                          show_page(current_page[0])))
+    prev_btn = tk.Button(
+        nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
+                         show_page(current_page[0]))
+    )
     prev_btn.grid(row=0, column=0, sticky="w")
     prev_btn.configure(
-        fg=SUBTEXT,
-        activebackground=BORDER,
-        activeforeground=TEXT,
-        cursor="hand2",
-        font=(UI_FONT, 9, "bold"),
+        fg=SUBTEXT, activebackground=BORDER, activeforeground=TEXT,
+        cursor="hand2", font=(UI_FONT, 9, "bold"),
     )
 
     def next_or_finish():
@@ -2938,16 +2955,14 @@ def open_help():
         else:
             help_win.destroy()
 
-    next_btn = tk.Button(nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG,
-                         relief="flat", width=10, command=next_or_finish)
+    next_btn = tk.Button(
+        nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        command=next_or_finish
+    )
     next_btn.grid(row=0, column=2, sticky="e")
     next_btn.configure(
-        bg=ACCENT,
-        fg="#FFFFFF",
-        activebackground=ACCENT2,
-        activeforeground="#FFFFFF",
-        cursor="hand2",
-        font=(UI_FONT, 9, "bold"),
+        bg=ACCENT, fg="#FFFFFF", activebackground=ACCENT2, activeforeground="#FFFFFF",
+        cursor="hand2", font=(UI_FONT, 9, "bold"),
     )
 
     show_page(0)
@@ -3085,14 +3100,13 @@ for col, (name, num, key) in enumerate(zip(PAGE_NAMES, PAGE_NUMBERS, PAGE_ENABLE
 
     page_toggles.append(tog)
 
-# ── Buttons ────────────────────────────────────────────────────────────────
+# ── Main Buttons ───────────────────────────────────────────────────────────
 button_frame = tk.Frame(frame, bg=BG)
 button_frame.grid(row=14, column=0, columnspan=2, pady=15, sticky="ew")
 
 button_frame.columnconfigure(0, weight=1)
 button_frame.columnconfigure(1, weight=1)
 button_frame.columnconfigure(2, weight=1)
-button_frame.columnconfigure(3, weight=1)
 
 tk.Button(
     button_frame,
@@ -3133,27 +3147,39 @@ tk.Button(
     font=(UI_FONT, 9, "bold"),
 ).grid(row=0, column=2, sticky="ew", padx=2)
 
-tk.Button(
-    button_frame,
-    text="Face Debug",
-    command=start_face_tracking_debugger,
-    bg=BTN_BG,
-    fg=SUBTEXT,
+# ── Bottom Bar: Help | Tools | Settings ───────────────────────────────────
+bottom_bar = tk.Frame(frame, bg=BG)
+bottom_bar.grid(row=15, column=0, columnspan=2, pady=6, sticky="ew")
+
+# 3 columns instead of 5
+bottom_bar.columnconfigure(0, weight=1)  # left edge
+bottom_bar.columnconfigure(1, weight=2)  # center (TOOLS bigger)
+bottom_bar.columnconfigure(2, weight=1)  # right edge
+
+# Help (LEFT OUTSIDE)
+help_btn = square_button(bottom_bar, "？", open_help, base_size=32)
+help_btn.grid(row=0, column=0, sticky="w", padx=6)
+
+# Tools (CENTER + BIGGER)
+tools_btn = tk.Button(
+    bottom_bar,
+    text="Tools",
+    command=open_tools,
+    bg=ACCENT,
+    fg="#FFFFFF",
     relief="flat",
-    activebackground=BORDER,
-    activeforeground=TEXT,
+    activebackground=ACCENT2,
+    activeforeground="#FFFFFF",
     cursor="hand2",
-    font=(UI_FONT, 9, "bold"),
-).grid(row=0, column=3, sticky="ew", padx=2)
+    font=(UI_FONT, 10, "bold"),
+    padx=18,
+    pady=6
+)
+tools_btn.grid(row=0, column=1, padx=6)
 
-# ── Status + Square Buttons ────────────────────────────────────────────────
-
-help_btn = square_button(frame, "？", open_help)
-help_btn.grid(row=15, column=0, sticky="w", padx=2)
-
-
-settings_btn = square_button(frame, "⚙", open_settings)
-settings_btn.grid(row=15, column=1, sticky="e", padx=2)
+# Settings (RIGHT OUTSIDE)
+settings_btn = square_button(bottom_bar, "⚙", open_settings, base_size=32)
+settings_btn.grid(row=0, column=2, sticky="e", padx=6)
 
 # ── Startup update check ───────────────────────────────────────────────────
 def run_startup_update_check(_unused=None):
