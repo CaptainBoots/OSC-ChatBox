@@ -53,7 +53,6 @@ def install_if_missing(package, import_name=None):
 
 install_if_missing("requests==2.32.5", "requests")
 
-
 import requests
 
 
@@ -62,12 +61,38 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.0.1"
+VERSION = "8.0.2"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
 
 
 print("OSC ToolBox")
 print("Made By Boots")
+
+def rename_self_to_toolbox():
+    try:
+        current_path = os.path.abspath(__file__)
+        directory = os.path.dirname(current_path)
+
+        # Target filename
+        new_name = "OSC-ToolBox.py"
+        new_path = os.path.join(directory, new_name)
+
+        # If already named correctly, do nothing
+        if os.path.basename(current_path) == new_name:
+            return
+
+        # If target already exists, avoid overwriting
+        if os.path.exists(new_path):
+            print("[Rename] Target file already exists, skipping rename.")
+            return
+
+        os.rename(current_path, new_path)
+        print(f"[Rename] Renamed script to {new_name}")
+
+    except Exception as e:
+        print(f"[Rename] Failed: {e}")
+
+rename_self_to_toolbox()
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-ToolBox")
@@ -88,6 +113,31 @@ CHATBOX_SCRIPT = os.path.join(CONFIG_DIR, CHATBOX_NAME)
 
 face_tracking_debugger_process = None
 chatbox_process = None
+
+
+def rename_self_to_toolbox():
+    try:
+        current_path = os.path.abspath(__file__)
+        directory = os.path.dirname(current_path)
+
+        # Target filename
+        new_name = "OSC-ToolBox.py"
+        new_path = os.path.join(directory, new_name)
+
+        # If already named correctly, do nothing
+        if os.path.basename(current_path) == new_name:
+            return
+
+        # If target already exists, avoid overwriting
+        if os.path.exists(new_path):
+            print("[Rename] Target file already exists, skipping rename.")
+            return
+
+        os.rename(current_path, new_path)
+        print(f"[Rename] Renamed script to {new_name}")
+
+    except Exception as e:
+        print(f"[Rename] Failed: {e}")
 
 
 def ensure_face_tracking_debugger_script(show_errors=False):
@@ -550,7 +600,7 @@ scalable_widgets = []
 square_widgets = []  # store square buttons separately
 
 root = tk.Tk()
-root.title("OSC Chatbox")
+root.title("OSC ToolBox")
 root.geometry("560x620")
 root.minsize(520, 560)
 root.configure(bg=BG)
