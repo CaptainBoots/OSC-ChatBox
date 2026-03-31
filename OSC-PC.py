@@ -79,8 +79,8 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.5.4"
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-PC.py"
+VERSION = "7.6.0"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-VRC-ToolBox.py"
 
 
 class CPUManufacturer(Enum):
