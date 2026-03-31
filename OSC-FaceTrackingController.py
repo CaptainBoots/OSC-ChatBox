@@ -36,7 +36,7 @@ from pythonosc import udp_client
 # CONFIGURATION
 # =============================================================================
 
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 
 DEFAULT_OSC_IP = "127.0.0.1"
 DEFAULT_OSC_PORT = "9000"
