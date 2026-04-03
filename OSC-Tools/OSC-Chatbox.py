@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.6.3"
+VERSION = "7.6.4"
 
 
 class CPUManufacturer(Enum):
@@ -92,6 +92,7 @@ cpu_manufacturer = CPUManufacturer.UNKNOWN
 
 print("OSC Chatbox")
 print("Made By Boots")
+print(f"Version {VERSION}")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Chatbox")

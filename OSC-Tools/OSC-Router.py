@@ -61,7 +61,7 @@ from pythonosc.udp_client import SimpleUDPClient
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 print("OSC Router")
 print("Made By Boots")
@@ -77,8 +77,8 @@ def get_default_config() -> dict:
         "output_ip":   "127.0.0.1",
         "output_port": 9000,
         "sources": [
-            {"name": "Chatbox",       "port": 9001},
-            {"name": "Face Tracking", "port": 9002},
+            {"name": "Chatbox",       "port": 9011},
+            {"name": "Face Tracking", "port": 9012},
         ],
     }
 

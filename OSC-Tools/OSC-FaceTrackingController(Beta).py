@@ -36,10 +36,11 @@ from pythonosc import udp_client
 # CONFIGURATION
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "0.1.8"
+VERSION = "0.1.9"
 
 print("OSC FaceTrackingController")
 print("Made By Boots")
+print(f"Version {VERSION}")
 
 DEFAULT_OSC_IP = "127.0.0.1"
 DEFAULT_OSC_PORT = "9000"
