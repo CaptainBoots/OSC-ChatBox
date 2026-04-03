@@ -61,14 +61,14 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.1.0"
+VERSION = "8.1.1"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Tools/"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 MANAGED_SCRIPTS = [
-    {"filename": "OSC-Chatbox.py",                "label": "ChatBox"},
+    {"filename": "OSC-Chatbox.py",                     "label": "ChatBox"},
     {"filename": "OSC-FaceTrackingController(Beta).py", "label": "Face Tracking Controller"},
 ]
 # ─────────────────────────────────────────────────────────────────────────────
@@ -96,9 +96,10 @@ def rename_self_to_toolbox():
 
 rename_self_to_toolbox()
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools")
+SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR  = os.path.join(SCRIPT_DIR, "OSC-Tools")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "osc_config.json")
+BACKUP_DIR  = os.path.join(CONFIG_DIR, "ToolBox Backup")   # ← all .bak files live here
 
 # Running process handles, keyed by filename
 _processes: dict[str, subprocess.Popen | None] = {}
@@ -328,18 +329,18 @@ def perform_update(remote_text=None, source_url=None):
             source_url = info["url"]
 
         script_path = os.path.abspath(__file__)
-        config_dir = os.path.dirname(os.path.abspath(CONFIG_FILE))
-        os.makedirs(config_dir, exist_ok=True)
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+
         script_name = os.path.splitext(os.path.basename(script_path))[0]
-        backup_path = os.path.join(config_dir, f"{script_name} {VERSION}.bak")
+        backup_path = os.path.join(BACKUP_DIR, f"{script_name} {VERSION}.bak")
 
         with open(script_path, "r", encoding="utf-8") as f_cur:
             with open(backup_path, "w", encoding="utf-8") as f_bak:
                 f_bak.write(f_cur.read())
 
         backup_files = [
-            os.path.join(config_dir, fn)
-            for fn in os.listdir(config_dir)
+            os.path.join(BACKUP_DIR, fn)
+            for fn in os.listdir(BACKUP_DIR)
             if fn.lower().endswith(".bak")
         ]
         if len(backup_files) > 5:
@@ -548,7 +549,6 @@ for i, entry in enumerate(MANAGED_SCRIPTS):
     filename = entry["filename"]
     label = entry["label"]
 
-    # Use a default-argument capture so the lambda binds the current filename
     btn = tk.Button(
         bottom_bar,
         text=label,
@@ -571,7 +571,6 @@ def run_startup_update_check(_unused=None):
     check_for_updates(silent=True)
 
 
-# Resize window to fit however many buttons were generated
 btn_count = len(MANAGED_SCRIPTS)
 root.geometry(f"560x{460 + btn_count * 48}")
 root.minsize(520, 400 + btn_count * 48)
