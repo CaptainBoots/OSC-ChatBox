@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.6.1"
+VERSION = "7.6.2"
 
 
 class CPUManufacturer(Enum):
