@@ -61,198 +61,201 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.0.2"
+VERSION = "8.1.0"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
+GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Tools/"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+MANAGED_SCRIPTS = [
+    {"filename": "OSC-Chatbox.py",                "label": "ChatBox"},
+    {"filename": "OSC-FaceTrackingController(Beta).py", "label": "Face Tracking Controller"},
+]
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 print("OSC ToolBox")
 print("Made By Boots")
 
+
 def rename_self_to_toolbox():
     try:
         current_path = os.path.abspath(__file__)
         directory = os.path.dirname(current_path)
-
-        # Target filename
-        new_name = "OSC-ToolBox.py"
+        new_name = "OSC-Tools.py"
         new_path = os.path.join(directory, new_name)
-
-        # If already named correctly, do nothing
         if os.path.basename(current_path) == new_name:
             return
-
-        # If target already exists, avoid overwriting
         if os.path.exists(new_path):
             print("[Rename] Target file already exists, skipping rename.")
             return
-
         os.rename(current_path, new_path)
         print(f"[Rename] Renamed script to {new_name}")
-
     except Exception as e:
         print(f"[Rename] Failed: {e}")
 
 rename_self_to_toolbox()
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-ToolBox")
+CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "osc_config.json")
-FACE_TRACKING_DEBUGGER_NAME = "OSC-FaceTrackingController.py"
-FACE_TRACKING_DEBUGGER_SOURCE_URL = (
-    "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-FaceTrackingController.py"
-)
-FACE_TRACKING_DEBUGGER_BUNDLED_SCRIPT = os.path.join(SCRIPT_DIR, FACE_TRACKING_DEBUGGER_NAME)
-FACE_TRACKING_DEBUGGER_SCRIPT = os.path.join(CONFIG_DIR, FACE_TRACKING_DEBUGGER_NAME)
 
-CHATBOX_NAME = "OSC-Chatbox.py"
-CHATBOX_SOURCE_URL = (
-    "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Chatbox.py"
-)
-CHATBOX_BUNDLED_SCRIPT = os.path.join(SCRIPT_DIR, CHATBOX_NAME)
-CHATBOX_SCRIPT = os.path.join(CONFIG_DIR, CHATBOX_NAME)
-
-face_tracking_debugger_process = None
-chatbox_process = None
-
-
-def rename_self_to_toolbox():
-    try:
-        current_path = os.path.abspath(__file__)
-        directory = os.path.dirname(current_path)
-
-        # Target filename
-        new_name = "OSC-ToolBox.py"
-        new_path = os.path.join(directory, new_name)
-
-        # If already named correctly, do nothing
-        if os.path.basename(current_path) == new_name:
-            return
-
-        # If target already exists, avoid overwriting
-        if os.path.exists(new_path):
-            print("[Rename] Target file already exists, skipping rename.")
-            return
-
-        os.rename(current_path, new_path)
-        print(f"[Rename] Renamed script to {new_name}")
-
-    except Exception as e:
-        print(f"[Rename] Failed: {e}")
-
-
-def ensure_face_tracking_debugger_script(show_errors=False):
-    if os.path.isfile(FACE_TRACKING_DEBUGGER_SCRIPT):
-        return True
-
-    try:
-        os.makedirs(CONFIG_DIR, exist_ok=True)
-    except OSError as e:
-        print(f"[Face Controller] Could not create config directory: {e}")
-        if show_errors:
-            messagebox.showerror("Face Controller Error", f"Could not create config directory:\n{e}")
-        return False
-
-    remote_text = None
-    try:
-        response = requests.get(
-            FACE_TRACKING_DEBUGGER_SOURCE_URL,
-            timeout=10,
-            params={"_": int(time.time())},
-            headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
-        )
-        response.raise_for_status()
-        remote_text = response.text
-    except requests.RequestException as e:
-        print(f"[Face Controller] Download failed: {e}")
-
-    if remote_text:
-        try:
-            with open(FACE_TRACKING_DEBUGGER_SCRIPT, "w", encoding="utf-8") as f:
-                f.write(remote_text)
-            print(f"[Face Controller] Downloaded to {FACE_TRACKING_DEBUGGER_SCRIPT}")
-            return True
-        except OSError as e:
-            print(f"[Face Controller] Could not save downloaded script: {e}")
-
-    if os.path.isfile(FACE_TRACKING_DEBUGGER_BUNDLED_SCRIPT):
-        try:
-            with open(FACE_TRACKING_DEBUGGER_BUNDLED_SCRIPT, "r", encoding="utf-8") as src:
-                with open(FACE_TRACKING_DEBUGGER_SCRIPT, "w", encoding="utf-8") as dst:
-                    dst.write(src.read())
-            print(
-                "[Face Controller] Using bundled fallback copy "
-                f"from {FACE_TRACKING_DEBUGGER_BUNDLED_SCRIPT}"
-            )
-            return True
-        except OSError as e:
-            print(f"[Face Controller] Could not copy bundled fallback: {e}")
-
-    if show_errors:
-        messagebox.showerror(
-            "Face Controller Error",
-            "Could not download Face Tracking Controller.\n"
-            "Check your internet connection and try again.",
-        )
-    return False
-
-def ensure_chatbox_script(show_errors=False):
-    if os.path.isfile(CHATBOX_SCRIPT):
-        return True
-
-    try:
-        os.makedirs(CONFIG_DIR, exist_ok=True)
-    except OSError as e:
-        print(f"[Chatbox] Could not create config directory: {e}")
-        if show_errors:
-            messagebox.showerror("Chatbox Error", f"Could not create config directory:\n{e}")
-        return False
-
-    remote_text = None
-    try:
-        response = requests.get(
-            CHATBOX_SOURCE_URL,
-            timeout=10,
-            params={"_": int(time.time())},
-            headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
-        )
-        response.raise_for_status()
-        remote_text = response.text
-    except requests.RequestException as e:
-        print(f"[Chatbox] Download failed: {e}")
-
-    if remote_text:
-        try:
-            with open(CHATBOX_SCRIPT, "w", encoding="utf-8") as f:
-                f.write(remote_text)
-            print(f"[Chatbox] Downloaded to {CHATBOX_SCRIPT}")
-            return True
-        except OSError as e:
-            print(f"[Chatbox] Could not save downloaded script: {e}")
-
-    if os.path.isfile(CHATBOX_SCRIPT):
-        try:
-            with open(CHATBOX_SCRIPT, "r", encoding="utf-8") as src:
-                with open(CHATBOX_SCRIPT, "w", encoding="utf-8") as dst:
-                    dst.write(src.read())
-            print(
-                "[Chatbox] Using bundled fallback copy "
-                f"from {CHATBOX_SCRIPT}"
-            )
-            return True
-        except OSError as e:
-            print(f"[Chatbox] Could not copy bundled fallback: {e}")
-
-    if show_errors:
-        messagebox.showerror(
-            "Chatbox Error",
-            "Could not download Chatbox.\n"
-            "Check your internet connection and try again.",
-        )
-    return False
+# Running process handles, keyed by filename
+_processes: dict[str, subprocess.Popen | None] = {}
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# UPDATER
+# MANAGED SCRIPT HELPERS
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+def _script_paths(filename: str) -> tuple[str, str]:
+    """Return (bundled_path, config_dir_path) for a managed script filename."""
+    return (
+        os.path.join(SCRIPT_DIR, filename),
+        os.path.join(CONFIG_DIR, filename),
+    )
+
+
+def ensure_script(filename: str, show_errors: bool = False) -> bool:
+    """
+    Make sure *filename* exists in CONFIG_DIR.
+    Tries: already present → download from GitHub → bundled copy.
+    Returns True if the script is ready to run.
+    """
+    bundled_path, dest_path = _script_paths(filename)
+
+    if os.path.isfile(dest_path):
+        return True
+
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+    except OSError as e:
+        print(f"[{filename}] Could not create config directory: {e}")
+        if show_errors:
+            messagebox.showerror(f"{filename} Error", f"Could not create config directory:\n{e}")
+        return False
+
+    url = GITHUB_BASE_URL + filename
+    remote_text = None
+    try:
+        response = requests.get(
+            url,
+            timeout=10,
+            params={"_": int(time.time())},
+            headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
+        )
+        response.raise_for_status()
+        remote_text = response.text
+    except requests.RequestException as e:
+        print(f"[{filename}] Download failed: {e}")
+
+    if remote_text:
+        try:
+            with open(dest_path, "w", encoding="utf-8") as f:
+                f.write(remote_text)
+            print(f"[{filename}] Downloaded to {dest_path}")
+            return True
+        except OSError as e:
+            print(f"[{filename}] Could not save downloaded script: {e}")
+
+    if os.path.isfile(bundled_path):
+        try:
+            with open(bundled_path, "r", encoding="utf-8") as src:
+                with open(dest_path, "w", encoding="utf-8") as dst:
+                    dst.write(src.read())
+            print(f"[{filename}] Using bundled fallback copy from {bundled_path}")
+            return True
+        except OSError as e:
+            print(f"[{filename}] Could not copy bundled fallback: {e}")
+
+    if show_errors:
+        messagebox.showerror(
+            f"{filename} Error",
+            f"Could not download {filename}.\nCheck your internet connection and try again.",
+        )
+    return False
+
+
+def check_for_script_updates(filename: str, silent: bool = False) -> bool:
+    """
+    Check GitHub for a newer version of *filename* and update if found.
+    Returns True if an update was applied.
+    """
+    if not ensure_script(filename, show_errors=not silent):
+        return False
+
+    _, dest_path = _script_paths(filename)
+    url = GITHUB_BASE_URL + filename
+
+    remote_text, remote_version, _ = _fetch_remote_script(url, timeout=10)
+    if remote_text is None:
+        if not silent:
+            messagebox.showinfo(
+                f"{filename} Update",
+                f"Could not reach GitHub to check updates for {filename}."
+            )
+        return False
+
+    remote_version = remote_version or "0.0.0"
+
+    try:
+        with open(dest_path, "r", encoding="utf-8") as lf:
+            local_text = lf.read()
+    except OSError:
+        local_text = ""
+
+    local_version = _extract_version_from_source(local_text) or "0.0.0"
+
+    if _parse_version(remote_version) <= _parse_version(local_version):
+        if not silent:
+            print(f"[{filename}] Up to date ({local_version}) vs remote ({remote_version})")
+        return False
+
+    try:
+        with open(dest_path, "w", encoding="utf-8") as lf:
+            lf.write(remote_text)
+        print(f"[{filename}] Updated from {local_version} to {remote_version}")
+        if not silent:
+            messagebox.showinfo(
+                f"{filename} Updated",
+                f"{filename} updated from {local_version} to {remote_version}."
+            )
+        return True
+    except OSError as e:
+        print(f"[{filename}] Failed to write update: {e}")
+        if not silent:
+            messagebox.showerror(
+                f"{filename} Update Failed",
+                f"Could not update {filename}:\n{e}"
+            )
+        return False
+
+
+def launch_script(filename: str) -> None:
+    """Launch *filename* as a subprocess, or warn if already running."""
+    global _processes
+
+    if not ensure_script(filename, show_errors=True):
+        return
+
+    proc = _processes.get(filename)
+    if proc is not None and proc.poll() is None:
+        messagebox.showinfo(filename, f"{filename} is already running.")
+        return
+
+    _, dest_path = _script_paths(filename)
+    try:
+        _processes[filename] = subprocess.Popen(
+            [sys.executable, dest_path],
+            cwd=CONFIG_DIR,
+        )
+    except Exception as e:
+        _processes[filename] = None
+        messagebox.showerror(f"{filename} Error", f"Failed to start {filename}:\n{e}")
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# UPDATER  (self-update for OSC-Tools.py itself)
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def _parse_version(v: str):
@@ -297,7 +300,6 @@ def get_remote_script_info() -> dict[str, str] | None:
         if text is None:
             errors.append(url)
             continue
-
         info: dict[str, str] = {
             "text": text,
             "version": remote_version or "0.0.0",
@@ -306,8 +308,7 @@ def get_remote_script_info() -> dict[str, str] | None:
         if best is None:
             best = info
             continue
-        current_best_version = best["version"] if best is not None else "0.0.0"
-        if _parse_version(info["version"]) > _parse_version(current_best_version):
+        if _parse_version(info["version"]) > _parse_version(best["version"]):
             best = info
 
     if best is not None:
@@ -316,119 +317,6 @@ def get_remote_script_info() -> dict[str, str] | None:
     print(f"[Updater] Could not reach GitHub URLs: {errors}")
     return None
 
-
-def check_for_face_tracking_debugger_updates(silent=False):
-    if not ensure_face_tracking_debugger_script(show_errors=not silent):
-        return False
-
-    remote_text, remote_version, remote_url = _fetch_remote_script(
-        FACE_TRACKING_DEBUGGER_SOURCE_URL,
-        timeout=10,
-    )
-    if remote_text is None:
-        if not silent:
-            messagebox.showinfo(
-                "Face Controller Update",
-                "Could not reach GitHub to check Face Tracking Controller updates."
-            )
-        return False
-
-    remote_version = remote_version or "0.0.0"
-
-    try:
-        with open(FACE_TRACKING_DEBUGGER_SCRIPT, "r", encoding="utf-8") as local_file:
-            local_text = local_file.read()
-    except OSError:
-        local_text = ""
-
-    local_version = _extract_version_from_source(local_text) or "0.0.0"
-
-    if _parse_version(remote_version) <= _parse_version(local_version):
-        if silent:
-            print(
-                f"[Face Controller] Up to date ({local_version}) "
-                f"vs remote ({remote_version}) from {remote_url}"
-            )
-        return False
-
-    try:
-        with open(FACE_TRACKING_DEBUGGER_SCRIPT, "w", encoding="utf-8") as local_file:
-            local_file.write(remote_text)
-        print(
-            f"[Face Controller] Updated from {local_version} to {remote_version} "
-            f"from {remote_url}"
-        )
-        if not silent:
-            messagebox.showinfo(
-                "Face Controller Updated",
-                f"Face Tracking Controller updated from {local_version} to {remote_version}."
-            )
-        return True
-    except OSError as e:
-        print(f"[Face Controller] Failed to write update: {e}")
-        if not silent:
-            messagebox.showerror(
-                "Face Controller Update Failed",
-                f"Could not update Face Tracking Controller:\n{e}"
-            )
-        return False
-
-
-def check_for_chatbox_updates(silent=False):
-    if not ensure_chatbox_script(show_errors=not silent):
-        return False
-
-    remote_text, remote_version, remote_url = _fetch_remote_script(
-        CHATBOX_SOURCE_URL,
-        timeout=10,
-    )
-    if remote_text is None:
-        if not silent:
-            messagebox.showinfo(
-                "Chatbox Update",
-                "Could not reach GitHub to check Chatbox updates."
-            )
-        return False
-
-    remote_version = remote_version or "0.0.0"
-
-    try:
-        with open(CHATBOX_SCRIPT, "r", encoding="utf-8") as local_file:
-            local_text = local_file.read()
-    except OSError:
-        local_text = ""
-
-    local_version = _extract_version_from_source(local_text) or "0.0.0"
-
-    if _parse_version(remote_version) <= _parse_version(local_version):
-        if silent:
-            print(
-                f"[Chatbox] Up to date ({local_version}) "
-                f"vs remote ({remote_version}) from {remote_url}"
-            )
-        return False
-
-    try:
-        with open(CHATBOX_SCRIPT, "w", encoding="utf-8") as local_file:
-            local_file.write(remote_text)
-        print(
-            f"[Chatbox] Updated from {local_version} to {remote_version} "
-            f"from {remote_url}"
-        )
-        if not silent:
-            messagebox.showinfo(
-                "Chatbox Updated",
-                f"Chatbox updated from {local_version} to {remote_version}."
-            )
-        return True
-    except OSError as e:
-        print(f"[Chatbox] Failed to write update: {e}")
-        if not silent:
-            messagebox.showerror(
-                "Chatbox Update Failed",
-                f"Could not update ChatboxController:\n{e}"
-            )
-        return False
 
 def perform_update(remote_text=None, source_url=None):
     try:
@@ -450,9 +338,9 @@ def perform_update(remote_text=None, source_url=None):
                 f_bak.write(f_cur.read())
 
         backup_files = [
-            os.path.join(config_dir, backup_file_name)
-            for backup_file_name in os.listdir(config_dir)
-            if backup_file_name.lower().endswith(".bak")
+            os.path.join(config_dir, fn)
+            for fn in os.listdir(config_dir)
+            if fn.lower().endswith(".bak")
         ]
         if len(backup_files) > 5:
             oldest_backup = min(backup_files, key=os.path.getmtime)
@@ -484,8 +372,8 @@ def check_for_updates(silent=False):
                 "Update Check",
                 "Could not reach GitHub.\nCheck your internet connection."
             )
-        check_for_face_tracking_debugger_updates(silent=silent)
-        check_for_chatbox_updates(silent=silent)
+        for entry in MANAGED_SCRIPTS:
+            check_for_script_updates(entry["filename"], silent=silent)
         return
 
     remote_version = info["version"]
@@ -502,9 +390,9 @@ def check_for_updates(silent=False):
     remote_norm = remote_text.replace("\r\n", "\n")
     remote_newer = _parse_version(remote_version) > _parse_version(VERSION)
     content_differs = remote_norm != local_norm
-
     main_update_available = remote_newer or content_differs
-    if remote_newer or content_differs:
+
+    if main_update_available:
         if remote_newer:
             prompt = (
                 f"New version {remote_version} is available (you have {VERSION}).\n\n"
@@ -516,69 +404,24 @@ def check_for_updates(silent=False):
                 "but version string may not have been bumped).\n\n"
                 "Update and restart now?"
             )
-        answer = messagebox.askyesno(
-            "Update Available",
-            prompt
-        )
-        if answer:
+        if messagebox.askyesno("Update Available", prompt):
             perform_update(remote_text=remote_text, source_url=remote_url)
 
     if not main_update_available and silent:
         print(f"[Updater] Up to date ({VERSION}) vs remote ({remote_version}) from {remote_url}")
 
-    face_updated = check_for_face_tracking_debugger_updates(silent=silent)
+    any_tool_updated = False
+    for entry in MANAGED_SCRIPTS:
+        if check_for_script_updates(entry["filename"], silent=silent):
+            any_tool_updated = True
 
-    if not silent and not main_update_available and not face_updated:
+    if not silent and not main_update_available and not any_tool_updated:
         messagebox.showinfo("Up to Date", f"You're on the latest version ({VERSION}).")
 
-
-
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# SCRIPT CONTROL
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
-def start_face_tracking_debugger():
-    global face_tracking_debugger_process
-
-    if not ensure_face_tracking_debugger_script(show_errors=True):
-        return
-
-    if face_tracking_debugger_process is not None and face_tracking_debugger_process.poll() is None:
-        messagebox.showinfo("Face Controller", "Face Tracking Controller is already running.")
-        return
-
-    try:
-        face_tracking_debugger_process = subprocess.Popen(
-            [sys.executable, FACE_TRACKING_DEBUGGER_SCRIPT],
-            cwd=CONFIG_DIR,
-        )
-    except Exception as e:
-        face_tracking_debugger_process = None
-        messagebox.showerror("Face Controller Error", f"Failed to start Face Tracking Controller:\n{e}")
-
-def start_chatbox():
-    global chatbox_process
-
-    if not ensure_chatbox_script(show_errors=True):
-        return
-
-    if chatbox_process is not None and chatbox_process.poll() is None:
-        messagebox.showinfo("Face Controller", "Face Tracking Controller is already running.")
-        return
-
-    try:
-        chatbox_process = subprocess.Popen(
-            [sys.executable, CHATBOX_SCRIPT],
-            cwd=CONFIG_DIR,
-        )
-    except Exception as e:
-        chatbox_process = None
-        messagebox.showerror("Face Controller Error", f"Failed to start Face Tracking Controller:\n{e}")
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # GUI
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
 
 BG = "#0f0f13"
 PANEL = "#17171f"
@@ -597,12 +440,10 @@ UI_FONT = "Consolas"
 
 ui_scale = 1.0
 scalable_widgets = []
-square_widgets = []  # store square buttons separately
+square_widgets = []
 
 root = tk.Tk()
 root.title("OSC ToolBox")
-root.geometry("560x620")
-root.minsize(520, 560)
 root.configure(bg=BG)
 root.resizable(True, True)
 
@@ -618,7 +459,6 @@ header_title_label = tk.Label(
 )
 header_title_label.pack(side="left", padx=16)
 
-
 tk.Frame(root, bg=BORDER, height=1).pack(fill="x")
 
 frame = tk.Frame(root, bg=BG)
@@ -631,7 +471,7 @@ def apply_scale(scale):
     ui_scale = scale
 
     base_default = 9
-    new_default  = max(7, int(base_default * scale))
+    new_default = max(7, int(base_default * scale))
 
     font.nametofont("TkDefaultFont").configure(size=new_default)
     font.nametofont("TkTextFont").configure(size=new_default)
@@ -647,7 +487,6 @@ def apply_scale(scale):
         size = int(base_size * scale)
         container.config(width=size, height=size)
         btn.config(font=(UI_FONT, max(8, int(12 * scale))))
-
 
 
 def dark_label(text, r):
@@ -700,50 +539,42 @@ def square_button(parent, text, command, base_size=32):
 
 frame.columnconfigure(1, weight=1)
 
+# ── Tool buttons (auto-generated from MANAGED_SCRIPTS) ────────────────────
 bottom_bar = tk.Frame(frame, bg=BG)
 bottom_bar.grid(row=15, column=0, columnspan=2, pady=6, sticky="ew")
+bottom_bar.columnconfigure(0, weight=1)
 
-bottom_bar.columnconfigure(1, weight=2)  # center (TOOLS bigger)
+for i, entry in enumerate(MANAGED_SCRIPTS):
+    filename = entry["filename"]
+    label = entry["label"]
 
-
-Face_btn = tk.Button(
-    bottom_bar,
-    text="Face Tracking Controller",
-    command=start_face_tracking_debugger,
-    bg=ACCENT,
-    fg="#FFFFFF",
-    relief="flat",
-    activebackground=ACCENT2,
-    activeforeground="#FFFFFF",
-    cursor="hand2",
-    font=(UI_FONT, 10, "bold"),
-    padx=18,
-    pady=6
-)
-
-Chat_btn = tk.Button(
-    bottom_bar,
-    text="ChatBox",
-    command=start_chatbox,
-    bg=ACCENT,
-    fg="#FFFFFF",
-    relief="flat",
-    activebackground=ACCENT2,
-    activeforeground="#FFFFFF",
-    cursor="hand2",
-    font=(UI_FONT, 10, "bold"),
-    padx=18,
-    pady=6
-)
-
-Face_btn.grid(row=0, column=1, padx=6)
-Chat_btn.grid(row=2, column=1, padx=6)
+    # Use a default-argument capture so the lambda binds the current filename
+    btn = tk.Button(
+        bottom_bar,
+        text=label,
+        command=lambda fn=filename: launch_script(fn),
+        bg=ACCENT,
+        fg="#FFFFFF",
+        relief="flat",
+        activebackground=ACCENT2,
+        activeforeground="#FFFFFF",
+        cursor="hand2",
+        font=(UI_FONT, 10, "bold"),
+        padx=18,
+        pady=6,
+    )
+    btn.grid(row=i, column=0, padx=6, pady=4, sticky="ew")
 
 
 # ── Startup update check ───────────────────────────────────────────────────
 def run_startup_update_check(_unused=None):
     check_for_updates(silent=True)
 
+
+# Resize window to fit however many buttons were generated
+btn_count = len(MANAGED_SCRIPTS)
+root.geometry(f"560x{460 + btn_count * 48}")
+root.minsize(520, 400 + btn_count * 48)
 
 root.after(2000, run_startup_update_check, None)
 
