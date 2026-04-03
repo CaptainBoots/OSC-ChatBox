@@ -61,7 +61,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.1.2"
+VERSION = "8.1.3"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Tools/"
 
@@ -70,6 +70,7 @@ GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/ma
 MANAGED_SCRIPTS = [
     {"filename": "OSC-Chatbox.py",                     "label": "ChatBox"},
     {"filename": "OSC-FaceTrackingController(Beta).py", "label": "Face Tracking Controller"},
+    {"filename": "OSC-Router.py", "label": "Router"},
 ]
 # ─────────────────────────────────────────────────────────────────────────────
 
