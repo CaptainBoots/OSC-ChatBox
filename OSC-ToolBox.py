@@ -1,5 +1,5 @@
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-#                                              OSC Python Script                                                       #
+#                                              OSC ToolBox Script                                                      #
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Hi :3
 # Wellcome to my code
@@ -61,7 +61,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.1.3"
+VERSION = "8.1.4"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Tools/"
 
