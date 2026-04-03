@@ -61,7 +61,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.1.1"
+VERSION = "8.1.0"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Tools/"
 
@@ -76,6 +76,7 @@ MANAGED_SCRIPTS = [
 
 print("OSC ToolBox")
 print("Made By Boots")
+print(f"Version {VERSION}")
 
 
 def rename_self_to_toolbox():
@@ -207,15 +208,16 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
 
     local_version = _extract_version_from_source(local_text) or "0.0.0"
 
+    print(f"[{filename}] Checking... (local: {local_version}  remote: {remote_version})")
+
     if _parse_version(remote_version) <= _parse_version(local_version):
-        if not silent:
-            print(f"[{filename}] Up to date ({local_version}) vs remote ({remote_version})")
+        print(f"[{filename}] Up to date ({local_version})")
         return False
 
     try:
         with open(dest_path, "w", encoding="utf-8") as lf:
             lf.write(remote_text)
-        print(f"[{filename}] Updated from {local_version} to {remote_version}")
+        print(f"[{filename}] Updated: {local_version} -> {remote_version}")
         if not silent:
             messagebox.showinfo(
                 f"{filename} Updated",
@@ -393,13 +395,17 @@ def check_for_updates(silent=False):
     content_differs = remote_norm != local_norm
     main_update_available = remote_newer or content_differs
 
+    print(f"[OSC-Tools] Checking... (local: {VERSION}  remote: {remote_version})")
+
     if main_update_available:
         if remote_newer:
+            print(f"[OSC-Tools] Update available: {VERSION} -> {remote_version}")
             prompt = (
                 f"New version {remote_version} is available (you have {VERSION}).\n\n"
                 "Update and restart now?"
             )
         else:
+            print(f"[OSC-Tools] Remote content differs (version string unchanged at {VERSION})")
             prompt = (
                 "A remote script update is available (content changed,\n"
                 "but version string may not have been bumped).\n\n"
@@ -407,9 +413,10 @@ def check_for_updates(silent=False):
             )
         if messagebox.askyesno("Update Available", prompt):
             perform_update(remote_text=remote_text, source_url=remote_url)
-
-    if not main_update_available and silent:
-        print(f"[Updater] Up to date ({VERSION}) vs remote ({remote_version}) from {remote_url}")
+        else:
+            print(f"[OSC-Tools] Update skipped by user")
+    else:
+        print(f"[OSC-Tools] Up to date ({VERSION})")
 
     any_tool_updated = False
     for entry in MANAGED_SCRIPTS:
