@@ -62,7 +62,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.2.1"
+VERSION = "8.2.2"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Tools/"
 
@@ -284,10 +284,20 @@ def launch_script(filename: str) -> None:
     _, dest_path = _script_paths(filename)
     try:
         footer_label.config(text=f"Starting up ({script_label})")
-        _processes[filename] = subprocess.Popen(
-            [sys.executable, dest_path],
-            cwd=CONFIG_DIR,
-        )
+        
+        # Check if file is an executable
+        if dest_path.lower().endswith('.exe'):
+            # Run .exe directly
+            _processes[filename] = subprocess.Popen(
+                [dest_path],
+                cwd=CONFIG_DIR,
+            )
+        else:
+            # Run Python scripts with Python interpreter
+            _processes[filename] = subprocess.Popen(
+                [sys.executable, dest_path],
+                cwd=CONFIG_DIR,
+            )
         # Reset status to "Ready" after 2 seconds
         root.after(2000, lambda: footer_label.config(text="Ready"))
     except Exception as e:
