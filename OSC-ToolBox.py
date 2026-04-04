@@ -62,7 +62,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.2.2"
+VERSION = "8.2.3"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Tools/"
 
@@ -71,6 +71,10 @@ CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools", "OSC-Toolbox")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "toolbox_config.json")
 
 os.makedirs(CONFIG_DIR, exist_ok=True)
+
+print(f"[Config] Script directory: {SCRIPT_DIR}")
+print(f"[Config] Config directory: {CONFIG_DIR}")
+print(f"[Config] Config file: {CONFIG_FILE}")
 
 DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "OSC-Router.py", "label": "Router"},
@@ -95,12 +99,14 @@ def load_managed_scripts():
 def save_managed_scripts(scripts):
     """Save managed scripts to config file"""
     try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
         config = {"managed_scripts": scripts}
         with open(CONFIG_FILE, 'w') as f:
             json.dump(config, f, indent=2)
-        print(f"[Config] Saved {len(scripts)} managed scripts")
+        print(f"[Config] Saved {len(scripts)} managed scripts to {CONFIG_FILE}")
     except Exception as e:
         print(f"[Config] Error saving config: {e}")
+        print(f"[Config] Attempted path: {CONFIG_FILE}")
 
 MANAGED_SCRIPTS = load_managed_scripts()
 
