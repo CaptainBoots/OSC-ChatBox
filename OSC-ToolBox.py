@@ -19,6 +19,7 @@ import tkinter.font as font
 import os
 import site
 
+
 def install_if_missing(package, import_name=None):
     if import_name is None:
         import_name = package.split("==")[0].replace("-", "_")
@@ -51,26 +52,24 @@ def install_if_missing(package, import_name=None):
             if user_site and user_site not in sys.path:
                 sys.path.insert(0, user_site)
 
+
 install_if_missing("requests==2.32.5", "requests")
 
 import requests
-
-
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.1.4"
+VERSION = "8.2.0"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Tools/"
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 MANAGED_SCRIPTS = [
-    {"filename": "OSC-Chatbox.py",                     "label": "ChatBox"},
-    {"filename": "OSC-FaceTrackingController(Beta).py", "label": "Face Tracking Controller"},
     {"filename": "OSC-Router.py", "label": "Router"},
+    {"filename": "OSC-Chatbox.py", "label": "ChatBox"},
+    {"filename": "OSC-FaceTrackingController(Beta).py", "label": "Face Tracking Controller"},
 ]
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -84,7 +83,7 @@ def rename_self_to_toolbox():
     try:
         current_path = os.path.abspath(__file__)
         directory = os.path.dirname(current_path)
-        new_name = "OSC-Tools.py"
+        new_name = "OSC-ToolBox.py"
         new_path = os.path.join(directory, new_name)
         if os.path.basename(current_path) == new_name:
             return
@@ -96,12 +95,13 @@ def rename_self_to_toolbox():
     except Exception as e:
         print(f"[Rename] Failed: {e}")
 
+
 rename_self_to_toolbox()
 
-SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR  = os.path.join(SCRIPT_DIR, "OSC-Tools")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "osc_config.json")
-BACKUP_DIR  = os.path.join(CONFIG_DIR, "ToolBox Backup")   # ← all .bak files live here
+BACKUP_DIR = os.path.join(CONFIG_DIR, "ToolBox Backup")  # ← all .bak files live here
 
 # Running process handles, keyed by filename
 _processes: dict[str, subprocess.Popen | None] = {}
@@ -247,14 +247,21 @@ def launch_script(filename: str) -> None:
         messagebox.showinfo(filename, f"{filename} is already running.")
         return
 
+    # Get the label for this script
+    script_label = next((s["label"] for s in MANAGED_SCRIPTS if s["filename"] == filename), filename)
+
     _, dest_path = _script_paths(filename)
     try:
+        footer_label.config(text=f"Starting up ({script_label})")
         _processes[filename] = subprocess.Popen(
             [sys.executable, dest_path],
             cwd=CONFIG_DIR,
         )
+        # Reset status to "Ready" after 2 seconds
+        root.after(2000, lambda: footer_label.config(text="Ready"))
     except Exception as e:
         _processes[filename] = None
+        footer_label.config(text="Error")
         messagebox.showerror(f"{filename} Error", f"Failed to start {filename}:\n{e}")
 
 
@@ -312,7 +319,8 @@ def get_remote_script_info() -> dict[str, str] | None:
         if best is None:
             best = info
             continue
-        if _parse_version(info["version"]) > _parse_version(best["version"]):
+        best_version: str = best["version"] if best else "0.0.0"
+        if _parse_version(info["version"]) > _parse_version(best_version):
             best = info
 
     if best is not None:
@@ -376,8 +384,8 @@ def check_for_updates(silent=False):
                 "Update Check",
                 "Could not reach GitHub.\nCheck your internet connection."
             )
-        for entry in MANAGED_SCRIPTS:
-            check_for_script_updates(entry["filename"], silent=silent)
+        for script_entry in MANAGED_SCRIPTS:
+            check_for_script_updates(script_entry["filename"], silent=silent)
         return
 
     remote_version = info["version"]
@@ -420,8 +428,8 @@ def check_for_updates(silent=False):
         print(f"[OSC-Tools] Up to date ({VERSION})")
 
     any_tool_updated = False
-    for entry in MANAGED_SCRIPTS:
-        if check_for_script_updates(entry["filename"], silent=silent):
+    for script_entry in MANAGED_SCRIPTS:
+        if check_for_script_updates(script_entry["filename"], silent=silent):
             any_tool_updated = True
 
     if not silent and not main_update_available and not any_tool_updated:
@@ -456,22 +464,36 @@ root.title("OSC ToolBox")
 root.configure(bg=BG)
 root.resizable(True, True)
 
-title_bar = tk.Frame(root, bg=PANEL, pady=10)
+# Header with title and version
+title_bar = tk.Frame(root, bg=PANEL, pady=14)
 title_bar.pack(fill="x")
 
+header_frame = tk.Frame(title_bar, bg=PANEL)
+header_frame.pack(fill="x", padx=16, expand=True)
+
 header_title_label = tk.Label(
-    title_bar,
+    header_frame,
     text="◈  OSC TOOLBOX",
     bg=PANEL,
     fg=ACCENT2,
-    font=(UI_FONT, 13, "bold")
+    font=(UI_FONT, 16, "bold")
 )
-header_title_label.pack(side="left", padx=16)
+header_title_label.pack(side="left", anchor="w")
+
+version_label = tk.Label(
+    header_frame,
+    text=f"v{VERSION}",
+    bg=PANEL,
+    fg=SUBTEXT,
+    font=(UI_FONT, 9)
+)
+version_label.pack(side="right", anchor="e", padx=(32, 0))
 
 tk.Frame(root, bg=BORDER, height=1).pack(fill="x")
 
-frame = tk.Frame(root, bg=BG)
-frame.pack(fill="both", expand=True, padx=12, pady=10)
+# Main content frame with better padding
+main_frame = tk.Frame(root, bg=BG)
+main_frame.pack(fill="both", expand=True, padx=16, pady=14)
 
 
 # ── Scaling ────────────────────────────────────────────────────────────────
@@ -492,21 +514,21 @@ def apply_scale(scale):
         except tk.TclError:
             pass
 
-    for container, base_size, btn in square_widgets:
+    for container, base_size, btn_widget in square_widgets:
         size = int(base_size * scale)
         container.config(width=size, height=size)
-        btn.config(font=(UI_FONT, max(8, int(12 * scale))))
+        btn_widget.config(font=(UI_FONT, max(8, int(12 * scale))))
 
 
-def dark_label(text, r):
-    lbl = tk.Label(frame, text=text, bg=BG, fg=SUBTEXT, anchor="w", font=(UI_FONT, 9))
-    lbl.grid(row=r, column=0, sticky="w", pady=4)
+def dark_label(text, r, **kwargs):
+    lbl = tk.Label(main_frame, text=text, bg=BG, fg=SUBTEXT, anchor="w", font=(UI_FONT, 9))
+    lbl.grid(row=r, column=0, sticky="w", pady=6, **kwargs)
     return lbl
 
 
 def dark_entry(r, default=""):
     e = tk.Entry(
-        frame,
+        main_frame,
         bg=ENTRY_BG,
         fg=TEXT,
         insertbackground=ACCENT,
@@ -517,7 +539,7 @@ def dark_entry(r, default=""):
         highlightcolor=ACCENT,
     )
     e.insert(0, default)
-    e.grid(row=r, column=1, pady=4, sticky="ew")
+    e.grid(row=r, column=1, pady=6, sticky="ew", padx=(8, 0))
     return e
 
 
@@ -525,7 +547,7 @@ def square_button(parent, text, command, base_size=32):
     container = tk.Frame(parent, bg=BTN_BG, highlightthickness=1, highlightbackground=BORDER)
     container.pack_propagate(False)
 
-    btn = tk.Button(
+    button_widget = tk.Button(
         container,
         text=text,
         command=command,
@@ -538,29 +560,175 @@ def square_button(parent, text, command, base_size=32):
         activeforeground=TEXT,
         cursor="hand2",
     )
-    btn.pack(fill="both", expand=True)
+    button_widget.pack(fill="both", expand=True)
 
-    square_widgets.append((container, base_size, btn))
+    square_widgets.append((container, base_size, button_widget))
     container.config(width=base_size, height=base_size)
 
     return container
 
 
-frame.columnconfigure(1, weight=1)
+def open_help():
+    help_win = tk.Toplevel(root)
+    help_win.title("OSC ToolBox Tutorial")
+    help_win.configure(bg=BG)
+    help_win.resizable(True, True)
 
-# ── Tool buttons (auto-generated from MANAGED_SCRIPTS) ────────────────────
-bottom_bar = tk.Frame(frame, bg=BG)
-bottom_bar.grid(row=15, column=0, columnspan=2, pady=6, sticky="ew")
+    root.update_idletasks()
+    help_w = root.winfo_width()
+    help_h = root.winfo_height()
+    root_x = root.winfo_x()
+    root_y = root.winfo_y()
+    help_win.geometry(f"{help_w}x{help_h}+{root_x}+{root_y}")
+
+    pages = [
+        {
+            "title": "Welcome",
+            "content": (
+                "OSC ToolBox — The main control center for\n"
+                "managing all OSC scripts.\n\n"
+                "MANAGED SCRIPTS\n"
+                "Click any script button to launch it.\n\n"
+                "The footer at the bottom shows:\n"
+                "• 'Ready' — waiting for action\n"
+                "• 'Starting up (ScriptName)' — launching\n"
+                "• 'Up to date' — version check complete\n"
+                "• 'Error' — something went wrong"
+            )
+        },
+        {
+            "title": "Available Scripts",
+            "content": (
+                "▶ Router — Manages OSC routing\n"
+                "  Forwards OSC messages between sources\n"
+                "  and destinations.\n\n"
+                "▶ ChatBox — Sends data to VRChat\n"
+                "  Displays system info, weather, music,\n"
+                "  and custom messages.\n\n"
+                "▶ Face Tracking Controller — Control\n"
+                "  face tracking features (Beta version)."
+            )
+        },
+        {
+            "title": "Status Bar",
+            "content": (
+                "The top bar of each script shows:\n\n"
+                "Left: Script name and icon\n"
+                "Center: Version number\n"
+                "Right: Current status\n\n"
+                "Status Examples:\n"
+                "● Status: Running — Script is active\n"
+                "● Status: Stopped — Script is inactive\n"
+                "● Status: Error — Something failed"
+            )
+        },
+        {
+            "title": "Tips",
+            "content": (
+                "• Always start Router first, then ChatBox\n\n"
+                "• Each script remembers its settings\n"
+                "  between sessions\n\n"
+                "• Check your internet connection if\n"
+                "  scripts fail to start\n\n"
+                "• Run scripts from the ToolBox for\n"
+                "  proper management"
+            )
+        },
+    ]
+
+    current_page = [0]
+
+    header = tk.Frame(help_win, bg=PANEL, pady=10)
+    header.pack(fill="x")
+
+    title_label = tk.Label(
+        header, text="", bg=PANEL, fg=ACCENT2, font=(UI_FONT, 12, "bold")
+    )
+    title_label.pack(side="left", padx=16)
+
+    page_indicator = tk.Label(
+        header, text="", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)
+    )
+    page_indicator.pack(side="right", padx=16)
+
+    tk.Frame(help_win, bg=BORDER, height=1).pack(fill="x")
+
+    content_panel = tk.Frame(help_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+    content_panel.pack(padx=20, pady=(14, 0), fill="both", expand=True)
+
+    content_text = tk.Label(
+        content_panel, text="", bg=PANEL, fg=TEXT, anchor="nw", justify="left",
+        font=(UI_FONT, 9), wraplength=400
+    )
+    content_text.pack(padx=16, pady=16, fill="both", expand=True)
+
+    def show_page(page_num):
+        page = pages[page_num]
+        title_label.config(text=page["title"])
+        content_text.config(text=page["content"])
+        page_indicator.config(text=f"Page {page_num + 1} / {len(pages)}")
+        is_last = page_num == len(pages) - 1
+        next_btn.config(text="Finish" if is_last else "Next →")
+
+    def next_or_finish():
+        if current_page[0] < len(pages) - 1:
+            current_page[0] += 1
+            show_page(current_page[0])
+        else:
+            help_win.destroy()
+
+    nav_frame = tk.Frame(help_win, bg=BG)
+    nav_frame.pack(fill="x", padx=20, pady=(0, 14))
+    nav_frame.columnconfigure(1, weight=1)
+
+    prev_btn = tk.Button(
+        nav_frame, text="← Back", bg=PANEL, fg=SUBTEXT, relief="flat", width=10,
+        command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
+                         show_page(current_page[0]))
+    )
+    prev_btn.grid(row=0, column=0, sticky="w")
+    prev_btn.configure(
+        fg=SUBTEXT, activebackground=BORDER, activeforeground=TEXT,
+        cursor="hand2", font=(UI_FONT, 9, "bold"),
+    )
+
+    next_btn = tk.Button(
+        nav_frame, text="Next →", bg=PANEL, fg=SUBTEXT, relief="flat", width=10,
+        command=next_or_finish
+    )
+    next_btn.grid(row=0, column=2, sticky="e")
+    next_btn.configure(
+        bg=ACCENT, fg="#FFFFFF", activebackground=ACCENT2, activeforeground="#FFFFFF",
+        cursor="hand2", font=(UI_FONT, 9, "bold"),
+    )
+
+    show_page(0)
+
+
+main_frame.columnconfigure(1, weight=1)
+
+# ── Tool buttons section with label ────────────────────────────────────────
+tools_label = tk.Label(
+    main_frame,
+    text="MANAGED SCRIPTS",
+    bg=BG,
+    fg=ACCENT,
+    font=(UI_FONT, 10, "bold")
+)
+tools_label.grid(row=14, column=0, columnspan=2, sticky="w", pady=(16, 8))
+
+bottom_bar = tk.Frame(main_frame, bg=BG)
+bottom_bar.grid(row=15, column=0, columnspan=2, pady=(0, 6), sticky="ew")
 bottom_bar.columnconfigure(0, weight=1)
 
 for i, entry in enumerate(MANAGED_SCRIPTS):
-    filename = entry["filename"]
+    script_filename = entry["filename"]
     label = entry["label"]
 
     btn = tk.Button(
         bottom_bar,
-        text=label,
-        command=lambda fn=filename: launch_script(fn),
+        text=f"▶  {label}",
+        command=lambda fn=script_filename: launch_script(fn),
         bg=ACCENT,
         fg="#FFFFFF",
         relief="flat",
@@ -568,20 +736,39 @@ for i, entry in enumerate(MANAGED_SCRIPTS):
         activeforeground="#FFFFFF",
         cursor="hand2",
         font=(UI_FONT, 10, "bold"),
-        padx=18,
-        pady=6,
+        padx=20,
+        pady=8,
     )
-    btn.grid(row=i, column=0, padx=6, pady=4, sticky="ew")
+    btn.grid(row=i, column=0, padx=0, pady=4, sticky="ew")
+
+# ── Footer with update info ────────────────────────────────────────────────
+footer_bar = tk.Frame(root, bg=PANEL, pady=8)
+footer_bar.pack(fill="x", side="bottom")
+
+footer_bar.columnconfigure(0, weight=1)
+
+help_btn = square_button(footer_bar, "？", open_help, base_size=28)
+help_btn.pack(side="left", padx=(8, 0))
+
+footer_label = tk.Label(
+    footer_bar,
+    text="Checking for updates on startup...",
+    bg=PANEL,
+    fg=SUBTEXT,
+    font=(UI_FONT, 8)
+)
+footer_label.pack(side="left", padx=16)
 
 
 # ── Startup update check ───────────────────────────────────────────────────
 def run_startup_update_check(_unused=None):
     check_for_updates(silent=True)
+    footer_label.config(text="Up to date")
 
 
 btn_count = len(MANAGED_SCRIPTS)
-root.geometry(f"560x{460 + btn_count * 48}")
-root.minsize(520, 400 + btn_count * 48)
+root.geometry(f"580x{520 + btn_count * 52}")
+root.minsize(540, 450 + btn_count * 52)
 
 root.after(2000, run_startup_update_check, None)
 
