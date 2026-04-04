@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.6.4"
+VERSION = "7.7.0"
 
 
 class CPUManufacturer(Enum):
@@ -1991,6 +1991,7 @@ def start_script():
 
         running = True
         status_label.config(text="Status: Running", fg=GREEN)
+        footer_label.config(text="Running")
 
         diagnose_lhm()
 
@@ -2000,15 +2001,18 @@ def start_script():
     except ValueError as e:
         messagebox.showerror("Error", f"Invalid input: {e}")
         status_label.config(text="Status: Error", fg=RED)
+        footer_label.config(text="Error")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to start: {e}")
         status_label.config(text="Status: Error", fg=RED)
+        footer_label.config(text="Error")
 
 
 def stop_script():
     global running
     running = False
     status_label.config(text="Status: Stopped", fg=RED)
+    footer_label.config(text="Ready")
 
 
 def restart_script():
@@ -2097,36 +2101,48 @@ square_widgets = []
 
 root = tk.Tk()
 root.title("OSC Chatbox")
-root.geometry("560x620")
-root.minsize(520, 560)
 root.configure(bg=BG)
 root.resizable(True, True)
 
-title_bar = tk.Frame(root, bg=PANEL, pady=10)
+# Header with title and version
+title_bar = tk.Frame(root, bg=PANEL, pady=14)
 title_bar.pack(fill="x")
 
+header_frame = tk.Frame(title_bar, bg=PANEL)
+header_frame.pack(fill="x", padx=16, expand=True)
+
 header_title_label = tk.Label(
-    title_bar,
+    header_frame,
     text="◈  OSC CHATBOX",
     bg=PANEL,
     fg=ACCENT2,
-    font=(UI_FONT, 13, "bold")
+    font=(UI_FONT, 16, "bold")
 )
-header_title_label.pack(side="left", padx=16)
+header_title_label.pack(side="left", anchor="w")
+
+version_label = tk.Label(
+    header_frame,
+    text=f"v{VERSION}",
+    bg=PANEL,
+    fg=SUBTEXT,
+    font=(UI_FONT, 9)
+)
+version_label.pack(side="right", anchor="e", padx=(32, 16))
 
 status_label = tk.Label(
-    title_bar,
+    header_frame,
     text="Status: Stopped",
     bg=PANEL,
     fg=RED,
-    font=(UI_FONT, 9)
+    font=(UI_FONT, 10)
 )
-status_label.pack(side="right", padx=16)
+status_label.pack(side="right", anchor="e")
 
 tk.Frame(root, bg=BORDER, height=1).pack(fill="x")
 
+# Main content frame with better padding
 frame = tk.Frame(root, bg=BG)
-frame.pack(fill="both", expand=True, padx=12, pady=10)
+frame.pack(fill="both", expand=True, padx=16, pady=14)
 
 
 # ── Scaling ────────────────────────────────────────────────────────────────
@@ -2590,9 +2606,9 @@ def open_help():
 frame.columnconfigure(1, weight=1)
 
 
-def dark_label(text, r):
+def dark_label(text, r, **kwargs):
     lbl = tk.Label(frame, text=text, bg=BG, fg=SUBTEXT, anchor="w", font=(UI_FONT, 9))
-    lbl.grid(row=r, column=0, sticky="w", pady=4)
+    lbl.grid(row=r, column=0, sticky="w", pady=6, **kwargs)
     return lbl
 
 
@@ -2609,7 +2625,7 @@ def dark_entry(r, default=""):
         highlightcolor=ACCENT,
     )
     e.insert(0, default)
-    e.grid(row=r, column=1, pady=4, sticky="ew")
+    e.grid(row=r, column=1, pady=6, sticky="ew", padx=(8, 0))
     return e
 
 
@@ -2766,17 +2782,29 @@ tk.Button(
     font=(UI_FONT, 9, "bold"),
 ).grid(row=0, column=2, sticky="ew", padx=2)
 
-# ── Bottom Bar: Help | Settings ───────────────────────────────────────────
-bottom_bar = tk.Frame(frame, bg=BG)
-bottom_bar.grid(row=15, column=0, columnspan=2, pady=6, sticky="ew")
+# ── Footer with status and settings ────────────────────────────────────────────
+footer_bar = tk.Frame(root, bg=PANEL, pady=8)
+footer_bar.pack(fill="x", side="bottom")
 
-bottom_bar.columnconfigure(0, weight=1)
-bottom_bar.columnconfigure(1, weight=1)
+footer_bar.columnconfigure(0, weight=1)
 
-help_btn = square_button(bottom_bar, "？", open_help, base_size=32)
-help_btn.grid(row=0, column=0, sticky="w", padx=6)
+help_btn = square_button(footer_bar, "？", open_help, base_size=28)
+help_btn.pack(side="left", padx=(8, 0))
 
-settings_btn = square_button(bottom_bar, "⚙", open_settings, base_size=32)
-settings_btn.grid(row=0, column=1, sticky="e", padx=6)
+footer_label = tk.Label(
+    footer_bar,
+    text="Ready",
+    bg=PANEL,
+    fg=SUBTEXT,
+    font=(UI_FONT, 8)
+)
+footer_label.pack(side="left", padx=16)
+
+settings_btn = square_button(footer_bar, "⚙", open_settings, base_size=28)
+settings_btn.pack(side="right", padx=(0, 8))
+
+# Set window size
+root.geometry("580x700")
+root.minsize(0, 0)
 
 root.mainloop()
