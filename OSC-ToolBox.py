@@ -18,6 +18,7 @@ from tkinter import messagebox
 import tkinter.font as font
 import os
 import site
+import json
 
 
 def install_if_missing(package, import_name=None):
@@ -61,17 +62,47 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.2.0"
+VERSION = "8.2.1"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Tools/"
 
-# ─────────────────────────────────────────────────────────────────────────────
-MANAGED_SCRIPTS = [
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools", "OSC-Toolbox")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "toolbox_config.json")
+
+os.makedirs(CONFIG_DIR, exist_ok=True)
+
+DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "OSC-Router.py", "label": "Router"},
     {"filename": "OSC-Chatbox.py", "label": "ChatBox"},
     {"filename": "OSC-FaceTrackingController(Beta).py", "label": "Face Tracking Controller"},
 ]
-# ─────────────────────────────────────────────────────────────────────────────
+
+def load_managed_scripts():
+    """Load managed scripts from config file, create if doesn't exist"""
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+                return config.get("managed_scripts", DEFAULT_MANAGED_SCRIPTS)
+        except Exception as e:
+            print(f"[Config] Error loading config: {e}")
+            return DEFAULT_MANAGED_SCRIPTS
+    else:
+        save_managed_scripts(DEFAULT_MANAGED_SCRIPTS)
+        return DEFAULT_MANAGED_SCRIPTS
+
+def save_managed_scripts(scripts):
+    """Save managed scripts to config file"""
+    try:
+        config = {"managed_scripts": scripts}
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=2)
+        print(f"[Config] Saved {len(scripts)} managed scripts")
+    except Exception as e:
+        print(f"[Config] Error saving config: {e}")
+
+MANAGED_SCRIPTS = load_managed_scripts()
 
 
 print("OSC ToolBox")
@@ -623,6 +654,29 @@ def open_help():
             )
         },
         {
+            "title": "Adding a Script",
+            "content": (
+                "1. Click the ⚙ (gear) button in the footer\n"
+                "2. Click '+ Add Script' button\n"
+                "3. Enter a label (button text)\n"
+                "4. Enter filename or full path\n"
+                "5. Click 'Add' to save\n\n"
+                "Your new script button appears in\n"
+                "'MANAGED SCRIPTS' section immediately!"
+            )
+        },
+        {
+            "title": "Removing a Script",
+            "content": (
+                "1. Click the ⚙ (gear) button\n"
+                "2. Find the script in the list\n"
+                "3. Click the '✕ Remove' button\n"
+                "4. Script removed from buttons\n\n"
+                "Changes save automatically. Close and\n"
+                "reopen ToolBox to fully refresh if needed."
+            )
+        },
+        {
             "title": "Tips",
             "content": (
                 "• Always start Router first, then ChatBox\n\n"
@@ -705,6 +759,148 @@ def open_help():
     show_page(0)
 
 
+def open_settings():
+    global MANAGED_SCRIPTS
+    
+    settings_win = tk.Toplevel(root)
+    settings_win.title("Settings")
+    settings_win.configure(bg=BG)
+    settings_win.resizable(True, True)
+
+    root.update_idletasks()
+    help_w = root.winfo_width()
+    help_h = root.winfo_height()
+    root_x = root.winfo_x()
+    root_y = root.winfo_y()
+    settings_win.geometry(f"{help_w}x{help_h}+{root_x}+{root_y}")
+
+    header = tk.Frame(settings_win, bg=PANEL, pady=10)
+    header.pack(fill="x")
+
+    title_label = tk.Label(
+        header, text="Manage Scripts", bg=PANEL, fg=ACCENT2, font=(UI_FONT, 12, "bold")
+    )
+    title_label.pack(side="left", padx=16)
+
+    tk.Frame(settings_win, bg=BORDER, height=1).pack(fill="x")
+
+    content_panel = tk.Frame(settings_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+    content_panel.pack(padx=20, pady=(14, 0), fill="both", expand=True)
+
+    inner_canvas = tk.Canvas(content_panel, bg=PANEL, highlightthickness=0)
+    scrollbar = tk.Scrollbar(content_panel, orient="vertical", command=inner_canvas.yview)
+    inner_canvas.configure(yscrollcommand=scrollbar.set)
+    
+    scrollbar.pack(side="right", fill="y")
+    inner_canvas.pack(side="left", fill="both", expand=True)
+
+    inner_frame = tk.Frame(inner_canvas, bg=PANEL)
+    inner_canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+
+    def on_frame_configure(event=None):
+        inner_canvas.configure(scrollregion=inner_canvas.bbox("all"))
+
+    inner_frame.bind("<Configure>", on_frame_configure)
+
+    def refresh_script_list():
+        for widget in inner_frame.winfo_children():
+            widget.destroy()
+        
+        for idx, script in enumerate(MANAGED_SCRIPTS):
+            script_row = tk.Frame(inner_frame, bg=BG)
+            script_row.pack(fill="x", padx=10, pady=6)
+
+            tk.Label(script_row, text=f"{script['label']}", bg=BG, fg=TEXT, font=(UI_FONT, 9, "bold")).pack(side="left", fill="x", expand=True)
+            tk.Label(script_row, text=f"({script['filename']})", bg=BG, fg=SUBTEXT, font=(UI_FONT, 8)).pack(side="left", padx=(10, 0))
+
+            remove_btn = tk.Button(
+                script_row, 
+                text="✕ Remove", 
+                bg=PANEL, 
+                fg=RED,
+                relief="flat",
+                font=(UI_FONT, 8, "bold"),
+                cursor="hand2",
+                command=lambda i=idx: remove_script(i)
+            )
+            remove_btn.pack(side="right", padx=(10, 0))
+            remove_btn.configure(activebackground=BORDER, activeforeground=RED)
+
+    def remove_script(idx):
+        MANAGED_SCRIPTS.pop(idx)
+        save_managed_scripts(MANAGED_SCRIPTS)
+        refresh_script_list()
+        refresh_main_buttons()
+
+    def add_script():
+        add_win = tk.Toplevel(settings_win)
+        add_win.title("Add Script")
+        add_win.configure(bg=BG)
+        add_win.geometry("400x200")
+        add_win.resizable(False, False)
+
+        tk.Label(add_win, text="Script Label:", bg=BG, fg=TEXT, font=(UI_FONT, 9)).pack(pady=(10, 0), padx=10, anchor="w")
+        label_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(UI_FONT, 9), relief="flat", insertbackground=ACCENT, highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+        label_entry.pack(pady=(0, 10), padx=10, fill="x")
+
+        tk.Label(add_win, text="Filename/Path:", bg=BG, fg=TEXT, font=(UI_FONT, 9)).pack(pady=(10, 0), padx=10, anchor="w")
+        file_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(UI_FONT, 9), relief="flat", insertbackground=ACCENT, highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+        file_entry.pack(pady=(0, 20), padx=10, fill="x")
+
+        def save_new_script():
+            label = label_entry.get().strip()
+            filename = file_entry.get().strip()
+            if label and filename:
+                MANAGED_SCRIPTS.append({"label": label, "filename": filename})
+                save_managed_scripts(MANAGED_SCRIPTS)
+                refresh_script_list()
+                refresh_main_buttons()
+                add_win.destroy()
+
+        btn_frame = tk.Frame(add_win, bg=BG)
+        btn_frame.pack(pady=10)
+
+        tk.Button(
+            btn_frame, text="Add", bg=ACCENT, fg="#FFFFFF", relief="flat", 
+            font=(UI_FONT, 9, "bold"), cursor="hand2",
+            activebackground=ACCENT2, activeforeground="#FFFFFF",
+            command=save_new_script
+        ).pack(side="left", padx=5)
+
+        tk.Button(
+            btn_frame, text="Cancel", bg=PANEL, fg=SUBTEXT, relief="flat",
+            font=(UI_FONT, 9, "bold"), cursor="hand2",
+            activebackground=BORDER, activeforeground=TEXT,
+            command=add_win.destroy
+        ).pack(side="left", padx=5)
+
+    refresh_script_list()
+
+    nav_frame = tk.Frame(settings_win, bg=BG)
+    nav_frame.pack(fill="x", padx=20, pady=(0, 14))
+    nav_frame.columnconfigure(0, weight=1)
+
+    add_btn = tk.Button(
+        nav_frame, text="+ Add Script", bg=ACCENT, fg="#FFFFFF", relief="flat", width=15,
+        command=add_script
+    )
+    add_btn.pack(side="left")
+    add_btn.configure(
+        activebackground=ACCENT2, activeforeground="#FFFFFF",
+        cursor="hand2", font=(UI_FONT, 9, "bold"),
+    )
+
+    close_btn = tk.Button(
+        nav_frame, text="Close", bg=PANEL, fg=SUBTEXT, relief="flat", width=10,
+        command=settings_win.destroy
+    )
+    close_btn.pack(side="right")
+    close_btn.configure(
+        activebackground=BORDER, activeforeground=TEXT,
+        cursor="hand2", font=(UI_FONT, 9, "bold"),
+    )
+
+
 main_frame.columnconfigure(1, weight=1)
 
 # ── Tool buttons section with label ────────────────────────────────────────
@@ -721,25 +917,41 @@ bottom_bar = tk.Frame(main_frame, bg=BG)
 bottom_bar.grid(row=15, column=0, columnspan=2, pady=(0, 6), sticky="ew")
 bottom_bar.columnconfigure(0, weight=1)
 
-for i, entry in enumerate(MANAGED_SCRIPTS):
-    script_filename = entry["filename"]
-    label = entry["label"]
+script_buttons = {}
 
-    btn = tk.Button(
-        bottom_bar,
-        text=f"▶  {label}",
-        command=lambda fn=script_filename: launch_script(fn),
-        bg=ACCENT,
-        fg="#FFFFFF",
-        relief="flat",
-        activebackground=ACCENT2,
-        activeforeground="#FFFFFF",
-        cursor="hand2",
-        font=(UI_FONT, 10, "bold"),
-        padx=20,
-        pady=8,
-    )
-    btn.grid(row=i, column=0, padx=0, pady=4, sticky="ew")
+def refresh_main_buttons():
+    """Refresh the script buttons in the main window"""
+    global script_buttons
+    for btn in script_buttons.values():
+        btn.destroy()
+    script_buttons.clear()
+    
+    for i, entry in enumerate(MANAGED_SCRIPTS):
+        script_filename = entry["filename"]
+        label = entry["label"]
+
+        btn = tk.Button(
+            bottom_bar,
+            text=f"▶  {label}",
+            command=lambda fn=script_filename: launch_script(fn),
+            bg=ACCENT,
+            fg="#FFFFFF",
+            relief="flat",
+            activebackground=ACCENT2,
+            activeforeground="#FFFFFF",
+            cursor="hand2",
+            font=(UI_FONT, 10, "bold"),
+            padx=20,
+            pady=8,
+        )
+        btn.grid(row=i, column=0, padx=0, pady=4, sticky="ew")
+        script_buttons[i] = btn
+    
+    btn_count = len(MANAGED_SCRIPTS)
+    root.geometry(f"580x{520 + btn_count * 52}")
+    root.minsize(540, 450 + btn_count * 52)
+
+refresh_main_buttons()
 
 # ── Footer with update info ────────────────────────────────────────────────
 footer_bar = tk.Frame(root, bg=PANEL, pady=8)
@@ -749,6 +961,9 @@ footer_bar.columnconfigure(0, weight=1)
 
 help_btn = square_button(footer_bar, "？", open_help, base_size=28)
 help_btn.pack(side="left", padx=(8, 0))
+
+settings_btn = square_button(footer_bar, "⚙", open_settings, base_size=28)
+settings_btn.pack(side="right", padx=(0, 8))
 
 footer_label = tk.Label(
     footer_bar,
@@ -765,10 +980,6 @@ def run_startup_update_check(_unused=None):
     check_for_updates(silent=True)
     footer_label.config(text="Up to date")
 
-
-btn_count = len(MANAGED_SCRIPTS)
-root.geometry(f"580x{520 + btn_count * 52}")
-root.minsize(540, 450 + btn_count * 52)
 
 root.after(2000, run_startup_update_check, None)
 
