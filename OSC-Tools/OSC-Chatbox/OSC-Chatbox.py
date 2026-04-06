@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.7.1"
+VERSION = "7.8.0"
 
 
 class CPUManufacturer(Enum):
@@ -338,11 +338,24 @@ def reset_to_defaults():
 #  HARDWARE MONITORING HELPERS
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-def _clean_name(text: str):
-    text = re.sub(r"\(.*?\)|\[.*?]|\{.*?}", "", text)
-    text = text.split("@")[0]
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+def _clean_name(text: str | None) -> str:
+    cleaned = (text or "").split("@")[0]
+
+    # Prefer human-readable names inside brackets from pci.ids entries
+    # (example: "GB206 [GeForce RTX 5060]").
+    bracket_names: list[str] = [b for b in re.findall(r"\[([^]]+)]", cleaned) if b]
+    for candidate in bracket_names:
+        c = candidate.strip()
+        if not c:
+            continue
+        lc = c.casefold()
+        if any(x in lc for x in ("geforce", "radeon", "rtx", "gtx", "arc", "iris", "uhd", "vega", "rx ")):
+            cleaned = c
+            break
+
+    cleaned = re.sub(r"\(.*?\)|\{.*?}", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
 
 
 def _numeric(sensor_value) -> float:
@@ -377,7 +390,7 @@ def _get_hardware_nodes(data):
             yield hw
 
 
-linux_gpu_id_map = {
+gpu_id_map = {
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — RTX 50 series (Blackwell)
@@ -387,6 +400,8 @@ linux_gpu_id_map = {
     "10de:2c02": "GeForce RTX 5070 Ti",
     "10de:2c01": "GeForce RTX 5070",
     "10de:2c00": "GeForce RTX 5060 Ti",
+    "10de:2d05": "GeForce RTX 5060",
+    "10de:2d83": "GeForce RTX 5050",
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — RTX 40 series (Ada Lovelace)
@@ -420,6 +435,7 @@ linux_gpu_id_map = {
     "10de:2489": "GeForce RTX 3060 Ti",
     "10de:2503": "GeForce RTX 3060",
     "10de:2507": "GeForce RTX 3050",
+    "10de:2584": "GeForce RTX 3050 6GB",
     "10de:2420": "GeForce RTX 3080 Ti Laptop",
     "10de:2460": "GeForce RTX 3080 Laptop",
     "10de:24b9": "GeForce RTX 3070 Ti Laptop",
@@ -432,6 +448,7 @@ linux_gpu_id_map = {
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — RTX 20 series (Turing)
     # ══════════════════════════════════════════════════════════════
+    "10de:1e02": "GeForce Titan RTX",
     "10de:1e04": "GeForce RTX 2080 Ti",
     "10de:1e87": "GeForce RTX 2080",
     "10de:1e84": "GeForce RTX 2080 Super",
@@ -439,6 +456,7 @@ linux_gpu_id_map = {
     "10de:1e91": "GeForce RTX 2070 Super",
     "10de:1f08": "GeForce RTX 2060",
     "10de:1f06": "GeForce RTX 2060 Super",
+    "10de:1f36": "GeForce RTX 2060 12GB",
     "10de:1e90": "GeForce RTX 2080 Laptop",
     "10de:1f91": "GeForce RTX 2070 Laptop",
     "10de:1f15": "GeForce RTX 2060 Laptop",
@@ -451,13 +469,17 @@ linux_gpu_id_map = {
     "10de:21c4": "GeForce GTX 1660 Super",
     "10de:1f82": "GeForce GTX 1650",
     "10de:2187": "GeForce GTX 1650 Super",
+    "10de:1f83": "GeForce GTX 1630",
     "10de:1f9d": "GeForce GTX 1650 Ti Laptop",
     "10de:1f99": "GeForce GTX 1650 Laptop",
+    "10de:1f9f": "GeForce GTX 1660 Ti Laptop",
+    "10de:1f95": "GeForce GTX 1660 Ti Laptop",
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — GTX 10 series (Pascal)
     # ══════════════════════════════════════════════════════════════
     "10de:1b06": "GeForce GTX 1080 Ti",
+    "10de:1b00": "GeForce Titan Xp",
     "10de:1b80": "GeForce GTX 1080",
     "10de:1b81": "GeForce GTX 1070",
     "10de:1b82": "GeForce GTX 1070 Ti",
@@ -465,30 +487,79 @@ linux_gpu_id_map = {
     "10de:1c02": "GeForce GTX 1060 3GB",
     "10de:1c82": "GeForce GTX 1050 Ti",
     "10de:1c81": "GeForce GTX 1050",
+    "10de:1d01": "GeForce GT 1030",
     "10de:1c8d": "GeForce GTX 1050 Laptop",
     "10de:1be1": "GeForce GTX 1080 Laptop",
     "10de:1be0": "GeForce GTX 1070 Laptop",
     "10de:1c20": "GeForce GTX 1060 Laptop",
+    "10de:1c8c": "GeForce GTX 1050 Ti Laptop",
 
     # ══════════════════════════════════════════════════════════════
-    # NVIDIA — GTX 900 series (Maxwell)
+    # NVIDIA — GTX 900 series (Maxwell 2)
     # ══════════════════════════════════════════════════════════════
     "10de:17c8": "GeForce GTX 980 Ti",
+    "10de:17c2": "GeForce Titan X (Maxwell)",
     "10de:13c0": "GeForce GTX 980",
     "10de:13c2": "GeForce GTX 970",
     "10de:1401": "GeForce GTX 960",
     "10de:1402": "GeForce GTX 950",
+    "10de:1340": "GeForce GTX 940M",
+    "10de:1341": "GeForce GTX 940MX",
+    "10de:139b": "GeForce GTX 950M",
     "10de:1617": "GeForce GTX 980M",
     "10de:1618": "GeForce GTX 970M",
     "10de:1619": "GeForce GTX 960M",
 
     # ══════════════════════════════════════════════════════════════
-    # NVIDIA — GTX 700 series (Kepler)
+    # NVIDIA — GTX 700 series (Kepler GK110/GK104/GK106)
     # ══════════════════════════════════════════════════════════════
+    "10de:100a": "GeForce GTX 780 Ti",
     "10de:1004": "GeForce GTX 780 Ti",
     "10de:1005": "GeForce GTX 780",
     "10de:1187": "GeForce GTX 770",
     "10de:1189": "GeForce GTX 760",
+    "10de:11fc": "GeForce GTX 760 Ti OEM",
+    "10de:1380": "GeForce GTX 750 Ti",
+    "10de:1381": "GeForce GTX 750",
+    "10de:1392": "GeForce GTX 745",
+
+    # ══════════════════════════════════════════════════════════════
+    # NVIDIA — GTX 600 series (Kepler GK104/GK106/GK107/GK110)
+    # ══════════════════════════════════════════════════════════════
+    "10de:1180": "GeForce GTX 680",
+    "10de:1188": "GeForce GTX 670",
+    "10de:1183": "GeForce GTX 660 Ti",
+    "10de:11c0": "GeForce GTX 660",
+    "10de:11c6": "GeForce GTX 650 Ti",
+    "10de:11c8": "GeForce GTX 650 Ti Boost",
+    "10de:1280": "GeForce GTX 650",
+    "10de:1282": "GeForce GT 640",
+    "10de:0fc6": "GeForce GTX 650",
+    "10de:0fc1": "GeForce GT 640",
+
+    # ══════════════════════════════════════════════════════════════
+    # NVIDIA — GTX 500 series (Fermi GF110/GF114/GF116)
+    # ══════════════════════════════════════════════════════════════
+    "10de:1088": "GeForce GTX 590",
+    "10de:1080": "GeForce GTX 580",
+    "10de:1081": "GeForce GTX 570",
+    "10de:1084": "GeForce GTX 560 Ti (448 cores)",
+    "10de:1200": "GeForce GTX 560 Ti",
+    "10de:1201": "GeForce GTX 560",
+    "10de:1203": "GeForce GTX 460 SE",
+    "10de:1244": "GeForce GTX 550 Ti",
+    "10de:1245": "GeForce GTS 450",
+
+    # ══════════════════════════════════════════════════════════════
+    # NVIDIA — GTX 400 series (Fermi GF100/GF104/GF106)
+    # ══════════════════════════════════════════════════════════════
+    "10de:06c0": "GeForce GTX 480",
+    "10de:06cd": "GeForce GTX 470",
+    "10de:0e22": "GeForce GTX 460",
+    "10de:0e24": "GeForce GTX 460 SE",
+    "10de:0dc0": "GeForce GTX 460",
+    "10de:06d2": "GeForce GTX 450",
+    "10de:0de1": "GeForce GT 430",
 
     # ══════════════════════════════════════════════════════════════
     # AMD — RX 9000 series (RDNA 4)
@@ -496,6 +567,7 @@ linux_gpu_id_map = {
     "1002:7518": "Radeon RX 9070 XT",
     "1002:7580": "Radeon RX 9070",
     "1002:7590": "Radeon RX 9060 XT",
+    "1002:7591": "Radeon RX 9060",
 
     # ══════════════════════════════════════════════════════════════
     # AMD — RX 7000 series (RDNA 3)
@@ -508,6 +580,7 @@ linux_gpu_id_map = {
     "1002:7489": "Radeon RX 7700",
     "1002:7422": "Radeon RX 7600",
     "1002:7424": "Radeon RX 7600 XT",
+    "1002:7470": "Radeon RX 7500 XT",
     "1002:7466": "Radeon RX 7600M Laptop",
     "1002:7474": "Radeon RX 7600S Laptop",
 
@@ -521,12 +594,14 @@ linux_gpu_id_map = {
     "1002:73df": "Radeon RX 6700 XT",
     "1002:73e3": "Radeon RX 6700",
     "1002:73e4": "Radeon RX 6750 GRE",
+    "1002:73e8": "Radeon RX 6650 XT",
     "1002:73ff": "Radeon RX 6600 XT",
     "1002:73a0": "Radeon RX 6600",
     "1002:73a4": "Radeon RX 6500 XT",
+    "1002:7425": "Radeon RX 6550 XT",
     "1002:743f": "Radeon RX 6400",
+    "1002:7421": "Radeon RX 6300",
     "1002:73e1": "Radeon RX 6700M Laptop",
-    "1002:7360": "Radeon RX 6600M Laptop",
 
     # ══════════════════════════════════════════════════════════════
     # AMD — RX 5000 series (RDNA 1)
@@ -537,24 +612,64 @@ linux_gpu_id_map = {
     "1002:7340": "Radeon RX 5500 XT",
     "1002:7341": "Radeon RX 5500",
     "1002:7347": "Radeon RX 5500M Laptop",
+    "1002:7360": "Radeon RX 5300",
 
     # ══════════════════════════════════════════════════════════════
     # AMD — RX 500 / Vega series (Polaris / Vega)
     # ══════════════════════════════════════════════════════════════
     "1002:687f": "Radeon RX Vega 64",
     "1002:6863": "Radeon RX Vega 56",
-    "1002:67df": "Radeon RX 580",
-    "1002:67ef": "Radeon RX 570",
-    "1002:67ff": "Radeon RX 560",
+    "1002:687d": "Radeon Vega Frontier Edition",
+    "1002:6867": "Radeon Pro WX 8200",
+    "1002:67df": "Radeon RX 580 / RX 480",     # Polaris10 — rev e7=580, c7=480
+    "1002:67ef": "Radeon RX 570 / RX 470",     # Polaris10 — rev e0=570, c0=470
+    "1002:67ff": "Radeon RX 560 / RX 460",     # Polaris11 — rev cf=560, c7=460
     "1002:699f": "Radeon RX 550",
+    "1002:6985": "Radeon RX 550X",
+    "1002:6981": "Radeon RX 550 (Lexa)",
 
     # ══════════════════════════════════════════════════════════════
-    # Intel — Arc (Alchemist)
+    # AMD — R9 300 / Fury series (Fiji / Tonga / Antigua)
+    # ══════════════════════════════════════════════════════════════
+    "1002:7300": "Radeon R9 Fury X / Fury / Nano",
+    "1002:6939": "Radeon R9 390X",
+    "1002:6938": "Radeon R9 390",
+    "1002:6937": "Radeon R9 380X",
+    "1002:6935": "Radeon R9 380",
+    "1002:6810": "Radeon R9 380",
+    "1002:6860": "Radeon R9 390X",
+    "1002:683d": "Radeon R9 290X",
+    "1002:67b0": "Radeon R9 390X",
+    "1002:67b1": "Radeon R9 390",
+
+    # ══════════════════════════════════════════════════════════════
+    # AMD — R9 200 series (Hawaii / Tahiti / Pitcairn)
+    # ══════════════════════════════════════════════════════════════
+    "1002:6798": "Radeon R9 290X",
+    "1002:6799": "Radeon R9 290",
+    "1002:679a": "Radeon R9 290",
+    "1002:679b": "Radeon R9 295X2",
+    "1002:6780": "Radeon R9 280X",
+    "1002:6818": "Radeon R9 280X",
+    "1002:6819": "Radeon R9 285",
+    "1002:6900": "Radeon R9 285",
+
+    # ══════════════════════════════════════════════════════════════
+    # Intel — Arc Battlemage (B-series)
+    # ══════════════════════════════════════════════════════════════
+    "8086:e20b": "Intel Arc B580",
+    "8086:e20c": "Intel Arc B570",
+    "8086:e210": "Intel Arc B580M Laptop",
+    "8086:e211": "Intel Arc B570M Laptop",
+
+    # ══════════════════════════════════════════════════════════════
+    # Intel — Arc Alchemist (A-series)
     # ══════════════════════════════════════════════════════════════
     "8086:56a0": "Intel Arc A770",
     "8086:56a1": "Intel Arc A750",
     "8086:56a5": "Intel Arc A580",
     "8086:56a6": "Intel Arc A380",
+    "8086:56a3": "Intel Arc A310",
     "8086:56b0": "Intel Arc A770M Laptop",
     "8086:56b1": "Intel Arc A730M Laptop",
     "8086:56b2": "Intel Arc A550M Laptop",
@@ -562,6 +677,7 @@ linux_gpu_id_map = {
     "8086:56c1": "Intel Arc A350M Laptop",
     "8086:5690": "Intel Arc A370M Laptop",
     "8086:5691": "Intel Arc A350M Laptop",
+    "8086:5693": "Intel Arc A330M Laptop",
 
     # ══════════════════════════════════════════════════════════════
     # Intel — Iris Xe (Tiger / Alder / Raptor Lake)
@@ -585,7 +701,7 @@ linux_gpu_id_map = {
     "8086:a789": "Intel Iris Xe Graphics",
 
     # ══════════════════════════════════════════════════════════════
-    # Intel — UHD (integrated)
+    # Intel — UHD / HD (integrated)
     # ══════════════════════════════════════════════════════════════
     "8086:3e92": "Intel UHD Graphics 630",
     "8086:3e9b": "Intel UHD Graphics 630",
@@ -598,6 +714,17 @@ linux_gpu_id_map = {
     "8086:4693": "Intel UHD Graphics 730",
     "8086:4698": "Intel UHD Graphics 710",
     "8086:4699": "Intel UHD Graphics 710",
+    "8086:3ea0": "Intel UHD Graphics 620",
+    "8086:3e9a": "Intel UHD Graphics 620",
+    "8086:5917": "Intel UHD Graphics 620",
+    "8086:5912": "Intel HD Graphics 630",
+    "8086:591b": "Intel HD Graphics 630",
+    "8086:1912": "Intel HD Graphics 530",
+    "8086:191b": "Intel HD Graphics 530",
+    "8086:1616": "Intel HD Graphics 5500",
+    "8086:1626": "Intel HD Graphics 6000",
+    "8086:162b": "Intel Iris Graphics 6100",
+    "8086:1622": "Intel Iris Pro Graphics 6200",
 }
 
 
@@ -622,46 +749,33 @@ def _linux_detect_gpu_pci_id():
     return None
 
 
-def _linux_detect_gpu_name():
-    import glob
-
-    for proc_gpu_info in glob.glob("/proc/driver/nvidia/gpus/*/information"):
-        try:
-            with open(proc_gpu_info, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.lower().startswith("model:"):
-                        return line.split(":", 1)[1].strip()
-        except OSError:
-            continue
-
+def _windows_detect_gpu_pci_id():
     try:
         output = subprocess.check_output(
-            ["lspci", "-nn"],
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty PNPDeviceID)",
+            ],
             encoding="utf-8",
             stderr=subprocess.DEVNULL,
-            timeout=2,
+            timeout=5,
         )
-        intel_name = None
+        intel_id = None
         for line in output.splitlines():
-            if "VGA" not in line and "3D controller" not in line:
-                continue
-
-            match = re.search(r":\s(.+?)\s\[[0-9a-fA-F]{4}:[0-9a-fA-F]{4}](?:\s\(rev .+\))?$", line)
+            match = re.search(r"VEN_([0-9A-Fa-f]{4}).*DEV_([0-9A-Fa-f]{4})", line)
             if not match:
                 continue
-
-            gpu_name = match.group(1).strip()
-            gpu_name = re.sub(
-                r"^(NVIDIA Corporation|Intel Corporation|Advanced Micro Devices, Inc\. \[AMD/ATI])\s+",
-                "",
-                gpu_name,
-            )
-            if "[8086:" in line:
-                intel_name = gpu_name
+            vendor_id = match.group(1).lower()
+            device_id = match.group(2).lower()
+            pci_id = f"{vendor_id}:{device_id}"
+            if vendor_id == "8086":
+                intel_id = pci_id
             else:
-                return gpu_name
-        return intel_name
-    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired, UnicodeDecodeError):
+                return pci_id
+        return intel_id
+    except (OSError, subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
         return None
 
 
@@ -1245,31 +1359,12 @@ def get_cpu_load_from_lhm(data) -> int:
 
 def detect_gpu():
     if sys.platform == "win32":
-        try:
-            gpu_name = subprocess.check_output(
-                ["powershell", "-Command", "(Get-CimInstance Win32_VideoController).Name"],
-                encoding="utf-8",
-                stderr=subprocess.DEVNULL,
-                timeout=5
-            ).strip()
+        pci_id = _windows_detect_gpu_pci_id()
+    else:
+        pci_id = _linux_detect_gpu_pci_id()
 
-            gpu_lines = [
-                line for line in gpu_name.splitlines()
-                if "virtual desktop" not in line.lower() and "virtual monitor" not in line.lower()
-            ]
-            gpu_name = "\n".join(gpu_lines).strip()
-
-            return _clean_name(gpu_name)
-        except (subprocess.CalledProcessError, UnicodeDecodeError, subprocess.TimeoutExpired):
-            return "GPU Unknown"
-
-    pci_id = _linux_detect_gpu_pci_id()
-    if pci_id in linux_gpu_id_map:
-        return linux_gpu_id_map[pci_id]
-
-    gpu_name = _linux_detect_gpu_name()
-    if gpu_name:
-        return _clean_name(gpu_name)
+    if pci_id in gpu_id_map:
+        return gpu_id_map[pci_id]
 
     return f"Unknown GPU ({pci_id})" if pci_id else "GPU Unknown"
 
