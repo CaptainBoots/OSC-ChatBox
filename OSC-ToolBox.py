@@ -62,14 +62,19 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.2.4"
+VERSION = "8.2.5"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Tools/"
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TOOLBOX_CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools", "OSC-Toolbox")
+TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools")
+TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "OSC-Toolbox")
 TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
-LEGACY_TOOLBOX_CONFIG_FILE = os.path.join(SCRIPT_DIR, "OSC-Tools", "chatbox_config.json")
+LEGACY_TOOLBOX_CONFIG_FILES = [
+    os.path.join(TOOLS_ROOT_DIR, "osc_config.json"),
+    os.path.join(TOOLS_ROOT_DIR, "chatbox_config.json"),
+    os.path.join(TOOLS_ROOT_DIR, "toolbox_config.json"),
+]
 
 os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
 
@@ -94,18 +99,19 @@ def load_managed_scripts():
             print(f"[Config] Error loading config: {e}")
             return DEFAULT_MANAGED_SCRIPTS
 
-    # One-time migration for older versions that accidentally saved to OSC-Tools/chatbox_config.json
-    if os.path.exists(LEGACY_TOOLBOX_CONFIG_FILE):
+    # One-time migration for older versions that saved config in legacy paths
+    for legacy_path in LEGACY_TOOLBOX_CONFIG_FILES:
+        if not os.path.exists(legacy_path):
+            continue
         try:
-            with open(LEGACY_TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
+            with open(legacy_path, "r", encoding="utf-8") as f:
                 legacy = json.load(f)
             scripts = legacy.get("managed_scripts", DEFAULT_MANAGED_SCRIPTS)
             save_managed_scripts(scripts)
-            print(f"[Config] Migrated legacy config -> {TOOLBOX_CONFIG_FILE}")
+            print(f"[Config] Migrated legacy config {legacy_path} -> {TOOLBOX_CONFIG_FILE}")
             return scripts
         except Exception as e:
-            print(f"[Config] Error migrating legacy config: {e}")
-            return DEFAULT_MANAGED_SCRIPTS
+            print(f"[Config] Error migrating legacy config {legacy_path}: {e}")
 
     save_managed_scripts(DEFAULT_MANAGED_SCRIPTS)
     return DEFAULT_MANAGED_SCRIPTS
@@ -150,9 +156,16 @@ def rename_self_to_toolbox():
 rename_self_to_toolbox()
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "chatbox_config.json")
-BACKUP_DIR = os.path.join(CONFIG_DIR, "ToolBox Backup")  # ← all .bak files live here
+TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools")
+TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "OSC-Toolbox")
+TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
+BACKUP_DIR = os.path.join(TOOLBOX_CONFIG_DIR, "ToolBox Backup")
+
+SCRIPT_FOLDER_MAP = {
+    "OSC-Chatbox.py": "OSC-Chatbox",
+    "OSC-Router.py": "OSC-Router",
+    "OSC-FaceTrackingController(Beta).py": "OSC-FaceTrackingController",
+}
 
 # Running process handles, keyed by filename
 _processes: dict[str, subprocess.Popen | None] = {}
@@ -162,17 +175,99 @@ _processes: dict[str, subprocess.Popen | None] = {}
 # MANAGED SCRIPT HELPERS
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+def _ensure_layout_dirs() -> None:
+    os.makedirs(TOOLS_ROOT_DIR, exist_ok=True)
+    os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    for folder in SCRIPT_FOLDER_MAP.values():
+        os.makedirs(os.path.join(TOOLS_ROOT_DIR, folder), exist_ok=True)
+
+
+def _migrate_legacy_layout() -> None:
+    for script_name, folder in SCRIPT_FOLDER_MAP.items():
+        legacy_script = os.path.join(TOOLS_ROOT_DIR, script_name)
+        target_script = os.path.join(TOOLS_ROOT_DIR, folder, script_name)
+        if not os.path.isfile(legacy_script) or os.path.isfile(target_script):
+            continue
+        try:
+            os.makedirs(os.path.dirname(target_script), exist_ok=True)
+            os.replace(legacy_script, target_script)
+            print(f"[Layout] Moved {script_name} -> {folder}\\")
+        except OSError as e:
+            print(f"[Layout] Could not move {script_name}: {e}")
+
+    legacy_backup_dir = os.path.join(TOOLS_ROOT_DIR, "ToolBox Backup")
+    if os.path.isdir(legacy_backup_dir) and os.path.abspath(legacy_backup_dir) != os.path.abspath(BACKUP_DIR):
+        try:
+            os.makedirs(BACKUP_DIR, exist_ok=True)
+            for backup_name in os.listdir(legacy_backup_dir):
+                src = os.path.join(legacy_backup_dir, backup_name)
+                dst = os.path.join(BACKUP_DIR, backup_name)
+                if os.path.isfile(src) and not os.path.exists(dst):
+                    os.replace(src, dst)
+            if not os.listdir(legacy_backup_dir):
+                os.rmdir(legacy_backup_dir)
+        except OSError as e:
+            print(f"[Layout] Could not migrate legacy backups: {e}")
+
+
+def _is_path_like(filename: str) -> bool:
+    return os.path.isabs(filename) or ("/" in filename) or ("\\" in filename)
+
+
+def _script_remote_urls(filename: str) -> list[str]:
+    if _is_path_like(filename):
+        return []
+    script_name = os.path.basename(filename)
+    urls: list[str] = []
+    folder = SCRIPT_FOLDER_MAP.get(script_name)
+    if folder:
+        urls.append(f"{GITHUB_BASE_URL}{folder}/{script_name}")
+    urls.append(f"{GITHUB_BASE_URL}{script_name}")
+    return list(dict.fromkeys(urls))
+
+
+def _script_bundle_candidates(filename: str) -> list[str]:
+    if _is_path_like(filename):
+        resolved = filename if os.path.isabs(filename) else os.path.join(SCRIPT_DIR, filename)
+        return [os.path.normpath(resolved)]
+
+    script_name = os.path.basename(filename)
+    candidates: list[str] = []
+    folder = SCRIPT_FOLDER_MAP.get(script_name)
+    if folder:
+        candidates.append(os.path.join(SCRIPT_DIR, "OSC-Tools", folder, script_name))
+    candidates.append(os.path.join(SCRIPT_DIR, "OSC-Tools", script_name))
+    candidates.append(os.path.join(SCRIPT_DIR, script_name))
+    return list(dict.fromkeys(candidates))
+
+
 def _script_paths(filename: str) -> tuple[str, str]:
-    """Return (bundled_path, config_dir_path) for a managed script filename."""
-    return (
-        os.path.join(SCRIPT_DIR, filename),
-        os.path.join(CONFIG_DIR, filename),
-    )
+    """Return (bundled_path, destination_path) for a managed script filename."""
+    if _is_path_like(filename):
+        dest_path = filename if os.path.isabs(filename) else os.path.join(SCRIPT_DIR, filename)
+        dest_path = os.path.normpath(dest_path)
+        return dest_path, dest_path
+
+    script_name = os.path.basename(filename)
+    folder = SCRIPT_FOLDER_MAP.get(script_name)
+    if folder:
+        dest_path = os.path.join(TOOLS_ROOT_DIR, folder, script_name)
+    else:
+        dest_path = os.path.join(TOOLS_ROOT_DIR, script_name)
+
+    bundle_candidates = _script_bundle_candidates(script_name)
+    bundled_path = next((p for p in bundle_candidates if os.path.isfile(p)), bundle_candidates[0])
+    return bundled_path, dest_path
+
+
+_ensure_layout_dirs()
+_migrate_legacy_layout()
 
 
 def ensure_script(filename: str, show_errors: bool = False) -> bool:
     """
-    Make sure *filename* exists in CONFIG_DIR.
+    Make sure *filename* exists at its layout destination.
     Tries: already present → download from GitHub → bundled copy.
     Returns True if the script is ready to run.
     """
@@ -182,26 +277,28 @@ def ensure_script(filename: str, show_errors: bool = False) -> bool:
         return True
 
     try:
-        os.makedirs(CONFIG_DIR, exist_ok=True)
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
     except OSError as e:
-        print(f"[{filename}] Could not create config directory: {e}")
+        print(f"[{filename}] Could not create destination directory: {e}")
         if show_errors:
-            messagebox.showerror(f"{filename} Error", f"Could not create config directory:\n{e}")
+            messagebox.showerror(f"{filename} Error", f"Could not create destination directory:\n{e}")
         return False
 
-    url = GITHUB_BASE_URL + filename
     remote_text = None
-    try:
-        response = requests.get(
-            url,
-            timeout=10,
-            params={"_": int(time.time())},
-            headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
-        )
-        response.raise_for_status()
-        remote_text = response.text
-    except requests.RequestException as e:
-        print(f"[{filename}] Download failed: {e}")
+    for url in _script_remote_urls(filename):
+        try:
+            response = requests.get(
+                url,
+                timeout=10,
+                params={"_": int(time.time())},
+                headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
+            )
+            response.raise_for_status()
+            remote_text = response.text
+            print(f"[{filename}] Download source: {url}")
+            break
+        except requests.RequestException:
+            continue
 
     if remote_text:
         try:
@@ -225,7 +322,7 @@ def ensure_script(filename: str, show_errors: bool = False) -> bool:
     if show_errors:
         messagebox.showerror(
             f"{filename} Error",
-            f"Could not download {filename}.\nCheck your internet connection and try again.",
+            f"Could not prepare {filename}.\nCheck your internet connection and try again.",
         )
     return False
 
@@ -239,9 +336,12 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
         return False
 
     _, dest_path = _script_paths(filename)
-    url = GITHUB_BASE_URL + filename
-
-    remote_text, remote_version, _ = _fetch_remote_script(url, timeout=10)
+    remote_text = None
+    remote_version = None
+    for url in _script_remote_urls(filename):
+        remote_text, remote_version, _ = _fetch_remote_script(url, timeout=10)
+        if remote_text is not None:
+            break
     if remote_text is None:
         if not silent:
             messagebox.showinfo(
@@ -302,6 +402,7 @@ def launch_script(filename: str) -> None:
     script_label = next((s["label"] for s in MANAGED_SCRIPTS if s["filename"] == filename), filename)
 
     _, dest_path = _script_paths(filename)
+    work_dir = os.path.dirname(dest_path)
     try:
         footer_label.config(text=f"Starting up ({script_label})")
         
@@ -310,13 +411,13 @@ def launch_script(filename: str) -> None:
             # Run .exe directly
             _processes[filename] = subprocess.Popen(
                 [dest_path],
-                cwd=CONFIG_DIR,
+                cwd=work_dir,
             )
         else:
             # Run Python scripts with Python interpreter
             _processes[filename] = subprocess.Popen(
                 [sys.executable, dest_path],
-                cwd=CONFIG_DIR,
+                cwd=work_dir,
             )
         # Reset status to "Ready" after 2 seconds
         root.after(2000, _set_footer_ready, None)
