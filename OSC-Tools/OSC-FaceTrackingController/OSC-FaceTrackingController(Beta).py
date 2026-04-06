@@ -9,6 +9,8 @@
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 import importlib
+import json
+import os
 import subprocess
 import sys
 import threading
@@ -36,7 +38,7 @@ from pythonosc import udp_client
 # CONFIGURATION
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 print("OSC FaceTrackingController")
 print("Made By Boots")
@@ -45,11 +47,45 @@ print(f"Version {VERSION}")
 DEFAULT_OSC_IP = "127.0.0.1"
 DEFAULT_OSC_PORT = "9000"
 DEFAULT_OSC_PREFIX = "/avatar/parameters/v2/"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR = SCRIPT_DIR
+CONFIG_FILE = os.path.join(CONFIG_DIR, "face_tracking_config.json")
 
 PREFIX_PRESETS = {
     "VRCFT v2 (default)": "/avatar/parameters/v2/",
     "Direct / v1": "/avatar/parameters/",
 }
+
+
+def get_default_config() -> dict:
+    return {
+        "osc_ip": DEFAULT_OSC_IP,
+        "osc_port": DEFAULT_OSC_PORT,
+        "osc_prefix": DEFAULT_OSC_PREFIX,
+    }
+
+
+def load_config() -> dict:
+    defaults = get_default_config()
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            return {**defaults, **json.load(f)}
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return defaults
+
+
+def save_config(ip: str, port: str, prefix: str) -> None:
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    config = {
+        "osc_ip": ip,
+        "osc_port": str(port),
+        "osc_prefix": prefix,
+    }
+    try:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2)
+    except OSError as e:
+        print(f"[Config] Save failed: {e}")
 
 BG = "#0f0f13"
 PANEL = "#17171f"
@@ -133,7 +169,7 @@ class OscFaceController(tk.Tk):
         self._init_state()
         self._build_fonts()
         self._build_ui()
-        self._try_connect()
+        self._set_stopped()
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Setup
@@ -149,6 +185,7 @@ class OscFaceController(tk.Tk):
         self._connected = False
         self._lock = threading.Lock()
         self._vars: dict[str, tk.DoubleVar] = {}
+        self._config = load_config()
 
     def _build_fonts(self) -> None:
         self.f_title = font.Font(family=FONT_FAMILY, size=16, weight="bold")
@@ -187,6 +224,7 @@ class OscFaceController(tk.Tk):
         self._build_title_bar()
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x")
         self._build_connection_row()
+        self._build_action_row()
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x")
         self._build_notebook()
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x")
@@ -230,7 +268,7 @@ class OscFaceController(tk.Tk):
         conn_row.pack(fill="x", padx=12)
 
         tk.Label(conn_row, text="IP", font=self.f_label, bg=BG, fg=SUBTEXT).pack(side="left")
-        self._ip_var = tk.StringVar(value=DEFAULT_OSC_IP)
+        self._ip_var = tk.StringVar(value=self._config.get("osc_ip", DEFAULT_OSC_IP))
         ip_entry = tk.Entry(
             conn_row,
             textvariable=self._ip_var,
@@ -247,7 +285,7 @@ class OscFaceController(tk.Tk):
         ip_entry.pack(side="left", padx=(4, 12))
 
         tk.Label(conn_row, text="Port", font=self.f_label, bg=BG, fg=SUBTEXT).pack(side="left")
-        self._port_var = tk.StringVar(value=DEFAULT_OSC_PORT)
+        self._port_var = tk.StringVar(value=str(self._config.get("osc_port", DEFAULT_OSC_PORT)))
         port_entry = tk.Entry(
             conn_row,
             textvariable=self._port_var,
@@ -264,7 +302,7 @@ class OscFaceController(tk.Tk):
         port_entry.pack(side="left", padx=(4, 12))
 
         tk.Label(conn_row, text="Prefix", font=self.f_label, bg=BG, fg=SUBTEXT).pack(side="left")
-        self._prefix_var = tk.StringVar(value=DEFAULT_OSC_PREFIX)
+        self._prefix_var = tk.StringVar(value=self._config.get("osc_prefix", DEFAULT_OSC_PREFIX))
         prefix_entry = tk.Entry(
             conn_row,
             textvariable=self._prefix_var,
@@ -296,37 +334,74 @@ class OscFaceController(tk.Tk):
             indicatoron=True, bd=0,
         )
         preset_menu["menu"].config(bg=PANEL, fg=TEXT, activebackground=ACCENT, activeforeground="#fff")
-        preset_menu.pack(side="left", padx=(0, 8))
+        preset_menu.pack(side="left")
 
-        tk.Button(
-            conn_row,
-            text="CONNECT",
-            font=self.f_btn,
+    def _build_action_row(self) -> None:
+        button_row = tk.Frame(self, bg=BG)
+        button_row.pack(fill="x", padx=12, pady=(0, 10))
+
+        button_row.columnconfigure(0, weight=1)
+        button_row.columnconfigure(1, weight=1)
+        button_row.columnconfigure(2, weight=1)
+        button_row.columnconfigure(3, weight=1)
+
+        self._start_btn = tk.Button(
+            button_row,
+            text="Start",
+            command=self._start_connection,
             bg=ACCENT,
-            fg="#ffffff",
+            fg="#FFFFFF",
+            disabledforeground="#FFFFFF",
             relief="flat",
             activebackground=ACCENT2,
-            activeforeground="#ffffff",
-            padx=10,
-            pady=3,
+            activeforeground="#FFFFFF",
             cursor="hand2",
-            command=self._try_connect,
-        ).pack(side="left")
-
-        tk.Button(
-            conn_row,
-            text="RESET ALL",
             font=self.f_btn,
+        )
+        self._start_btn.grid(row=0, column=0, sticky="ew", padx=2)
+
+        self._stop_btn = tk.Button(
+            button_row,
+            text="Stop",
+            command=self._stop_connection,
             bg=PANEL,
             fg=SUBTEXT,
             relief="flat",
             activebackground=BORDER,
             activeforeground=TEXT,
-            padx=10,
-            pady=3,
             cursor="hand2",
+            font=self.f_btn,
+        )
+        self._stop_btn.grid(row=0, column=1, sticky="ew", padx=2)
+
+        self._restart_btn = tk.Button(
+            button_row,
+            text="Restart",
+            command=self._restart_connection,
+            bg=PANEL,
+            fg=SUBTEXT,
+            relief="flat",
+            activebackground=BORDER,
+            activeforeground=TEXT,
+            cursor="hand2",
+            font=self.f_btn,
+        )
+        self._restart_btn.grid(row=0, column=2, sticky="ew", padx=2)
+
+        self._reset_btn = tk.Button(
+            button_row,
+            text="Reset All",
             command=self._reset_all,
-        ).pack(side="left", padx=(6, 0))
+            bg=PANEL,
+            fg=SUBTEXT,
+            relief="flat",
+            activebackground=BORDER,
+            activeforeground=TEXT,
+            cursor="hand2",
+            font=self.f_btn,
+        )
+        self._reset_btn.grid(row=0, column=3, sticky="ew", padx=2)
+        self._update_connection_buttons()
 
     def _build_notebook(self) -> None:
         self._notebook = ttk.Notebook(self)
@@ -359,11 +434,7 @@ class OscFaceController(tk.Tk):
         self._notebook.add(outer, text=label)
 
         canvas = tk.Canvas(outer, bg=BG, highlightthickness=0)
-        scrollbar = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        scrollbar.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
+        canvas.pack(fill="both", expand=True)
 
         inner = tk.Frame(canvas, bg=BG)
         win_id = canvas.create_window((0, 0), window=inner, anchor="nw")
@@ -468,7 +539,7 @@ class OscFaceController(tk.Tk):
         footer_bar.pack(fill="x", side="bottom")
         footer_bar.columnconfigure(0, weight=1)
 
-        help_btn = self._square_button(footer_bar, "？", self._open_help, base_size=28)
+        help_btn = self._square_button(footer_bar, "?", self._open_help, base_size=28)
         help_btn.pack(side="left", padx=(8, 0))
 
         self._footer_label = tk.Label(
@@ -481,11 +552,17 @@ class OscFaceController(tk.Tk):
         self._footer_label.pack(side="left", padx=16)
 
     def _open_help(self) -> None:
-        """Open help window with multipage tutorial."""
-        help_window = tk.Toplevel(self)
-        help_window.title("OSC Face Tracking - Help")
-        help_window.geometry("600x500")
-        help_window.configure(bg=BG)
+        help_win = tk.Toplevel(self)
+        help_win.title("OSC Face Tracking - Help")
+        help_win.configure(bg=BG)
+        help_win.resizable(True, True)
+
+        self.update_idletasks()
+        help_w = self.winfo_width()
+        help_h = self.winfo_height()
+        root_x = self.winfo_x()
+        root_y = self.winfo_y()
+        help_win.geometry(f"{help_w}x{help_h}+{root_x}+{root_y}")
 
         pages = [
             {
@@ -503,8 +580,8 @@ class OscFaceController(tk.Tk):
                     "1. IP Address: The target application's IP (usually 127.0.0.1 for local)\n"
                     "2. Port: OSC port number (default: 9000)\n"
                     "3. Prefix: OSC address prefix (VRCFT v2 or Direct/v1)\n\n"
-                    "Click CONNECT to establish connection.\n"
-                    "Green dot = connected, Red dot = disconnected"
+                    "Click START to establish connection.\n"
+                    "Green dot = running, Red dot = stopped or error"
                 ),
             },
             {
@@ -534,102 +611,125 @@ class OscFaceController(tk.Tk):
 
         current_page = [0]
 
-        header_frame = tk.Frame(help_window, bg=PANEL, height=50)
-        header_frame.pack(fill="x")
-        header_frame.pack_propagate(False)
+        header = tk.Frame(help_win, bg=PANEL, pady=10)
+        header.pack(fill="x")
 
-        page_title = tk.Label(
-            header_frame,
-            text=pages[0]["title"],
-            font=self.f_title,
-            bg=PANEL,
-            fg=TEXT,
+        title_label = tk.Label(
+            header, text="", bg=PANEL, fg=ACCENT2, font=(FONT_FAMILY, 12, "bold")
         )
-        page_title.pack(pady=12)
+        title_label.pack(side="left", padx=16)
 
-        content_frame = tk.Frame(help_window, bg=BG)
-        content_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        page_indicator = tk.Label(
+            header, text="", bg=PANEL, fg=SUBTEXT, font=(FONT_FAMILY, 8)
+        )
+        page_indicator.pack(side="right", padx=16)
+
+        tk.Frame(help_win, bg=BORDER, height=1).pack(fill="x")
+
+        content_panel = tk.Frame(help_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        content_panel.pack(padx=20, pady=(14, 0), fill="both", expand=True)
 
         content_text = tk.Label(
-            content_frame,
-            text=pages[0]["content"],
-            font=self.f_label,
-            bg=BG,
-            fg=TEXT,
-            justify="left",
-            wraplength=550,
+            content_panel, text="", bg=PANEL, fg=TEXT, anchor="nw", justify="left",
+            font=(FONT_FAMILY, 9), wraplength=400
         )
-        content_text.pack(fill="both", expand=True)
+        content_text.pack(padx=16, pady=16, fill="both", expand=True)
 
-        nav_frame = tk.Frame(help_window, bg=PANEL, height=50)
-        nav_frame.pack(fill="x", side="bottom")
-        nav_frame.pack_propagate(False)
-
-        def update_page(direction: int) -> None:
-            current_page[0] = max(0, min(current_page[0] + direction, len(pages) - 1))
-            page = pages[current_page[0]]
-            page_title.config(text=page["title"])
+        def show_page(page_num):
+            page = pages[page_num]
+            title_label.config(text=page["title"])
             content_text.config(text=page["content"])
-            prev_btn.config(state="normal" if current_page[0] > 0 else "disabled")
-            next_btn.config(state="normal" if current_page[0] < len(pages) - 1 else "disabled")
+            page_indicator.config(text=f"Page {page_num + 1} / {len(pages)}")
+            prev_btn.config(state="normal" if page_num > 0 else "disabled")
+            is_last = page_num == len(pages) - 1
+            next_btn.config(text="Finish" if is_last else "Next →")
+
+        def prev_page() -> None:
+            if current_page[0] > 0:
+                current_page[0] -= 1
+                show_page(current_page[0])
+
+        def next_or_finish():
+            if current_page[0] < len(pages) - 1:
+                current_page[0] += 1
+                show_page(current_page[0])
+            else:
+                help_win.destroy()
+
+        nav_frame = tk.Frame(help_win, bg=BG)
+        nav_frame.pack(fill="x", padx=20, pady=(0, 14))
+        nav_frame.columnconfigure(1, weight=1)
 
         prev_btn = tk.Button(
-            nav_frame,
-            text="← Previous",
-            font=self.f_btn,
-            bg=PANEL,
-            fg=SUBTEXT,
-            relief="flat",
-            activebackground=BORDER,
-            activeforeground=TEXT,
-            cursor="hand2",
-            command=lambda: update_page(-1),
+            nav_frame, text="← Back", bg=PANEL, fg=SUBTEXT, relief="flat", width=10,
+            command=prev_page
         )
-        prev_btn.pack(side="left", padx=10, pady=10)
-
-        page_info = tk.Label(
-            nav_frame,
-            text=f"Page {current_page[0] + 1} of {len(pages)}",
-            font=self.f_small,
-            bg=PANEL,
-            fg=SUBTEXT,
+        prev_btn.grid(row=0, column=0, sticky="w")
+        prev_btn.configure(
+            fg=SUBTEXT, activebackground=BORDER, activeforeground=TEXT,
+            cursor="hand2", font=(FONT_FAMILY, 9, "bold"),
         )
-        page_info.pack(side="left", expand=True)
 
         next_btn = tk.Button(
-            nav_frame,
-            text="Next →",
-            font=self.f_btn,
-            bg=PANEL,
-            fg=SUBTEXT,
-            relief="flat",
-            activebackground=BORDER,
-            activeforeground=TEXT,
-            cursor="hand2",
-            command=lambda: update_page(1),
+            nav_frame, text="Next →", bg=PANEL, fg=SUBTEXT, relief="flat", width=10,
+            command=next_or_finish
         )
-        next_btn.pack(side="right", padx=10, pady=10)
+        next_btn.grid(row=0, column=2, sticky="e")
+        next_btn.configure(
+            bg=ACCENT, fg="#FFFFFF", activebackground=ACCENT2, activeforeground="#FFFFFF",
+            cursor="hand2", font=(FONT_FAMILY, 9, "bold"),
+        )
 
-        def update_page_info() -> None:
-            page_info.config(text=f"Page {current_page[0] + 1} of {len(pages)}")
-
-        prev_btn.config(state="disabled")
-        next_btn.config(state="normal" if len(pages) > 1 else "disabled")
+        show_page(0)
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # OSC
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-    def _try_connect(self) -> None:
-        ip = self._ip_var.get().strip()
-        port = int(self._port_var.get().strip())
+    def _update_connection_buttons(self) -> None:
+        if not hasattr(self, "_start_btn"):
+            return
+        self._start_btn.config(state="disabled" if self._connected else "normal")
+        self._stop_btn.config(state="normal" if self._connected else "disabled")
+        self._restart_btn.config(state="normal")
+
+    def _start_connection(self) -> None:
+        ip = self._ip_var.get().strip() or DEFAULT_OSC_IP
+        port_text = self._port_var.get().strip() or DEFAULT_OSC_PORT
+        prefix = self._normalize_prefix()
+        self._ip_var.set(ip)
+        self._port_var.set(port_text)
+        self._prefix_var.set(prefix)
+
         try:
+            port = int(port_text)
+            if not (1 <= port <= 65535):
+                raise ValueError("Port must be between 1 and 65535")
+
             with self._lock:
                 self._client = udp_client.SimpleUDPClient(ip, port)
                 self._connected = True
+
+            self._port_var.set(str(port))
+            save_config(ip, str(port), prefix)
+
             self._set_status(True, f"{ip}:{port}")
         except Exception as exc:
+            self._client = None
             self._connected = False
             self._set_status(False, str(exc))
+
+    def _stop_connection(self, set_status: bool = True) -> None:
+        with self._lock:
+            self._client = None
+            self._connected = False
+        if set_status:
+            self._set_stopped()
+        else:
+            self._update_connection_buttons()
+
+    def _restart_connection(self) -> None:
+        self._stop_connection(set_status=False)
+        self._start_connection()
 
     def _normalize_prefix(self) -> str:
         prefix = self._prefix_var.get().strip() or DEFAULT_OSC_PREFIX
@@ -696,11 +796,17 @@ class OscFaceController(tk.Tk):
 
     def _set_status(self, ok: bool, detail: str = "") -> None:
         if ok:
-            self._status_lbl.config(text="Status: Connected", fg=GREEN)
-            self._footer_label.config(text=f"Connected {detail}" if detail else "Connected")
+            self._status_lbl.config(text="Status: Running", fg=GREEN)
+            self._footer_label.config(text="Running")
         else:
             self._status_lbl.config(text="Status: Error", fg=RED)
-            self._footer_label.config(text="Error")
+            self._footer_label.config(text=f"Error: {detail}" if detail else "Error")
+        self._update_connection_buttons()
+
+    def _set_stopped(self) -> None:
+        self._status_lbl.config(text="Status: Stopped", fg=RED)
+        self._footer_label.config(text="Stopped")
+        self._update_connection_buttons()
 
     def _reset_all(self) -> None:
         for params in FACE_PARAMS.values():
