@@ -95,8 +95,8 @@ print("Made By Boots")
 print(f"Version {VERSION}")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Chatbox")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "osc_config.json")
+CONFIG_DIR = os.path.join(SCRIPT_DIR, "")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "chatbox_config.json")
 OSC_IP = "error"
 OSC_PORT = "error"
 INTERFACE = "error"
@@ -195,7 +195,7 @@ def _legacy_config_dirs():
                 continue
             if entry.name == current_config_dir_name or not entry.name.startswith("OSC-"):
                 continue
-            if os.path.isfile(os.path.join(entry.path, "osc_config.json")):
+            if os.path.isfile(os.path.join(entry.path, "chatbox_config.json")):
                 legacy_dirs.append(entry.path)
     except OSError:
         return []
@@ -222,7 +222,7 @@ def migrate_legacy_config_directory():
     except OSError:
         pass
 
-    legacy_config_file = os.path.join(legacy_dir, "osc_config.json")
+    legacy_config_file = os.path.join(legacy_dir, "chatbox_config.json")
     try:
         os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(legacy_config_file, "r", encoding="utf-8") as src:
@@ -242,7 +242,7 @@ def load_config():
 
     candidate_paths = [CONFIG_FILE]
     for legacy_dir in _legacy_config_dirs():
-        candidate = os.path.join(legacy_dir, "osc_config.json")
+        candidate = os.path.join(legacy_dir, "chatbox_config.json")
         if candidate not in candidate_paths:
             candidate_paths.append(candidate)
 

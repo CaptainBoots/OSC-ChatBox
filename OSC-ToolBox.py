@@ -69,7 +69,7 @@ GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/ma
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TOOLBOX_CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools", "OSC-Toolbox")
 TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
-LEGACY_TOOLBOX_CONFIG_FILE = os.path.join(SCRIPT_DIR, "OSC-Tools", "osc_config.json")
+LEGACY_TOOLBOX_CONFIG_FILE = os.path.join(SCRIPT_DIR, "OSC-Tools", "chatbox_config.json")
 
 os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
 
@@ -94,7 +94,7 @@ def load_managed_scripts():
             print(f"[Config] Error loading config: {e}")
             return DEFAULT_MANAGED_SCRIPTS
 
-    # One-time migration for older versions that accidentally saved to OSC-Tools/osc_config.json
+    # One-time migration for older versions that accidentally saved to OSC-Tools/chatbox_config.json
     if os.path.exists(LEGACY_TOOLBOX_CONFIG_FILE):
         try:
             with open(LEGACY_TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -151,7 +151,7 @@ rename_self_to_toolbox()
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "osc_config.json")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "chatbox_config.json")
 BACKUP_DIR = os.path.join(CONFIG_DIR, "ToolBox Backup")  # ← all .bak files live here
 
 # Running process handles, keyed by filename

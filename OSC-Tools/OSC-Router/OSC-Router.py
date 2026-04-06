@@ -68,8 +68,8 @@ print("Made By Boots")
 print(f"Version {VERSION}")
 
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR  = os.path.join(SCRIPT_DIR, "OSC-Router")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "osc_router_config.json")
+CONFIG_DIR  = os.path.join(SCRIPT_DIR, "")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "router_config.json")
 
 
 def get_default_config() -> dict:
