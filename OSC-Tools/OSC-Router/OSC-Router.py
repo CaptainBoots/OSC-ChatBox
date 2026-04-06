@@ -61,7 +61,7 @@ from pythonosc.udp_client import SimpleUDPClient
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 print("OSC Router")
 print("Made By Boots")
@@ -152,7 +152,7 @@ class OscSource:
         if self._server:
             try:
                 self._server.shutdown()
-            except Exception:
+            except (OSError, RuntimeError):
                 pass
         self._server = None
         self._thread = None
@@ -187,11 +187,15 @@ class OscRouter:
         self.fwd_total = 0
 
     @property
+    def running(self) -> bool:
+        return self._running
+
+    @property
     def live_conflicts(self) -> int:
         """Number of OSC addresses currently in conflict across sources."""
         seen: dict[str, set] = {}
-        for src in self.sources:
-            for addr, args in src.snapshot().items():
+        for source in self.sources:
+            for addr, args in source.snapshot().items():
                 try:
                     seen.setdefault(addr, set()).add(args)
                 except TypeError:
@@ -665,10 +669,10 @@ def start_routing() -> None:
         )
 
     status_label.config(
-        text="Status: Running" if router._running else "Status: Error",
-        fg=GREEN if router._running else RED,
+        text="Status: Running" if router.running else "Status: Error",
+        fg=GREEN if router.running else RED,
     )
-    footer_label.config(text="Running" if router._running else "Error")
+    footer_label.config(text="Running" if router.running else "Error")
 
 
 def stop_routing() -> None:
@@ -681,7 +685,7 @@ def stop_routing() -> None:
 
 def restart_routing() -> None:
     stop_routing()
-    root.after(600, start_routing)
+    root.after(600, lambda _unused: start_routing(), None)
 
 
 def open_help():
@@ -822,28 +826,28 @@ def open_help():
 
 
 # ── Buttons ───────────────────────────────────────────────────────────────────
-_btns = tk.Frame(body, bg=BG)
-_btns.pack(fill="x", padx=12, pady=(4, 14))
-_btns.columnconfigure(0, weight=1)
-_btns.columnconfigure(1, weight=1)
-_btns.columnconfigure(2, weight=1)
+_buttons = tk.Frame(body, bg=BG)
+_buttons.pack(fill="x", padx=12, pady=(4, 14))
+_buttons.columnconfigure(0, weight=1)
+_buttons.columnconfigure(1, weight=1)
+_buttons.columnconfigure(2, weight=1)
 
 tk.Button(
-    _btns, text="Start", command=start_routing,
+    _buttons, text="Start", command=start_routing,
     bg=ACCENT, fg="#FFFFFF", relief="flat",
     activebackground=ACCENT2, activeforeground="#FFFFFF",
     cursor="hand2", font=(UI_FONT, 9, "bold"),
 ).grid(row=0, column=0, sticky="ew", padx=2, ipady=5)
 
 tk.Button(
-    _btns, text="Stop", command=stop_routing,
+    _buttons, text="Stop", command=stop_routing,
     bg=PANEL, fg=SUBTEXT, relief="flat",
     activebackground=BORDER, activeforeground=TEXT,
     cursor="hand2", font=(UI_FONT, 9, "bold"),
 ).grid(row=0, column=1, sticky="ew", padx=2, ipady=5)
 
 tk.Button(
-    _btns, text="Restart", command=restart_routing,
+    _buttons, text="Restart", command=restart_routing,
     bg=PANEL, fg=SUBTEXT, relief="flat",
     activebackground=BORDER, activeforeground=TEXT,
     cursor="hand2", font=(UI_FONT, 9, "bold"),
@@ -855,7 +859,7 @@ tk.Button(
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def _tick() -> None:
-    if router._running:
+    if router.running:
         active = sum(1 for s in router.sources if s.running)
         total  = len(router.sources)
 
@@ -866,9 +870,9 @@ def _tick() -> None:
         # Per-row rx counts (matched by index — same order as router.sources)
         for i, row in enumerate(_rows):
             if i < len(router.sources):
-                src = router.sources[i]
-                if src.running:
-                    row["stats_label"].config(text=f"● {src.rx_count:,} rx", fg=GREEN)
+                source = router.sources[i]
+                if source.running:
+                    row["stats_label"].config(text=f"● {source.rx_count:,} rx", fg=GREEN)
                 else:
                     row["stats_label"].config(text="✗ failed", fg=RED)
     else:
@@ -876,7 +880,7 @@ def _tick() -> None:
         lbl_conflict.config(text="Conflicts: —")
         lbl_sources.config(text=f"Sources: 0 / {len(_rows)}")
 
-    root.after(1000, _tick)
+    root.after(1000, lambda _unused: _tick(), None)
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -890,8 +894,8 @@ def _on_close() -> None:
 
 root.protocol("WM_DELETE_WINDOW", _on_close)
 
-for src in cfg.get("sources", []):
-    add_row(src.get("name", "Source"), src.get("port", 9001))
+for source_cfg in cfg.get("sources", []):
+    add_row(source_cfg.get("name", "Source"), source_cfg.get("port", 9001))
 
 # ── Footer with status ────────────────────────────────────────────────────────
 footer_bar = tk.Frame(root, bg=PANEL, pady=8)
