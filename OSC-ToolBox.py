@@ -62,19 +62,20 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.2.3"
+VERSION = "8.2.4"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Tools/"
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools", "OSC-Toolbox")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "toolbox_config.json")
+TOOLBOX_CONFIG_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools", "OSC-Toolbox")
+TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
+LEGACY_TOOLBOX_CONFIG_FILE = os.path.join(SCRIPT_DIR, "OSC-Tools", "osc_config.json")
 
-os.makedirs(CONFIG_DIR, exist_ok=True)
+os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
 
 print(f"[Config] Script directory: {SCRIPT_DIR}")
-print(f"[Config] Config directory: {CONFIG_DIR}")
-print(f"[Config] Config file: {CONFIG_FILE}")
+print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
+print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
 DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "OSC-Router.py", "label": "Router"},
@@ -83,30 +84,43 @@ DEFAULT_MANAGED_SCRIPTS = [
 ]
 
 def load_managed_scripts():
-    """Load managed scripts from config file, create if doesn't exist"""
-    if os.path.exists(CONFIG_FILE):
+    """Load managed scripts from config file, create if it doesn't exist"""
+    if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, 'r') as f:
+            with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
                 config = json.load(f)
                 return config.get("managed_scripts", DEFAULT_MANAGED_SCRIPTS)
         except Exception as e:
             print(f"[Config] Error loading config: {e}")
             return DEFAULT_MANAGED_SCRIPTS
-    else:
-        save_managed_scripts(DEFAULT_MANAGED_SCRIPTS)
-        return DEFAULT_MANAGED_SCRIPTS
+
+    # One-time migration for older versions that accidentally saved to OSC-Tools/osc_config.json
+    if os.path.exists(LEGACY_TOOLBOX_CONFIG_FILE):
+        try:
+            with open(LEGACY_TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
+                legacy = json.load(f)
+            scripts = legacy.get("managed_scripts", DEFAULT_MANAGED_SCRIPTS)
+            save_managed_scripts(scripts)
+            print(f"[Config] Migrated legacy config -> {TOOLBOX_CONFIG_FILE}")
+            return scripts
+        except Exception as e:
+            print(f"[Config] Error migrating legacy config: {e}")
+            return DEFAULT_MANAGED_SCRIPTS
+
+    save_managed_scripts(DEFAULT_MANAGED_SCRIPTS)
+    return DEFAULT_MANAGED_SCRIPTS
 
 def save_managed_scripts(scripts):
     """Save managed scripts to config file"""
     try:
-        os.makedirs(CONFIG_DIR, exist_ok=True)
+        os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
         config = {"managed_scripts": scripts}
-        with open(CONFIG_FILE, 'w') as f:
+        with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
-        print(f"[Config] Saved {len(scripts)} managed scripts to {CONFIG_FILE}")
+        print(f"[Config] Saved {len(scripts)} managed scripts to {TOOLBOX_CONFIG_FILE}")
     except Exception as e:
         print(f"[Config] Error saving config: {e}")
-        print(f"[Config] Attempted path: {CONFIG_FILE}")
+        print(f"[Config] Attempted path: {TOOLBOX_CONFIG_FILE}")
 
 MANAGED_SCRIPTS = load_managed_scripts()
 
@@ -305,7 +319,7 @@ def launch_script(filename: str) -> None:
                 cwd=CONFIG_DIR,
             )
         # Reset status to "Ready" after 2 seconds
-        root.after(2000, lambda: footer_label.config(text="Ready"))
+        root.after(2000, _set_footer_ready, None)
     except Exception as e:
         _processes[filename] = None
         footer_label.config(text="Error")
@@ -315,6 +329,10 @@ def launch_script(filename: str) -> None:
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # UPDATER  (self-update for OSC-Tools.py itself)
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+def _set_footer_ready(_unused=None) -> None:
+    footer_label.config(text="Ready")
+
 
 def _parse_version(v: str):
     nums = [int(x) for x in re.findall(r"\d+", (v or "").strip())]
