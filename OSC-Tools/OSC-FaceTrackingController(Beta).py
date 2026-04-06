@@ -36,7 +36,7 @@ from pythonosc import udp_client
 # CONFIGURATION
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "0.1.9"
+VERSION = "0.2.0"
 
 print("OSC FaceTrackingController")
 print("Made By Boots")
@@ -151,7 +151,7 @@ class OscFaceController(tk.Tk):
         self._vars: dict[str, tk.DoubleVar] = {}
 
     def _build_fonts(self) -> None:
-        self.f_title = font.Font(family=FONT_FAMILY, size=13, weight="bold")
+        self.f_title = font.Font(family=FONT_FAMILY, size=16, weight="bold")
         self.f_head = font.Font(family=FONT_FAMILY, size=10, weight="bold")
         self.f_label = font.Font(family=FONT_FAMILY, size=9)
         self.f_value = font.Font(family=FONT_FAMILY, size=9)
@@ -161,35 +161,69 @@ class OscFaceController(tk.Tk):
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # UI Builders
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+    @staticmethod
+    def _square_button(parent: tk.Widget, text: str, command, base_size: int = 28) -> tk.Frame:
+        container = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        container.pack_propagate(False)
+
+        button = tk.Button(
+            container,
+            text=text,
+            command=command,
+            bg=PANEL,
+            fg=SUBTEXT,
+            relief="flat",
+            borderwidth=0,
+            font=(FONT_FAMILY, 12),
+            activebackground=BORDER,
+            activeforeground=TEXT,
+            cursor="hand2",
+        )
+        button.pack(fill="both", expand=True)
+        container.config(width=base_size, height=base_size)
+        return container
+
     def _build_ui(self) -> None:
         self._build_title_bar()
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x")
         self._build_connection_row()
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x")
         self._build_notebook()
+        tk.Frame(self, bg=BORDER, height=1).pack(fill="x")
+        self._build_footer_bar()
 
     def _build_title_bar(self) -> None:
-        title_bar = tk.Frame(self, bg=PANEL, pady=10)
+        title_bar = tk.Frame(self, bg=PANEL, pady=14)
         title_bar.pack(fill="x")
 
+        header_frame = tk.Frame(title_bar, bg=PANEL)
+        header_frame.pack(fill="x", padx=16, expand=True)
+
         tk.Label(
-            title_bar,
-            text="\u25C8  OSC FACE TRACKING  ·  VRCFT",
-            font=self.f_title,
+            header_frame,
+            text="◈  OSC FACE TRACKING",
             bg=PANEL,
             fg=ACCENT2,
-        ).pack(side="left", padx=16)
+            font=self.f_title,
+        ).pack(side="left", anchor="w")
 
-        self._status_dot = tk.Label(title_bar, text="●", font=self.f_head, bg=PANEL, fg=RED)
-        self._status_dot.pack(side="right", padx=(0, 8))
-        self._status_lbl = tk.Label(
-            title_bar,
-            text="disconnected",
-            font=self.f_small,
+        version_label = tk.Label(
+            header_frame,
+            text=f"v{VERSION}",
             bg=PANEL,
             fg=SUBTEXT,
+            font=self.f_small,
         )
-        self._status_lbl.pack(side="right")
+        version_label.pack(side="right", anchor="e", padx=(32, 16))
+
+        self._status_lbl = tk.Label(
+            header_frame,
+            text="Status: Stopped",
+            bg=PANEL,
+            fg=RED,
+            font=(FONT_FAMILY, 10),
+        )
+        self._status_lbl.pack(side="right", anchor="e")
 
     def _build_connection_row(self) -> None:
         conn_row = tk.Frame(self, bg=BG, pady=8)
@@ -429,6 +463,159 @@ class OscFaceController(tk.Tk):
 
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=14)
 
+    def _build_footer_bar(self) -> None:
+        footer_bar = tk.Frame(self, bg=PANEL, pady=8)
+        footer_bar.pack(fill="x", side="bottom")
+        footer_bar.columnconfigure(0, weight=1)
+
+        help_btn = self._square_button(footer_bar, "？", self._open_help, base_size=28)
+        help_btn.pack(side="left", padx=(8, 0))
+
+        self._footer_label = tk.Label(
+            footer_bar,
+            text="Ready",
+            bg=PANEL,
+            fg=SUBTEXT,
+            font=(FONT_FAMILY, 8),
+        )
+        self._footer_label.pack(side="left", padx=16)
+
+    def _open_help(self) -> None:
+        """Open help window with multipage tutorial."""
+        help_window = tk.Toplevel(self)
+        help_window.title("OSC Face Tracking - Help")
+        help_window.geometry("600x500")
+        help_window.configure(bg=BG)
+
+        pages = [
+            {
+                "title": "Welcome",
+                "content": (
+                    "Welcome to OSC Face Tracking Controller!\n\n"
+                    "This tool connects to VRChat and other applications to send face tracking data via OSC (Open Sound Control).\n\n"
+                    "Use the tabs below to explore different facial parameters like eyes, mouth, brows, and more."
+                ),
+            },
+            {
+                "title": "Connection",
+                "content": (
+                    "Connection Setup:\n\n"
+                    "1. IP Address: The target application's IP (usually 127.0.0.1 for local)\n"
+                    "2. Port: OSC port number (default: 9000)\n"
+                    "3. Prefix: OSC address prefix (VRCFT v2 or Direct/v1)\n\n"
+                    "Click CONNECT to establish connection.\n"
+                    "Green dot = connected, Red dot = disconnected"
+                ),
+            },
+            {
+                "title": "Parameters",
+                "content": (
+                    "Facial Parameters:\n\n"
+                    "• Eyes: Eye movement, eyelid, blinking\n"
+                    "• Brows: Eyebrow position and expression\n"
+                    "• Mouth: Jaw, lips, smile, and other mouth shapes\n"
+                    "• Cheek/Nose: Puffing and scrunching\n"
+                    "• Tongue: Tongue position and movement\n\n"
+                    "Use sliders to adjust values from 0 to 1 (or -1 to 1)."
+                ),
+            },
+            {
+                "title": "Tips",
+                "content": (
+                    "Tips & Tricks:\n\n"
+                    "• RESET ALL button resets all parameters to defaults\n"
+                    "• Changes are sent in real-time\n"
+                    "• Use presets to quickly switch between prefix types\n"
+                    "• The ↺ button resets individual parameters\n\n"
+                    "For issues or questions, check your connection status and verify the target application is running."
+                ),
+            },
+        ]
+
+        current_page = [0]
+
+        header_frame = tk.Frame(help_window, bg=PANEL, height=50)
+        header_frame.pack(fill="x")
+        header_frame.pack_propagate(False)
+
+        page_title = tk.Label(
+            header_frame,
+            text=pages[0]["title"],
+            font=self.f_title,
+            bg=PANEL,
+            fg=TEXT,
+        )
+        page_title.pack(pady=12)
+
+        content_frame = tk.Frame(help_window, bg=BG)
+        content_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        content_text = tk.Label(
+            content_frame,
+            text=pages[0]["content"],
+            font=self.f_label,
+            bg=BG,
+            fg=TEXT,
+            justify="left",
+            wraplength=550,
+        )
+        content_text.pack(fill="both", expand=True)
+
+        nav_frame = tk.Frame(help_window, bg=PANEL, height=50)
+        nav_frame.pack(fill="x", side="bottom")
+        nav_frame.pack_propagate(False)
+
+        def update_page(direction: int) -> None:
+            current_page[0] = max(0, min(current_page[0] + direction, len(pages) - 1))
+            page = pages[current_page[0]]
+            page_title.config(text=page["title"])
+            content_text.config(text=page["content"])
+            prev_btn.config(state="normal" if current_page[0] > 0 else "disabled")
+            next_btn.config(state="normal" if current_page[0] < len(pages) - 1 else "disabled")
+
+        prev_btn = tk.Button(
+            nav_frame,
+            text="← Previous",
+            font=self.f_btn,
+            bg=PANEL,
+            fg=SUBTEXT,
+            relief="flat",
+            activebackground=BORDER,
+            activeforeground=TEXT,
+            cursor="hand2",
+            command=lambda: update_page(-1),
+        )
+        prev_btn.pack(side="left", padx=10, pady=10)
+
+        page_info = tk.Label(
+            nav_frame,
+            text=f"Page {current_page[0] + 1} of {len(pages)}",
+            font=self.f_small,
+            bg=PANEL,
+            fg=SUBTEXT,
+        )
+        page_info.pack(side="left", expand=True)
+
+        next_btn = tk.Button(
+            nav_frame,
+            text="Next →",
+            font=self.f_btn,
+            bg=PANEL,
+            fg=SUBTEXT,
+            relief="flat",
+            activebackground=BORDER,
+            activeforeground=TEXT,
+            cursor="hand2",
+            command=lambda: update_page(1),
+        )
+        next_btn.pack(side="right", padx=10, pady=10)
+
+        def update_page_info() -> None:
+            page_info.config(text=f"Page {current_page[0] + 1} of {len(pages)}")
+
+        prev_btn.config(state="disabled")
+        next_btn.config(state="normal" if len(pages) > 1 else "disabled")
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # OSC
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -452,7 +639,8 @@ class OscFaceController(tk.Tk):
             prefix += "/"
         return prefix
 
-    def _prefix_variants(self, normalized_prefix: str) -> list[str]:
+    @staticmethod
+    def _prefix_variants(normalized_prefix: str) -> list[str]:
         variants = [normalized_prefix]
         marker = "/avatar/parameters/"
         marker_pos = normalized_prefix.find(marker)
@@ -471,7 +659,8 @@ class OscFaceController(tk.Tk):
             variants.append(alt)
         return variants
 
-    def _param_payloads(self, param: str, value: float) -> list[tuple[str, float]]:
+    @staticmethod
+    def _param_payloads(param: str, value: float) -> list[tuple[str, float]]:
         payloads = [(param, value)]
 
         if param == "JawForward":
@@ -502,16 +691,16 @@ class OscFaceController(tk.Tk):
                             continue
                         self._client.send_message(address, param_value)
                         sent_addresses.add(address)
-        except Exception:
+        except (OSError, RuntimeError, ValueError):
             pass
 
     def _set_status(self, ok: bool, detail: str = "") -> None:
         if ok:
-            self._status_dot.config(fg=GREEN)
-            self._status_lbl.config(text=f"connected  {detail}", fg=SUBTEXT)
+            self._status_lbl.config(text="Status: Connected", fg=GREEN)
+            self._footer_label.config(text=f"Connected {detail}" if detail else "Connected")
         else:
-            self._status_dot.config(fg=RED)
-            self._status_lbl.config(text=f"disconnected  {detail}", fg=RED)
+            self._status_lbl.config(text="Status: Error", fg=RED)
+            self._footer_label.config(text="Error")
 
     def _reset_all(self) -> None:
         for params in FACE_PARAMS.values():
