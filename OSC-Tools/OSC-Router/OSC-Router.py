@@ -61,14 +61,14 @@ from pythonosc.udp_client import SimpleUDPClient
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "0.2.0"
+VERSION = "1.0.0"
 
 print("OSC Router")
 print("Made By Boots")
 print(f"Version {VERSION}")
 
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR  = os.path.join(SCRIPT_DIR, "")
+CONFIG_DIR  = SCRIPT_DIR
 CONFIG_FILE = os.path.join(CONFIG_DIR, "router_config.json")
 
 
@@ -326,9 +326,6 @@ _outer = tk.Frame(root, bg=BG)
 _outer.pack(fill="both", expand=True, padx=16, pady=14)
 
 _canvas = tk.Canvas(_outer, bg=BG, highlightthickness=0, bd=0)
-_vsb    = tk.Scrollbar(_outer, orient="vertical", command=_canvas.yview)
-_canvas.configure(yscrollcommand=_vsb.set)
-_vsb.pack(side="right", fill="y")
 _canvas.pack(side="left", fill="both", expand=True)
 
 body    = tk.Frame(_canvas, bg=BG)

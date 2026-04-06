@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.7.0"
+VERSION = "7.7.1"
 
 
 class CPUManufacturer(Enum):
@@ -95,7 +95,7 @@ print("Made By Boots")
 print(f"Version {VERSION}")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR = os.path.join(SCRIPT_DIR, "")
+CONFIG_DIR = SCRIPT_DIR
 CONFIG_FILE = os.path.join(CONFIG_DIR, "chatbox_config.json")
 OSC_IP = "error"
 OSC_PORT = "error"
@@ -188,7 +188,7 @@ def get_default_config():
 
 def _legacy_config_dirs():
     legacy_dirs = []
-    current_config_dir_name = os.path.basename(CONFIG_DIR)
+    current_config_dir_name = os.path.basename(os.path.normpath(CONFIG_DIR))
     try:
         for entry in os.scandir(SCRIPT_DIR):
             if not entry.is_dir():
