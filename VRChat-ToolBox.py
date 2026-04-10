@@ -63,12 +63,12 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 VERSION = "8.2.5"
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-ToolBox.py"
-GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/OSC-ChatBox/main/OSC-Tools/"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
+GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools")
-TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "OSC-Toolbox")
+TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "VRChat-Tools")
+TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "VRChat-Toolbox")
 TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
 LEGACY_TOOLBOX_CONFIG_FILES = [
     os.path.join(TOOLS_ROOT_DIR, "osc_config.json"),
@@ -89,7 +89,6 @@ DEFAULT_MANAGED_SCRIPTS = [
 ]
 
 def load_managed_scripts():
-    """Load managed scripts from config file, create if it doesn't exist"""
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -140,7 +139,7 @@ def rename_self_to_toolbox():
     try:
         current_path = os.path.abspath(__file__)
         directory = os.path.dirname(current_path)
-        new_name = "OSC-ToolBox.py"
+        new_name = "VRChat-ToolBox.py"
         new_path = os.path.join(directory, new_name)
         if os.path.basename(current_path) == new_name:
             return
@@ -156,7 +155,7 @@ def rename_self_to_toolbox():
 rename_self_to_toolbox()
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "OSC-Tools")
+TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "VRChat-Tools")
 TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "OSC-Toolbox")
 TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
 BACKUP_DIR = os.path.join(TOOLBOX_CONFIG_DIR, "ToolBox Backup")
@@ -236,8 +235,8 @@ def _script_bundle_candidates(filename: str) -> list[str]:
     candidates: list[str] = []
     folder = SCRIPT_FOLDER_MAP.get(script_name)
     if folder:
-        candidates.append(os.path.join(SCRIPT_DIR, "OSC-Tools", folder, script_name))
-    candidates.append(os.path.join(SCRIPT_DIR, "OSC-Tools", script_name))
+        candidates.append(os.path.join(SCRIPT_DIR, "VRChat-Tools", folder, script_name))
+    candidates.append(os.path.join(SCRIPT_DIR, "VRChat-Tools", script_name))
     candidates.append(os.path.join(SCRIPT_DIR, script_name))
     return list(dict.fromkeys(candidates))
 
@@ -428,7 +427,7 @@ def launch_script(filename: str) -> None:
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# UPDATER  (self-update for OSC-Tools.py itself)
+# UPDATER  (self-update for VRChat-Tools.py itself)
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def _set_footer_ready(_unused=None) -> None:
@@ -570,17 +569,17 @@ def check_for_updates(silent=False):
     content_differs = remote_norm != local_norm
     main_update_available = remote_newer or content_differs
 
-    print(f"[OSC-Tools] Checking... (local: {VERSION}  remote: {remote_version})")
+    print(f"[VRChat-Tools] Checking... (local: {VERSION}  remote: {remote_version})")
 
     if main_update_available:
         if remote_newer:
-            print(f"[OSC-Tools] Update available: {VERSION} -> {remote_version}")
+            print(f"[VRChat-Tools] Update available: {VERSION} -> {remote_version}")
             prompt = (
                 f"New version {remote_version} is available (you have {VERSION}).\n\n"
                 "Update and restart now?"
             )
         else:
-            print(f"[OSC-Tools] Remote content differs (version string unchanged at {VERSION})")
+            print(f"[VRChat-Tools] Remote content differs (version string unchanged at {VERSION})")
             prompt = (
                 "A remote script update is available (content changed,\n"
                 "but version string may not have been bumped).\n\n"
@@ -589,9 +588,9 @@ def check_for_updates(silent=False):
         if messagebox.askyesno("Update Available", prompt):
             perform_update(remote_text=remote_text, source_url=remote_url)
         else:
-            print(f"[OSC-Tools] Update skipped by user")
+            print(f"[VRChat-Tools] Update skipped by user")
     else:
-        print(f"[OSC-Tools] Up to date ({VERSION})")
+        print(f"[VRChat-Tools] Up to date ({VERSION})")
 
     any_tool_updated = False
     for script_entry in MANAGED_SCRIPTS:
