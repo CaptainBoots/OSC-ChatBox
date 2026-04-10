@@ -62,7 +62,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "8.2.5"
+VERSION = "9.0.0"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
 
@@ -156,7 +156,7 @@ rename_self_to_toolbox()
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "VRChat-Tools")
-TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "OSC-Toolbox")
+TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "VRChat-Toolbox")
 TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
 BACKUP_DIR = os.path.join(TOOLBOX_CONFIG_DIR, "ToolBox Backup")
 
