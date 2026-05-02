@@ -236,10 +236,10 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "9.1.1"
+VERSION = "9.1.2"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
-GITHUB_EXE_RELEASE_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.exe"
+GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/releases/latest/download/"
 GITHUB_EXE_RAW_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/"
 DEFAULT_EXE_NAME = "VRChat-ToolBox.exe"
 
@@ -748,9 +748,18 @@ def _exe_update_urls() -> list[str]:
 
     urls: list[str] = []
     for exe_name in unique_names:
-        urls.append(f"{GITHUB_EXE_RELEASE_BASE_URL}{exe_name}")
-        urls.append(f"{GITHUB_EXE_RAW_BASE_URL}{exe_name}")
-    return urls
+        # Accept either a base URL (ending with /) or a full file URL.
+        if GITHUB_EXE_RELEASE_BASE_URL.lower().endswith(".exe"):
+            urls.append(GITHUB_EXE_RELEASE_BASE_URL)
+        else:
+            urls.append(f"{GITHUB_EXE_RELEASE_BASE_URL}{exe_name}")
+
+        if GITHUB_EXE_RAW_BASE_URL.lower().endswith(".exe"):
+            urls.append(GITHUB_EXE_RAW_BASE_URL)
+        else:
+            urls.append(f"{GITHUB_EXE_RAW_BASE_URL}{exe_name}")
+
+    return list(dict.fromkeys(urls))
 
 
 def _download_latest_exe(timeout: int = 30) -> tuple[str | None, str | None]:
