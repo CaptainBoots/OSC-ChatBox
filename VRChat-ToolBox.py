@@ -236,10 +236,10 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "9.1.0"
+VERSION = "9.1.1"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
-GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.exe"
+GITHUB_EXE_RELEASE_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.exe"
 GITHUB_EXE_RAW_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/"
 DEFAULT_EXE_NAME = "VRChat-ToolBox.exe"
 
