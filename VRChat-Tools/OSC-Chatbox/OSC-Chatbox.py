@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.8.0"
+VERSION = "7.8.1"
 
 
 class CPUManufacturer(Enum):
@@ -173,7 +173,7 @@ def get_default_config():
         "lhm_api": "http://localhost:8085/data.json",
         "location": "0,0",
         "page1_text": "Thx for using Boots's osc code",
-        "page2_text": "Join the discord server at https://discord.gg/XdfKAWu6Ph",
+        "page2_text": "Join the discord server at https://discord.gg/YDXpQPF6g9",
         "page3_text": "hi put your text here :3",
         "page4_text": "Local Weather",
         "page1_enabled": True,
