@@ -24,6 +24,7 @@ import urllib.request
 import tempfile
 import shutil
 
+
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # PYTHON DETECTION & INSTALLATION
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -38,8 +39,8 @@ PYTHON_INSTALLER_URL = (
 def _reg_find_python() -> str | None:
     for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
         for subkey_root in (
-                r"SOFTWARE\Python\PythonCore",
-                r"SOFTWARE\WOW6432Node\Python\PythonCore",
+            r"SOFTWARE\Python\PythonCore",
+            r"SOFTWARE\WOW6432Node\Python\PythonCore",
         ):
             try:
                 with winreg.OpenKey(hive, subkey_root) as root:
@@ -121,10 +122,10 @@ def _install_python_silent() -> str | None:
         print("[Python] Python 3.10+ not found, downloading installer...")
         tmp_dir = tempfile.mkdtemp(prefix="toolbox_py_")
         installer_path = os.path.join(tmp_dir, f"python-{PYTHON_VERSION}-amd64.exe")
-
+        
         print(f"[Python] Downloading from {PYTHON_INSTALLER_URL}")
         urllib.request.urlretrieve(PYTHON_INSTALLER_URL, installer_path)
-
+        
         print("[Python] Running silent installation...")
         result = subprocess.run([
             installer_path,
@@ -135,16 +136,16 @@ def _install_python_silent() -> str | None:
             "Include_launcher=1",
             "SimpleInstall=1",
         ], timeout=300)
-
+        
         try:
             shutil.rmtree(tmp_dir, ignore_errors=True)
         except Exception:
             pass
-
+        
         if result.returncode != 0:
             print(f"[Python] Installation failed with code {result.returncode}")
             return None
-
+        
         print("[Python] Installation complete, locating executable...")
         python_exe = find_system_python()
         if python_exe is None:
@@ -156,14 +157,14 @@ def _install_python_silent() -> str | None:
             )
             if os.path.isfile(candidate):
                 python_exe = candidate
-
+        
         if python_exe:
             print(f"[Python] Found installed Python at {python_exe}")
             return python_exe
         else:
             print("[Python] Could not locate installed Python after installation")
             return None
-
+            
     except Exception as e:
         print(f"[Python] Installation failed: {e}")
         return None
@@ -172,23 +173,24 @@ def _install_python_silent() -> str | None:
 def ensure_python() -> bool:
     print("[Python] Checking for Python 3.10+...")
     python_exe = find_system_python()
-
+    
     if python_exe:
         print(f"[Python] Found: {python_exe}")
         return True
-
+    
     print("[Python] Not found, attempting installation...")
     python_exe = _install_python_silent()
-
+    
     if python_exe:
         return True
-
+    
     messagebox.showerror(
         "Python Required",
         "Python 3.10+ is required but could not be found or installed.\n\n"
         "Please install Python 3.10+ from python.org and try again."
     )
     return False
+
 
 
 def install_if_missing(package, import_name=None):
@@ -202,7 +204,7 @@ def install_if_missing(package, import_name=None):
 
         if not ensure_python():
             raise RuntimeError("Python is required to install packages")
-
+        
         install_attempts = [
             [sys.executable, "-m", "pip", "install", package],
         ]
@@ -269,7 +271,6 @@ DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "OSC-FaceTrackingController(Beta).py", "label": "Face Tracking Controller(Beta)"},
 ]
 
-
 def load_managed_scripts():
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
@@ -296,7 +297,6 @@ def load_managed_scripts():
     save_managed_scripts(DEFAULT_MANAGED_SCRIPTS)
     return DEFAULT_MANAGED_SCRIPTS
 
-
 def save_managed_scripts(scripts):
     try:
         os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
@@ -308,8 +308,8 @@ def save_managed_scripts(scripts):
         print(f"[Config] Error saving config: {e}")
         print(f"[Config] Attempted path: {TOOLBOX_CONFIG_FILE}")
 
-
 MANAGED_SCRIPTS = load_managed_scripts()
+
 
 print("Boot's ToolBox")
 print("Made By Boots")
@@ -321,7 +321,7 @@ def rename_self_to_toolbox():
         if getattr(sys, 'frozen', False):
             print("[Rename] Running as frozen executable, skipping rename.")
             return
-
+            
         current_path = os.path.abspath(__file__)
         directory = os.path.dirname(current_path)
         new_name = "VRChat-ToolBox.py"
@@ -352,7 +352,6 @@ SCRIPT_FOLDER_MAP = {
 
 _cached_system_python: str | None = None
 
-
 def _load_python_cache() -> str | None:
     try:
         if os.path.exists(TOOLBOX_CONFIG_FILE):
@@ -365,7 +364,6 @@ def _load_python_cache() -> str | None:
     except Exception as e:
         print(f"[Python] Error loading cache: {e}")
     return None
-
 
 def _save_python_cache(python_path: str) -> None:
     try:
@@ -380,7 +378,6 @@ def _save_python_cache(python_path: str) -> None:
         print(f"[Python] Saved to cache: {python_path}")
     except Exception as e:
         print(f"[Python] Error saving cache: {e}")
-
 
 def _get_system_python() -> str | None:
     global _cached_system_python
@@ -407,7 +404,6 @@ def _get_system_python() -> str | None:
     if _cached_system_python:
         _save_python_cache(_cached_system_python)
     return _cached_system_python
-
 
 _processes: list[subprocess.Popen] = []
 
@@ -647,7 +643,7 @@ def launch_script(filename: str) -> None:
                     return
             else:
                 python_exe = sys.executable
-
+            
             proc = subprocess.Popen(
                 [python_exe, dest_path],
                 cwd=work_dir,
@@ -886,7 +882,7 @@ def perform_update(remote_text=None, source_url=None):
         if getattr(sys, 'frozen', False):
             _perform_exe_update()
             return
-
+            
         if remote_text is None:
             info = get_remote_script_info()
             if not info:
@@ -1287,9 +1283,10 @@ def open_help():
     show_page(0)
 
 
+
 def open_settings():
     global MANAGED_SCRIPTS
-
+    
     settings_win = tk.Toplevel(root)
     settings_win.title("Settings")
     settings_win.configure(bg=BG)
@@ -1318,7 +1315,7 @@ def open_settings():
     inner_canvas = tk.Canvas(content_panel, bg=PANEL, highlightthickness=0)
     scrollbar = tk.Scrollbar(content_panel, orient="vertical", command=inner_canvas.yview)
     inner_canvas.configure(yscrollcommand=scrollbar.set)
-
+    
     scrollbar.pack(side="right", fill="y")
     inner_canvas.pack(side="left", fill="both", expand=True)
 
@@ -1333,22 +1330,18 @@ def open_settings():
     def refresh_script_list():
         for widget in inner_frame.winfo_children():
             widget.destroy()
-
+        
         for idx, script in enumerate(MANAGED_SCRIPTS):
             script_row = tk.Frame(inner_frame, bg=BG)
             script_row.pack(fill="x", padx=10, pady=6)
 
-            tk.Label(script_row, text=f"{script['label']}", bg=BG, fg=TEXT, font=(UI_FONT, 9, "bold")).pack(side="left",
-                                                                                                            fill="x",
-                                                                                                            expand=True)
-            tk.Label(script_row, text=f"({script['filename']})", bg=BG, fg=SUBTEXT, font=(UI_FONT, 8)).pack(side="left",
-                                                                                                            padx=(10,
-                                                                                                                  0))
+            tk.Label(script_row, text=f"{script['label']}", bg=BG, fg=TEXT, font=(UI_FONT, 9, "bold")).pack(side="left", fill="x", expand=True)
+            tk.Label(script_row, text=f"({script['filename']})", bg=BG, fg=SUBTEXT, font=(UI_FONT, 8)).pack(side="left", padx=(10, 0))
 
             remove_btn = tk.Button(
-                script_row,
-                text="✕ Remove",
-                bg=PANEL,
+                script_row, 
+                text="✕ Remove", 
+                bg=PANEL, 
                 fg=RED,
                 relief="flat",
                 font=(UI_FONT, 8, "bold"),
@@ -1371,16 +1364,12 @@ def open_settings():
         add_win.geometry("400x200")
         add_win.resizable(False, False)
 
-        tk.Label(add_win, text="Script Label:", bg=BG, fg=TEXT, font=(UI_FONT, 9)).pack(pady=(10, 0), padx=10,
-                                                                                        anchor="w")
-        label_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(UI_FONT, 9), relief="flat", insertbackground=ACCENT,
-                               highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+        tk.Label(add_win, text="Script Label:", bg=BG, fg=TEXT, font=(UI_FONT, 9)).pack(pady=(10, 0), padx=10, anchor="w")
+        label_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(UI_FONT, 9), relief="flat", insertbackground=ACCENT, highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
         label_entry.pack(pady=(0, 10), padx=10, fill="x")
 
-        tk.Label(add_win, text="Filename/Path:", bg=BG, fg=TEXT, font=(UI_FONT, 9)).pack(pady=(10, 0), padx=10,
-                                                                                         anchor="w")
-        file_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(UI_FONT, 9), relief="flat", insertbackground=ACCENT,
-                              highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+        tk.Label(add_win, text="Filename/Path:", bg=BG, fg=TEXT, font=(UI_FONT, 9)).pack(pady=(10, 0), padx=10, anchor="w")
+        file_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(UI_FONT, 9), relief="flat", insertbackground=ACCENT, highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
         file_entry.pack(pady=(0, 20), padx=10, fill="x")
 
         def save_new_script():
@@ -1397,7 +1386,7 @@ def open_settings():
         btn_frame.pack(pady=10)
 
         tk.Button(
-            btn_frame, text="Add", bg=ACCENT, fg="#FFFFFF", relief="flat",
+            btn_frame, text="Add", bg=ACCENT, fg="#FFFFFF", relief="flat", 
             font=(UI_FONT, 9, "bold"), cursor="hand2",
             activebackground=ACCENT2, activeforeground="#FFFFFF",
             command=save_new_script
@@ -1455,13 +1444,12 @@ bottom_bar.columnconfigure(0, weight=1)
 
 script_buttons = {}
 
-
 def refresh_main_buttons():
     global script_buttons
     for btn in script_buttons.values():
         btn.destroy()
     script_buttons.clear()
-
+    
     for i, entry in enumerate(MANAGED_SCRIPTS):
         script_filename = entry["filename"]
         label = entry["label"]
@@ -1482,11 +1470,10 @@ def refresh_main_buttons():
         )
         btn.grid(row=i, column=0, padx=0, pady=4, sticky="ew")
         script_buttons[i] = btn
-
+    
     btn_count = len(MANAGED_SCRIPTS)
     root.geometry(f"580x{520 + btn_count * 52}")
     root.minsize(540, 450 + btn_count * 52)
-
 
 refresh_main_buttons()
 
