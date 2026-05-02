@@ -1,4 +1,7 @@
 # VRChat ToolBox
+
+<img src="Images/Boot%27s-ToolBox.svg" alt="Boot's ToolBox" width="200" />
+
 Hello people i hope you like my toolbox, i spent quite a while making this but it is only made my me,
 so bugs are expected but if you find any please report them in the discord server.
 
