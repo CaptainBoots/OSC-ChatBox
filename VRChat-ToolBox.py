@@ -112,10 +112,6 @@ def find_system_python() -> str | None:
     return None
 
 
-def _install_python_silent() -> str | None:
-    # Automatic installer removed. Please install Python manually.
-    print("[Python] Automatic installer disabled. Please install Python 3.10+ manually from https://python.org")
-    return None
 
 
 def ensure_python() -> bool:
