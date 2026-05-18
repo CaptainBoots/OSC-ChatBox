@@ -1,9 +1,0 @@
-# ninja log v7
-3	2013	8008310881359851	CMakeFiles/untitled.dir/main.cpp.obj	463a41617940ac7f
-7	134	8008311684300006	untitled.exe	5d406e0238b43c7c
-5	187	8008312638767122	build.ninja	e714c29d9778e10e
-5	187	8008312638726227	C:/Users/boots/CLionProjects/untitled/cmake-build-debug/cmake_install.cmake	e714c29d9778e10e
-23	31	8008312637795023	clean	1f9c4fb7f1e2de61
-10	2026	8008312638067773	CMakeFiles/untitled.dir/main.cpp.obj	463a41617940ac7f
-2026	2227	8008312658229969	untitled.exe	81c6f8b07be4c109
-5	213	8008312989534263	untitled.exe	81c6f8b07be4c109
