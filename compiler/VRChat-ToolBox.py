@@ -28,11 +28,7 @@ import shutil
 # PYTHON DETECTION & INSTALLATION
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-PYTHON_VERSION = "3.12.10"
-PYTHON_INSTALLER_URL = (
-    f"https://www.python.org/ftp/python/{PYTHON_VERSION}/"
-    f"python-{PYTHON_VERSION}-amd64.exe"
-)
+# Python automatic installer disabled
 
 
 def _reg_find_python() -> str | None:
@@ -117,76 +113,22 @@ def find_system_python() -> str | None:
 
 
 def _install_python_silent() -> str | None:
-    try:
-        print("[Python] Python 3.10+ not found, downloading installer...")
-        tmp_dir = tempfile.mkdtemp(prefix="toolbox_py_")
-        installer_path = os.path.join(tmp_dir, f"python-{PYTHON_VERSION}-amd64.exe")
-
-        print(f"[Python] Downloading from {PYTHON_INSTALLER_URL}")
-        urllib.request.urlretrieve(PYTHON_INSTALLER_URL, installer_path)
-
-        print("[Python] Running silent installation...")
-        result = subprocess.run([
-            installer_path,
-            "/quiet",
-            "InstallAllUsers=0",
-            "PrependPath=1",
-            "Include_pip=1",
-            "Include_launcher=1",
-            "SimpleInstall=1",
-        ], timeout=300)
-
-        try:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-        except Exception:
-            pass
-
-        if result.returncode != 0:
-            print(f"[Python] Installation failed with code {result.returncode}")
-            return None
-
-        print("[Python] Installation complete, locating executable...")
-        python_exe = find_system_python()
-        if python_exe is None:
-            local_app = os.environ.get("LOCALAPPDATA", "")
-            candidate = os.path.join(
-                local_app, "Programs", "Python",
-                f"Python{PYTHON_VERSION.replace('.', '')[:3]}",
-                "python.exe"
-            )
-            if os.path.isfile(candidate):
-                python_exe = candidate
-
-        if python_exe:
-            print(f"[Python] Found installed Python at {python_exe}")
-            return python_exe
-        else:
-            print("[Python] Could not locate installed Python after installation")
-            return None
-
-    except Exception as e:
-        print(f"[Python] Installation failed: {e}")
-        return None
+    # Automatic installer removed. Request manual installation.
+    print("[Python] Automatic installer disabled. Please install Python 3.10+ manually from https://python.org")
+    return None
 
 
 def ensure_python() -> bool:
+    # Automatic installation disabled: only check and prompt user.
     print("[Python] Checking for Python 3.10+...")
     python_exe = find_system_python()
-
     if python_exe:
         print(f"[Python] Found: {python_exe}")
         return True
 
-    print("[Python] Not found, attempting installation...")
-    python_exe = _install_python_silent()
-
-    if python_exe:
-        return True
-
     messagebox.showerror(
         "Python Required",
-        "Python 3.10+ is required but could not be found or installed.\n\n"
-        "Please install Python 3.10+ from python.org and try again."
+        "Python 3.10+ is required. Please install Python 3.10+ from https://python.org and restart."
     )
     return False
 
@@ -199,9 +141,6 @@ def install_if_missing(package, import_name=None):
         importlib.import_module(import_name)
     except ImportError:
         print(f"Installing {package}...")
-
-        if not ensure_python():
-            raise RuntimeError("Python is required to install packages")
 
         install_attempts = [
             [sys.executable, "-m", "pip", "install", package],
@@ -732,168 +671,37 @@ def get_remote_script_info() -> dict[str, str] | None:
 
 
 def _exe_update_urls() -> list[str]:
-    names = [DEFAULT_EXE_NAME]
-    if getattr(sys, "frozen", False):
-        names.append(os.path.basename(sys.executable))
-
-    unique_names: list[str] = []
-    for name in names:
-        if not name:
-            continue
-        cleaned = os.path.basename(name.strip())
-        if not cleaned.lower().endswith(".exe"):
-            continue
-        if cleaned not in unique_names:
-            unique_names.append(cleaned)
-
-    urls: list[str] = []
-    for exe_name in unique_names:
-        # Accept either a base URL (ending with /) or a full file URL.
-        if GITHUB_EXE_RELEASE_BASE_URL.lower().endswith(".exe"):
-            urls.append(GITHUB_EXE_RELEASE_BASE_URL)
-        else:
-            urls.append(f"{GITHUB_EXE_RELEASE_BASE_URL}{exe_name}")
-
-        if GITHUB_EXE_RAW_BASE_URL.lower().endswith(".exe"):
-            urls.append(GITHUB_EXE_RAW_BASE_URL)
-        else:
-            urls.append(f"{GITHUB_EXE_RAW_BASE_URL}{exe_name}")
-
-    return list(dict.fromkeys(urls))
+    # EXE update URLs disabled — self-update for executables removed.
+    return []
 
 
 def _download_latest_exe(timeout: int = 30) -> tuple[str | None, str | None]:
-    errors: list[str] = []
-    for url in _exe_update_urls():
-        temp_path = None
-        response = None
-        try:
-            response = requests.get(
-                url,
-                timeout=timeout,
-                stream=True,
-                params={"_": int(time.time())},
-                headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
-            )
-            response.raise_for_status()
-
-            fd, temp_path = tempfile.mkstemp(prefix="toolbox_update_", suffix=".exe", dir=tempfile.gettempdir())
-            os.close(fd)
-
-            with open(temp_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=1024 * 256):
-                    if chunk:
-                        f.write(chunk)
-            response.close()
-
-            if not os.path.isfile(temp_path) or os.path.getsize(temp_path) < 1024:
-                raise RuntimeError("Downloaded file is empty or too small.")
-
-            with open(temp_path, "rb") as f:
-                if f.read(2) != b"MZ":
-                    raise RuntimeError("Downloaded file is not a valid Windows executable.")
-
-            return temp_path, url
-        except Exception as e:
-            errors.append(f"{url} ({e})")
-            if temp_path and os.path.exists(temp_path):
-                try:
-                    os.remove(temp_path)
-                except OSError:
-                    pass
-            continue
-        finally:
-            if response is not None:
-                response.close()
-
-    print(f"[Updater] Could not download updated executable: {errors}")
+    # Disabled: downloading EXE updates removed.
+    print("[Updater] EXE self-update disabled.")
     return None, None
 
 
 def _write_exe_updater_script(target_exe: str, downloaded_exe: str, backup_exe: str) -> str:
-    os.makedirs(BACKUP_DIR, exist_ok=True)
-
-    updater_script = os.path.join(BACKUP_DIR, "apply_toolbox_update.cmd")
-    script_body = (
-        "@echo off\n"
-        "setlocal enableextensions\n"
-        f'set "TARGET={target_exe}"\n'
-        f'set "DOWNLOAD={downloaded_exe}"\n'
-        f'set "BACKUP={backup_exe}"\n'
-        "\n"
-        "for /L %%I in (1,1,60) do (\n"
-        "    >nul 2>&1 move /Y \"%TARGET%\" \"%BACKUP%\" && goto moved\n"
-        "    timeout /t 1 /nobreak >nul\n"
-        ")\n"
-        "\n"
-        "echo [Updater] Could not unlock target executable.\n"
-        "del /f /q \"%DOWNLOAD%\" >nul 2>&1\n"
-        "exit /b 1\n"
-        "\n"
-        ":moved\n"
-        "move /Y \"%DOWNLOAD%\" \"%TARGET%\" >nul\n"
-        "if errorlevel 1 (\n"
-        "    move /Y \"%BACKUP%\" \"%TARGET%\" >nul\n"
-        "    exit /b 1\n"
-        ")\n"
-        "\n"
-        "start \"\" \"%TARGET%\"\n"
-        "del /f /q \"%BACKUP%\" >nul 2>&1\n"
-        "del /f /q \"%~f0\" >nul 2>&1\n"
-        "exit /b 0\n"
-    )
-
-    with open(updater_script, "w", encoding="utf-8") as f:
-        f.write(script_body)
-
-    return updater_script
+    # EXE updater script creation disabled.
+    raise RuntimeError("EXE updater is disabled in this build.")
 
 
 def _perform_exe_update() -> None:
-    if sys.platform != "win32":
-        messagebox.showerror("Update Failed", "EXE self-update is only supported on Windows.")
-        return
-
-    target_exe = os.path.abspath(sys.executable)
-    if not target_exe.lower().endswith(".exe"):
-        messagebox.showerror("Update Failed", "Could not determine executable path for update.")
-        return
-
-    downloaded_exe, source_url = _download_latest_exe(timeout=30)
-    if not downloaded_exe:
-        messagebox.showerror(
-            "Update Failed",
-            "Could not download the latest executable.\n"
-            "Make sure a new VRChat-ToolBox.exe is published on GitHub."
-        )
-        return
-
-    backup_exe = os.path.join(
-        BACKUP_DIR,
-        f"{os.path.splitext(os.path.basename(target_exe))[0]} {VERSION}.exe.bak"
+    # EXE self-update removed. Inform the user.
+    messagebox.showinfo(
+        "Update Disabled",
+        "Automatic EXE self-update has been disabled. Please update manually by downloading the latest release from GitHub."
     )
-
-    try:
-        updater_script = _write_exe_updater_script(target_exe, downloaded_exe, backup_exe)
-        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        subprocess.Popen(["cmd", "/c", updater_script], creationflags=creationflags)
-        print(f"[Updater] EXE update downloaded from {source_url}. Restarting...")
-        root.destroy()
-        sys.exit(0)
-    except Exception as e:
-        if os.path.exists(downloaded_exe):
-            try:
-                os.remove(downloaded_exe)
-            except OSError:
-                pass
-        messagebox.showerror("Update Failed", f"Could not start updater process:\n{e}")
-        print(f"[Updater] EXE update failed: {e}")
+    return
 
 
 def perform_update(remote_text=None, source_url=None):
     try:
         if getattr(sys, 'frozen', False):
-            _perform_exe_update()
+            messagebox.showinfo(
+                "Update Disabled",
+                "Automatic EXE self-update has been disabled. Please update the executable manually from GitHub."
+            )
             return
 
         if remote_text is None:
