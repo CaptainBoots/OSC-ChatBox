@@ -176,6 +176,7 @@ def get_default_config():
         "page2_text": "Join the discord server at https://discord.gg/YDXpQPF6g9",
         "page3_text": "hi put your text here :3",
         "page4_text": "Local Weather",
+        "page4_ascii": False,
         "page1_enabled": True,
         "page2_enabled": True,
         "page3_enabled": True,
@@ -275,6 +276,7 @@ def save_config():
         "page2_text": page2_entry.get(),
         "page3_text": page3_entry.get(),
         "page4_text": page4_entry.get(),
+        "page4_ascii": page4_ascii_enabled,
         "page1_enabled": page_toggles[0].get() if page_toggles else True,
         "page2_enabled": page_toggles[1].get() if page_toggles else True,
         "page3_enabled": page_toggles[2].get() if page_toggles else True,
@@ -328,6 +330,7 @@ def reset_to_defaults():
     progress_filled_char = defaults["progress_filled_char"]
     progress_border_char = defaults["progress_border_char"]
     progress_empty_char = defaults["progress_empty_char"]
+    page4_ascii_enabled = defaults.get("page4_ascii", False)
 
     forced_text.delete(0, tk.END)
 
@@ -2030,14 +2033,24 @@ def run_osc_loop():
                         f"{media_line}"
                     )
                 elif page_index == 3:
-                    text = (
-                        f"{page4_line1_text}\n"
-                        f"{cur_time_str}\n"
-                        f"{weather_temp}℃  {weather_humidity}% humidity\n"
-                        f"{weather_desc}\n"
-                        f"{progress_bar}\n"
-                        f"{media_line}"
-                    )
+                    if page4_ascii_enabled:
+                        text = (
+                            f"/|_/|\n"
+                            f"(＞.＜)\n"
+                            f"|     \\\n"                            f"      | || |ノ\n"
+                            f"{page4_line1_text}\n"
+                            f"{weather_temp}℃　{weather_humidity}% humidity\n"
+                            f"{weather_desc}"
+                        )
+                    else:
+                        text = (
+                            f"{page4_line1_text}\n"
+                            f"{cur_time_str}\n"
+                            f"{weather_temp}℃  {weather_humidity}% humidity\n"
+                            f"{weather_desc}\n"
+                            f"{progress_bar}\n"
+                            f"{media_line}"
+                        )
                 else:
                     text = f"{error_text}"
             else:
@@ -2174,6 +2187,7 @@ progress_border_char = normalize_progress_char(
 progress_empty_char = normalize_progress_char(
     cfg.get("progress_empty_char"), DEFAULT_PROGRESS_EMPTY_CHAR
 )
+page4_ascii_enabled = bool(cfg.get("page4_ascii", False))
 
 BG = "#0f0f13"
 PANEL = "#17171f"
@@ -2459,6 +2473,26 @@ def open_settings():
             set_entry_char(empty_char_entry, progress_empty_char)
             refresh_progress_previews()
             save_config()
+
+        page4_ascii_var = tk.BooleanVar(value=page4_ascii_enabled)
+
+        cb = tk.Checkbutton(
+            content_frame,
+            text="Use ASCII art for Page 4",
+            bg=PANEL, fg=SUBTEXT,
+            variable=page4_ascii_var,
+            onvalue=True, offvalue=False,
+            selectcolor=PANEL,
+            font=(UI_FONT, 9),
+        )
+        cb.pack(pady=(12, 6))
+
+        def on_page4_ascii_changed(*_):
+            global page4_ascii_enabled
+            page4_ascii_enabled = bool(page4_ascii_var.get())
+            save_config()
+
+        page4_ascii_var.trace_add("write", on_page4_ascii_changed)
 
         for progress_entry in (filled_char_entry, border_char_entry, empty_char_entry):
             progress_entry.bind("<KeyRelease>", apply_progress_char_settings)
