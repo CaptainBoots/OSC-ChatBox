@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.8.1"
+VERSION = "7.8.3"
 
 
 class CPUManufacturer(Enum):
@@ -2037,7 +2037,8 @@ def run_osc_loop():
                         text = (
                             f"/|_/|\n"
                             f"(＞.＜)\n"
-                            f"|     \\\n"                            f"      | || |ノ\n"
+                            f"|     \\\n"
+                            f"      | || |ノ\n"
                             f"{page4_line1_text}\n"
                             f"{weather_temp}℃　{weather_humidity}% humidity\n"
                             f"{weather_desc}"
@@ -2478,7 +2479,7 @@ def open_settings():
 
         cb = tk.Checkbutton(
             content_frame,
-            text="Use ASCII art for Page 4",
+            text="Cat Mode",
             bg=PANEL, fg=SUBTEXT,
             variable=page4_ascii_var,
             onvalue=True, offvalue=False,
