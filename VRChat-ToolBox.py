@@ -19,115 +19,6 @@ import tkinter.font as font
 import os
 import site
 import json
-import winreg
-import urllib.request
-import tempfile
-import shutil
-
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# PYTHON DETECTION & INSTALLATION
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
-# Python automatic installer disabled
-
-
-def _reg_find_python() -> str | None:
-    for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
-        for subkey_root in (
-                r"SOFTWARE\Python\PythonCore",
-                r"SOFTWARE\WOW6432Node\Python\PythonCore",
-        ):
-            try:
-                with winreg.OpenKey(hive, subkey_root) as root:
-                    i = 0
-                    while True:
-                        try:
-                            ver_str = winreg.EnumKey(root, i)
-                            i += 1
-                            try:
-                                major, minor = int(ver_str.split(".")[0]), int(ver_str.split(".")[1])
-                            except Exception:
-                                continue
-                            if (major, minor) < (3, 10):
-                                continue
-                            install_path_key = f"{subkey_root}\\{ver_str}\\InstallPath"
-                            try:
-                                with winreg.OpenKey(hive, install_path_key) as ik:
-                                    path_val, _ = winreg.QueryValueEx(ik, "ExecutablePath")
-                                    if os.path.isfile(path_val):
-                                        return path_val
-                                    default_val, _ = winreg.QueryValueEx(ik, "")
-                                    candidate = os.path.join(default_val, "python.exe")
-                                    if os.path.isfile(candidate):
-                                        return candidate
-                            except FileNotFoundError:
-                                pass
-                        except OSError:
-                            break
-            except FileNotFoundError:
-                pass
-    return None
-
-
-def _which_python() -> str | None:
-    try:
-        result = subprocess.run(
-            ["py", "-3", "-c", "import sys; print(sys.executable)"],
-            capture_output=True, text=True, timeout=10
-        )
-        if result.returncode == 0:
-            path = result.stdout.strip()
-            if os.path.isfile(path):
-                return path
-    except Exception:
-        pass
-
-    try:
-        result = subprocess.run(["where", "python"], capture_output=True, text=True, timeout=10)
-        if result.returncode == 0:
-            for line in result.stdout.splitlines():
-                line = line.strip()
-                if line and os.path.isfile(line) and "WindowsApps" not in line:
-                    return line
-    except Exception:
-        pass
-
-    return None
-
-
-def find_system_python() -> str | None:
-    path = _which_python() or _reg_find_python()
-    if path:
-        try:
-            result = subprocess.run(
-                [path, "-c", "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')"],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0:
-                parts = result.stdout.strip().split(".")
-                if len(parts) >= 2 and (int(parts[0]), int(parts[1])) >= (3, 10):
-                    return path
-        except Exception:
-            pass
-    return None
-
-
-
-
-def ensure_python() -> bool:
-    # Automatic installation disabled: only check and prompt user.
-    print("[Python] Checking for Python 3.10+...")
-    python_exe = find_system_python()
-    if python_exe:
-        print(f"[Python] Found: {python_exe}")
-        return True
-
-    messagebox.showerror(
-        "Python Required",
-        "Python 3.10+ is required. Please install Python 3.10+ from https://python.org and restart."
-    )
-    return False
-
 
 def install_if_missing(package, import_name=None):
     if import_name is None:
@@ -171,7 +62,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "9.1.2"
+VERSION = "9.1.3"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
 GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/releases/latest/download/"
