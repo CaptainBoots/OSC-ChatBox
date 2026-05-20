@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.8.3"
+VERSION = "7.8.4"
 
 
 class CPUManufacturer(Enum):
@@ -1659,7 +1659,8 @@ def detect_vram_type(gpu_name: str) -> str:
 # NETWORK MONITORING
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-def fmt(bps):
+def fmt(bytes_per_sec):
+    bps = max(0, bytes_per_sec) * 8
     if bps >= 1_000_000:
         return f"{bps / 1_000_000:.2f} Mb/s"
     return f"{bps / 1_000:.1f} Kb/s"
