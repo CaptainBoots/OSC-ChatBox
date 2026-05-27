@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.8.4"
+VERSION = "7.8.5"
 
 
 class CPUManufacturer(Enum):
@@ -2065,7 +2065,7 @@ def run_osc_loop():
             else:
                 print("Warning: OSC client not initialized")
 
-            time.sleep(5.0)
+            time.sleep(1.0)
 
         except Exception as e:
             print(f"Error: OSC loop Error {e}")
