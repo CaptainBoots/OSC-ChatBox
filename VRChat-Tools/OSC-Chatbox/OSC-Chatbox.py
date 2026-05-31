@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.8.5"
+VERSION = "7.8.6"
 
 
 class CPUManufacturer(Enum):
@@ -2545,7 +2545,7 @@ def open_settings():
         cb.pack(pady=(12, 6))
         tk.Label(
             content_frame,
-            text="Adds a cute cat onto page 4",
+            text="Adds a cute cat onto page 4 :3",
             bg=PANEL, fg=SUBTEXT,
             font=(UI_FONT, 8),
         ).pack(pady=(0, 6))
