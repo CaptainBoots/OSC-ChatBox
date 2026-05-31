@@ -102,9 +102,13 @@ OSC_PORT = "error"
 INTERFACE = "error"
 SWITCH_INTERVAL = "error"
 LHM_REST_API = "error"
-
+DEFAULT_SLEEP_SECONDS = 1.0
+SLOW_MODE_SLEEP_SECONDS = 5.0
+SPEED_MODE_SLEEP_SECONDS = 0.1
+sleep_delay_seconds = DEFAULT_SLEEP_SECONDS
 client: Optional[SimpleUDPClient] = None
 running = False
+updating_sleep_modes = False
 
 page1_line1_text = "error"
 page2_line1_text = "error"
@@ -177,6 +181,8 @@ def get_default_config():
         "page3_text": "hi put your text here :3",
         "page4_text": "Local Weather",
         "page4_ascii": False,
+        "slow_mode": False,
+        "speed_mode": False,
         "page1_enabled": True,
         "page2_enabled": True,
         "page3_enabled": True,
@@ -277,6 +283,8 @@ def save_config():
         "page3_text": page3_entry.get(),
         "page4_text": page4_entry.get(),
         "page4_ascii": page4_ascii_enabled,
+        "slow_mode": bool(slow.get()) if "slow" in globals() else False,
+        "speed_mode": bool(speed.get()) if "speed" in globals() else False,
         "page1_enabled": page_toggles[0].get() if page_toggles else True,
         "page2_enabled": page_toggles[1].get() if page_toggles else True,
         "page3_enabled": page_toggles[2].get() if page_toggles else True,
@@ -290,7 +298,7 @@ def save_config():
 
 
 def reset_to_defaults():
-    global progress_filled_char, progress_border_char, progress_empty_char
+    global progress_filled_char, progress_border_char, progress_empty_char, page4_ascii_enabled
     defaults = get_default_config()
 
     ip_entry.delete(0, tk.END)
@@ -331,10 +339,49 @@ def reset_to_defaults():
     progress_border_char = defaults["progress_border_char"]
     progress_empty_char = defaults["progress_empty_char"]
     page4_ascii_enabled = defaults.get("page4_ascii", False)
+    slow.set(defaults["slow_mode"])
+    speed.set(defaults["speed_mode"])
 
     forced_text.delete(0, tk.END)
 
     save_config()
+
+
+def get_sleep_delay(slow_mode=False, speed_mode=False):
+    if slow_mode:
+        return SLOW_MODE_SLEEP_SECONDS
+    if speed_mode:
+        return SPEED_MODE_SLEEP_SECONDS
+    return DEFAULT_SLEEP_SECONDS
+
+
+def apply_sleep_mode_settings(changed_mode: str | None = None) -> None:
+    global sleep_delay_seconds, updating_sleep_modes
+
+    if updating_sleep_modes:
+        return
+
+    updating_sleep_modes = True
+    try:
+        if changed_mode == "slow" and slow.get():
+            speed.set(False)
+        elif changed_mode == "speed" and speed.get():
+            slow.set(False)
+
+        sleep_delay_seconds = get_sleep_delay(slow.get(), speed.get())
+        save_config()
+    finally:
+        updating_sleep_modes = False
+
+
+def on_slow_mode_changed(_var_name: str, _index: str, _mode: str) -> object:
+    apply_sleep_mode_settings("slow")
+    return None
+
+
+def on_speed_mode_changed(_var_name: str, _index: str, _mode: str) -> object:
+    apply_sleep_mode_settings("speed")
+    return None
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -2065,7 +2112,7 @@ def run_osc_loop():
             else:
                 print("Warning: OSC client not initialized")
 
-            time.sleep(1.0)
+            time.sleep(sleep_delay_seconds)
 
         except Exception as e:
             print(f"Error: OSC loop Error {e}")
@@ -2214,6 +2261,14 @@ root = tk.Tk()
 root.title("OSC Chatbox")
 root.configure(bg=BG)
 root.resizable(True, True)
+
+slow = tk.BooleanVar(value=bool(cfg.get("slow_mode", False)))
+speed = tk.BooleanVar(value=bool(cfg.get("speed_mode", False)))
+if slow.get() and speed.get():
+    speed.set(False)
+sleep_delay_seconds = get_sleep_delay(slow.get(), speed.get())
+slow.trace_add("write", on_slow_mode_changed)
+speed.trace_add("write", on_speed_mode_changed)
 
 # Header with title and version
 title_bar = tk.Frame(root, bg=PANEL, pady=14)
@@ -2488,6 +2543,52 @@ def open_settings():
             font=(UI_FONT, 9),
         )
         cb.pack(pady=(12, 6))
+        tk.Label(
+            content_frame,
+            text="Adds a cute cat onto page 4",
+            bg=PANEL, fg=SUBTEXT,
+            font=(UI_FONT, 8),
+        ).pack(pady=(0, 6))
+
+        cb = tk.Checkbutton(
+            content_frame,
+            text="Slow Mode",
+            bg=PANEL, fg=SUBTEXT,
+            variable=slow,
+            onvalue=True, offvalue=False,
+            selectcolor=PANEL,
+            font=(UI_FONT, 9),
+        )
+        cb.pack(pady=(12, 6))
+        tk.Label(
+            content_frame,
+            text=f"Changes sleep time to {SLOW_MODE_SLEEP_SECONDS:.1f} seconds",
+            bg=PANEL, fg=SUBTEXT,
+            font=(UI_FONT, 8),
+        ).pack(pady=(0, 6))
+
+        cb = tk.Checkbutton(
+            content_frame,
+            text="Speed Mode",
+            bg=PANEL, fg=SUBTEXT,
+            variable=speed,
+            onvalue=True, offvalue=False,
+            selectcolor=PANEL,
+            font=(UI_FONT, 9),
+        )
+        cb.pack(pady=(12, 6))
+        tk.Label(
+            content_frame,
+            text=f"Changes sleep time to {SPEED_MODE_SLEEP_SECONDS:.1f} seconds",
+            bg=PANEL, fg=SUBTEXT,
+            font=(UI_FONT, 8),
+        ).pack(pady=(0, 2))
+        tk.Label(
+            content_frame,
+            text=f"Both off uses {DEFAULT_SLEEP_SECONDS:.1f} second",
+            bg=PANEL, fg=SUBTEXT,
+            font=(UI_FONT, 8),
+        ).pack(pady=(0, 6))
 
         def on_page4_ascii_changed(*_):
             global page4_ascii_enabled
