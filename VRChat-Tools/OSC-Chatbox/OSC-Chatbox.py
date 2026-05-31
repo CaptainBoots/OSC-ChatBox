@@ -64,6 +64,10 @@ install_if_missing("requests==2.32.5", "requests")
 if sys.platform == "win32":
     install_if_missing("winrt-Windows.Media.Control==3.2.1", "winrt")
     install_if_missing("winrt-windows.foundation==3.2.1", "winrt.windows.foundation")
+    install_if_missing(
+        "winrt-windows.foundation.collections==3.2.1",
+        "winrt.windows.foundation.collections",
+    )
 
 import psutil
 from pythonosc.udp_client import SimpleUDPClient
@@ -79,7 +83,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.8.7"
+VERSION = "7.9.0"
 
 
 class CPUManufacturer(Enum):
@@ -105,6 +109,9 @@ LHM_REST_API = "error"
 DEFAULT_SLEEP_SECONDS = 1.0
 SLOW_MODE_SLEEP_SECONDS = 5.0
 SPEED_MODE_SLEEP_SECONDS = 0.1
+MIN_MEDIA_CHANGE_DISPLAY_SECONDS = 8.0
+MEDIA_PAGE_INDEX = 4
+LHM_POLL_SECONDS = 3.0
 sleep_delay_seconds = DEFAULT_SLEEP_SECONDS
 client: Optional[SimpleUDPClient] = None
 running = False
@@ -114,6 +121,7 @@ page1_line1_text = "error"
 page2_line1_text = "error"
 page3_line1_text = "error"
 page4_line1_text = "error"
+page5_line1_text = "error"
 error_text = "Error: Page error value exceeding limit"
 
 cpu_wattage = "error"
@@ -180,13 +188,16 @@ def get_default_config():
         "page2_text": "Join the discord server at https://discord.gg/YDXpQPF6g9",
         "page3_text": "hi put your text here :3",
         "page4_text": "Local Weather",
+        "page5_text": "Media",
         "page4_ascii": False,
+        "media_title_trim": True,
         "slow_mode": False,
         "speed_mode": False,
         "page1_enabled": True,
         "page2_enabled": True,
         "page3_enabled": True,
         "page4_enabled": True,
+        "page5_enabled": True,
         "progress_filled_char": DEFAULT_PROGRESS_FILLED_CHAR,
         "progress_border_char": DEFAULT_PROGRESS_BORDER_CHAR,
         "progress_empty_char": DEFAULT_PROGRESS_EMPTY_CHAR,
@@ -282,13 +293,16 @@ def save_config():
         "page2_text": page2_entry.get(),
         "page3_text": page3_entry.get(),
         "page4_text": page4_entry.get(),
+        "page5_text": page5_entry.get(),
         "page4_ascii": page4_ascii_enabled,
+        "media_title_trim": media_title_trim_enabled,
         "slow_mode": bool(slow.get()) if "slow" in globals() else False,
         "speed_mode": bool(speed.get()) if "speed" in globals() else False,
         "page1_enabled": page_toggles[0].get() if page_toggles else True,
         "page2_enabled": page_toggles[1].get() if page_toggles else True,
         "page3_enabled": page_toggles[2].get() if page_toggles else True,
         "page4_enabled": page_toggles[3].get() if page_toggles else True,
+        "page5_enabled": page_toggles[4].get() if len(page_toggles) > 4 else True,
         "progress_filled_char": progress_filled_char,
         "progress_border_char": progress_border_char,
         "progress_empty_char": progress_empty_char,
@@ -298,7 +312,8 @@ def save_config():
 
 
 def reset_to_defaults():
-    global progress_filled_char, progress_border_char, progress_empty_char, page4_ascii_enabled
+    global progress_filled_char, progress_border_char, progress_empty_char
+    global page4_ascii_enabled, media_title_trim_enabled
     defaults = get_default_config()
 
     ip_entry.delete(0, tk.END)
@@ -331,7 +346,10 @@ def reset_to_defaults():
     page4_entry.delete(0, tk.END)
     page4_entry.insert(0, defaults["page4_text"])
 
-    keys = ["page1_enabled", "page2_enabled", "page3_enabled", "page4_enabled"]
+    page5_entry.delete(0, tk.END)
+    page5_entry.insert(0, defaults["page5_text"])
+
+    keys = ["page1_enabled", "page2_enabled", "page3_enabled", "page4_enabled", "page5_enabled"]
     for i, cfg_key in enumerate(keys):
         page_toggles[i].set(defaults[cfg_key])
 
@@ -339,6 +357,7 @@ def reset_to_defaults():
     progress_border_char = defaults["progress_border_char"]
     progress_empty_char = defaults["progress_empty_char"]
     page4_ascii_enabled = defaults.get("page4_ascii", False)
+    media_title_trim_enabled = defaults.get("media_title_trim", True)
     slow.set(defaults["slow_mode"])
     speed.set(defaults["speed_mode"])
 
@@ -1819,7 +1838,229 @@ def fetch_weather(lat_lon_str: str):
 # MEDIA MONITORING
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+def empty_media_info():
+    return {
+        "title": "",
+        "artist": "",
+        "album": "",
+        "album_artist": "",
+        "track_number": None,
+        "track_count": None,
+        "genres": [],
+        "source": "",
+        "position_ms": 0,
+        "duration_ms": 0,
+        "is_paused": False,
+    }
+
+
+def clean_media_value(value):
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if text.lower() in ("none", "unknown", "null"):
+        return ""
+    return text
+
+
+def safe_media_attr(obj, attr, default=None):
+    try:
+        return getattr(obj, attr, default)
+    except (AttributeError, RuntimeError, OSError):
+        return default
+
+
+def clean_media_number(value):
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def clean_media_genres(value):
+    if value is None:
+        return []
+
+    if isinstance(value, str):
+        candidates = re.split(r"[,;/|]", value)
+    else:
+        try:
+            candidates = list(value)
+        except TypeError:
+            candidates = [value]
+
+    genres = []
+    for item in candidates:
+        genre = clean_media_value(item)
+        if genre and genre not in genres:
+            genres.append(genre)
+    return genres[:3]
+
+
+def media_source_name(source):
+    text = clean_media_value(source)
+    if not text:
+        return ""
+
+    raw_lower = text.lower()
+    if "spotify" in raw_lower:
+        return "Spotify"
+    if "chrome" in raw_lower:
+        return "Chrome"
+    if "firefox" in raw_lower:
+        return "Firefox"
+    if "msedge" in raw_lower or "edge" in raw_lower:
+        return "Edge"
+    if "vlc" in raw_lower:
+        return "VLC"
+
+    if "!" in text:
+        text = text.split("!")[-1]
+
+    text = text.replace(".exe", "")
+    short_name = text.split(".")[-1].strip()
+    lower = short_name.lower()
+
+    if re.fullmatch(r"[0-9a-f]{12,}", lower):
+        return ""
+
+    if "spotify" in lower:
+        return "Spotify"
+    if "chrome" in lower:
+        return "Chrome"
+    if "firefox" in lower:
+        return "Firefox"
+    if "msedge" in lower or lower == "edge":
+        return "Edge"
+    if "vlc" in lower:
+        return "VLC"
+
+    return re.sub(r"[_-]+", " ", short_name).strip().title()
+
+
+def format_media_time(position_ms, duration_ms):
+    try:
+        position_seconds = max(0, int(float(position_ms) / 1000))
+        duration_seconds = max(0, int(float(duration_ms) / 1000))
+    except (TypeError, ValueError):
+        return ""
+
+    if duration_seconds <= 0:
+        return ""
+
+    def clock(seconds):
+        minutes, secs = divmod(seconds, 60)
+        hours, minutes = divmod(minutes, 60)
+        if hours:
+            return f"{hours}:{minutes:02d}:{secs:02d}"
+        return f"{minutes}:{secs:02d}"
+
+    return f"{clock(position_seconds)} / {clock(duration_seconds)}"
+
+
+def media_ms(value, fallback=0.0):
+    try:
+        return max(0.0, float(value))
+    except (TypeError, ValueError):
+        return fallback
+
+
+def update_media_position_estimate(media_info, state, now):
+    raw_pos = media_ms(media_info.get("position_ms"))
+    duration = media_ms(media_info.get("duration_ms"))
+    is_paused = bool(media_info.get("is_paused", False))
+    signature = (
+        clean_media_value(media_info.get("title")),
+        clean_media_value(media_info.get("artist")),
+        clean_media_value(media_info.get("album")),
+        clean_media_value(media_info.get("track_number")),
+        duration,
+    )
+
+    if not signature[0]:
+        state.clear()
+        media_info["position_ms"] = 0
+        return 0
+
+    previous_signature = state.get("signature")
+    previous_pos = media_ms(state.get("position_ms"))
+    previous_raw = state.get("raw_position_ms")
+    previous_seen_at = state.get("seen_at", now)
+
+    if signature != previous_signature:
+        estimated_pos = raw_pos
+    else:
+        elapsed_ms = max(0.0, (now - previous_seen_at) * 1000.0)
+        raw_delta = raw_pos - media_ms(previous_raw) if previous_raw is not None else None
+        raw_is_stale = raw_delta is not None and abs(raw_delta) <= 250.0
+
+        if is_paused:
+            if raw_is_stale:
+                estimated_pos = previous_pos
+            else:
+                estimated_pos = raw_pos
+        elif raw_is_stale:
+            estimated_pos = previous_pos + elapsed_ms
+        else:
+            estimated_pos = raw_pos
+
+    if duration > 0:
+        estimated_pos = min(estimated_pos, duration)
+
+    state["signature"] = signature
+    state["position_ms"] = estimated_pos
+    state["raw_position_ms"] = raw_pos
+    state["seen_at"] = now
+    media_info["position_ms"] = estimated_pos
+    return estimated_pos
+
+
+def format_track_info(track_number, track_count):
+    if not track_number:
+        return ""
+    if track_count:
+        return f"Track {track_number}/{track_count}"
+    return f"Track {track_number}"
+
+
+def media_detail_lines(media_info):
+    lines = []
+    title = clean_media_value(media_info.get("title"))
+    artist = clean_media_value(media_info.get("artist"))
+    album = clean_media_value(media_info.get("album"))
+    album_artist = clean_media_value(media_info.get("album_artist"))
+    source = clean_media_value(media_info.get("source"))
+    genres = media_info.get("genres") or []
+    time_text = format_media_time(media_info.get("position_ms"), media_info.get("duration_ms"))
+    track_text = format_track_info(media_info.get("track_number"), media_info.get("track_count"))
+
+    if not title:
+        return []
+
+    if album:
+        album_line = f"Album: {album}"
+        if album_artist and album_artist != artist:
+            album_line = f"{album_line} - {album_artist}"
+        lines.append(album_line)
+
+    info_parts = []
+    for value in (time_text, track_text):
+        if value:
+            info_parts.append(value)
+    if source:
+        info_parts.append(f"Source: {source}")
+    if genres:
+        info_parts.append(f"Genre: {', '.join(genres[:2])}")
+
+    if info_parts:
+        lines.append(" | ".join(info_parts))
+
+    return lines[:2]
+
+
 async def get_media_info():
+    media_info = empty_media_info()
     if sys.platform == "win32" and wmc is not None:
         try:
             manager = await wmc.GlobalSystemMediaTransportControlsSessionManager.request_async()
@@ -1834,9 +2075,22 @@ async def get_media_info():
                         playback.playback_status ==
                         wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PAUSED
                 )
+                media_info["position_ms"] = pos
+                media_info["duration_ms"] = dur
+                media_info["is_paused"] = is_paused
+                media_info["source"] = media_source_name(safe_media_attr(session, "source_app_user_model_id", ""))
+
                 if props is None:
-                    return None, None, pos, dur, is_paused
-                return props.title, props.artist, pos, dur, is_paused
+                    return media_info
+
+                media_info["title"] = clean_media_value(safe_media_attr(props, "title", ""))
+                media_info["artist"] = clean_media_value(safe_media_attr(props, "artist", ""))
+                media_info["album"] = clean_media_value(safe_media_attr(props, "album_title", ""))
+                media_info["album_artist"] = clean_media_value(safe_media_attr(props, "album_artist", ""))
+                media_info["track_number"] = clean_media_number(safe_media_attr(props, "track_number", None))
+                media_info["track_count"] = clean_media_number(safe_media_attr(props, "album_track_count", None))
+                media_info["genres"] = clean_media_genres(safe_media_attr(props, "genres", []))
+                return media_info
         except (OSError, AttributeError, RuntimeError):
             pass
 
@@ -1849,7 +2103,7 @@ async def get_media_info():
         ).splitlines()
 
         if not players:
-            return None, None, 0, 0, False
+            return media_info
 
         browser_player = next(
             (p for p in players if any(k in p.lower() for k in ["chrome", "chromium", "firefox"])),
@@ -1858,17 +2112,15 @@ async def get_media_info():
 
         output = subprocess.check_output(
             ["playerctl", "-p", browser_player, "metadata",
-             "--format", "{{title}}\n{{artist}}\n{{position}}\n{{mpris:length}}"],
+             "--format", "{{title}}\n{{artist}}\n{{album}}\n{{xesam:albumArtist}}\n{{xesam:trackNumber}}\n{{xesam:genre}}\n{{position}}\n{{mpris:length}}"],
             encoding="utf-8",
             stderr=subprocess.DEVNULL,
             timeout=2
         ).strip().split("\n")
 
-        if len(output) >= 4:
-            title = output[0].strip()
-            artist = output[1].strip()
-            pos = int(output[2]) / 1000
-            dur = int(output[3]) / 1000
+        if len(output) >= 8:
+            pos = int(output[6]) / 1000
+            dur = int(output[7]) / 1000
             is_paused = False
 
             try:
@@ -1882,7 +2134,17 @@ async def get_media_info():
             except subprocess.CalledProcessError:
                 pass
 
-            return title, artist, pos, dur, is_paused
+            media_info["title"] = clean_media_value(output[0])
+            media_info["artist"] = clean_media_value(output[1])
+            media_info["album"] = clean_media_value(output[2])
+            media_info["album_artist"] = clean_media_value(output[3])
+            media_info["track_number"] = clean_media_number(output[4])
+            media_info["genres"] = clean_media_genres(output[5])
+            media_info["position_ms"] = pos
+            media_info["duration_ms"] = dur
+            media_info["is_paused"] = is_paused
+            media_info["source"] = media_source_name(browser_player)
+            return media_info
 
     except FileNotFoundError:
         pass
@@ -1891,7 +2153,7 @@ async def get_media_info():
     except Exception as e:
         print(f"[MEDIA ERROR] {e}")
 
-    return None, None, 0, 0, False
+    return media_info
 
 
 def clean_title(raw_title):
@@ -1965,6 +2227,19 @@ def run_osc_loop():
     dram = detect_dram_type()
     vram = detect_vram_type(gpu_detect)
 
+    lhm_cache = {"data": lhm_data or startup_lhm}
+    lhm_cache_lock = threading.Lock()
+
+    def poll_lhm_cache():
+        while running:
+            data = get_lhm_data()
+            if data:
+                with lhm_cache_lock:
+                    lhm_cache["data"] = data
+            time.sleep(LHM_POLL_SECONDS)
+
+    threading.Thread(target=poll_lhm_cache, daemon=True).start()
+
     fetch_weather(location_entry.get().strip())
 
     print(f"\n{'=' * 60}")
@@ -1977,6 +2252,9 @@ def run_osc_loop():
     query_cooldown = 0
     weather_cooldown = 0
     weather_interval = 60
+    last_media_signature = None
+    media_boost_until = 0
+    media_progress_state = {}
 
     cpu_load = 0
     gpu_load = 0
@@ -1985,12 +2263,26 @@ def run_osc_loop():
 
     while running:
         try:
-            song, artist, pos, dur, is_paused = asyncio.run(get_media_info())
-            clean_song = clean_title(song)
+            media_info = asyncio.run(get_media_info())
+            if not isinstance(media_info, dict):
+                media_info = empty_media_info()
+
+            now = time.time()
+            song = media_info.get("title", "")
+            artist = media_info.get("artist", "")
+            pos = update_media_position_estimate(media_info, media_progress_state, now)
+            dur = media_info.get("duration_ms", 0)
+            is_paused = bool(media_info.get("is_paused", False))
+            raw_song = clean_media_value(song)
+            clean_song = clean_title(raw_song) if media_title_trim_enabled else raw_song
 
             query_cooldown += 1
             if query_cooldown >= 3:
-                lhm_data = get_lhm_data()
+                with lhm_cache_lock:
+                    cached_lhm_data = lhm_cache.get("data")
+                if cached_lhm_data:
+                    lhm_data = cached_lhm_data
+
                 if lhm_data:
                     cpu_temp, cpu_wattage, gpu_temp, gpu_wattage = parse_lhm_data(lhm_data)
                     cpu_load = get_cpu_load_from_lhm(lhm_data)
@@ -2021,13 +2313,16 @@ def run_osc_loop():
             gpu_power_text = format_telemetry(gpu_wattage, "w")
             gpu_temp_text = format_telemetry(gpu_temp, "℃")
 
-            if clean_song:
+            display_title = clean_song or raw_song
+            has_media = bool(display_title)
+
+            if has_media:
                 if is_paused:
                     display_artist = f"- {artist}" if artist else ""
-                    display_song = f"⏸ {clean_song}" if clean_song else ""
+                    display_song = f"⏸ {display_title}"
                 else:
                     display_artist = f"- {artist}" if artist else ""
-                    display_song = f"🎵 {clean_song}" if clean_song else ""
+                    display_song = f"🎵 {display_title}"
             else:
                 display_artist = ""
                 display_song = "⏸"
@@ -2035,8 +2330,22 @@ def run_osc_loop():
             media_line = display_song
             if display_artist:
                 media_line = f"{media_line} {display_artist}" if media_line else display_artist
+            media_details = media_detail_lines(media_info)
+            switch_interval = max(1, int(SWITCH_INTERVAL))
+            media_signature = (
+                clean_media_value(song),
+                clean_media_value(artist),
+                clean_media_value(media_info.get("album")),
+                clean_media_value(media_info.get("source")),
+                clean_media_value(media_info.get("track_number")),
+                is_paused,
+            )
+            if has_media and media_signature != last_media_signature:
+                boost_seconds = max(MIN_MEDIA_CHANGE_DISPLAY_SECONDS, switch_interval)
+                media_boost_until = now + boost_seconds
+            last_media_signature = media_signature if has_media else None
 
-            enabled_pages = [i for i in range(4) if page_toggles[i].get()]
+            enabled_pages = [i for i in range(MEDIA_PAGE_INDEX + 1) if page_toggles[i].get()]
             if not enabled_pages:
                 text = "No pages enabled"
                 print(text)
@@ -2048,9 +2357,10 @@ def run_osc_loop():
                 continue
 
             enabled_count = len(enabled_pages)
-            switch_interval = max(1, int(SWITCH_INTERVAL))
-            page_slot = int((time.time() // switch_interval) % enabled_count)
+            page_slot = int((now // switch_interval) % enabled_count)
             page_index = enabled_pages[page_slot]
+            if MEDIA_PAGE_INDEX in enabled_pages and now < media_boost_until:
+                page_index = MEDIA_PAGE_INDEX
 
             if forced_text.get().strip() == "":
 
@@ -2101,6 +2411,14 @@ def run_osc_loop():
                             f"{progress_bar}\n"
                             f"{media_line}"
                         )
+                elif page_index == MEDIA_PAGE_INDEX:
+                    page5_lines = [page5_line1_text, cur_time_str]
+                    if has_media:
+                        page5_lines.extend([progress_bar, media_line])
+                        page5_lines.extend(media_details)
+                    else:
+                        page5_lines.append("No music playing")
+                    text = "\n".join(page5_lines)
                 else:
                     text = f"{error_text}"
             else:
@@ -2126,7 +2444,7 @@ def run_osc_loop():
 
 def start_script():
     global running, client, OSC_IP, OSC_PORT, INTERFACE, SWITCH_INTERVAL, LHM_REST_API
-    global page1_line1_text, page2_line1_text, page3_line1_text, page4_line1_text, error_text
+    global page1_line1_text, page2_line1_text, page3_line1_text, page4_line1_text, page5_line1_text, error_text
 
     if running:
         return
@@ -2142,6 +2460,7 @@ def start_script():
         page2_line1_text = page2_entry.get()
         page3_line1_text = page3_entry.get()
         page4_line1_text = page4_entry.get()
+        page5_line1_text = page5_entry.get()
 
         save_config()
         error_text = "Error: Page error value exceeding limit"
@@ -2238,6 +2557,7 @@ progress_empty_char = normalize_progress_char(
     cfg.get("progress_empty_char"), DEFAULT_PROGRESS_EMPTY_CHAR
 )
 page4_ascii_enabled = bool(cfg.get("page4_ascii", False))
+media_title_trim_enabled = bool(cfg.get("media_title_trim", True))
 
 BG = "#0f0f13"
 PANEL = "#17171f"
@@ -2342,7 +2662,7 @@ def open_settings():
     set_win = tk.Toplevel(root)
     set_win.title("Settings")
     set_win.configure(bg=BG)
-    set_win.resizable(False, False)
+    set_win.resizable(True, True)
 
     root.update_idletasks()
     sw = root.winfo_width()
@@ -2533,6 +2853,7 @@ def open_settings():
             save_config()
 
         page4_ascii_var = tk.BooleanVar(value=page4_ascii_enabled)
+        media_title_trim_var = tk.BooleanVar(value=media_title_trim_enabled)
 
         cb = tk.Checkbutton(
             content_frame,
@@ -2547,6 +2868,23 @@ def open_settings():
         tk.Label(
             content_frame,
             text="Adds a cute cat onto page 4 :3",
+            bg=PANEL, fg=SUBTEXT,
+            font=(UI_FONT, 8),
+        ).pack(pady=(0, 6))
+
+        cb = tk.Checkbutton(
+            content_frame,
+            text="Trim Media Titles",
+            bg=PANEL, fg=SUBTEXT,
+            variable=media_title_trim_var,
+            onvalue=True, offvalue=False,
+            selectcolor=PANEL,
+            font=(UI_FONT, 9),
+        )
+        cb.pack(pady=(8, 4))
+        tk.Label(
+            content_frame,
+            text="Removes extra words like official, lyrics, and video",
             bg=PANEL, fg=SUBTEXT,
             font=(UI_FONT, 8),
         ).pack(pady=(0, 6))
@@ -2596,7 +2934,13 @@ def open_settings():
             page4_ascii_enabled = bool(page4_ascii_var.get())
             save_config()
 
+        def on_media_title_trim_changed(*_):
+            global media_title_trim_enabled
+            media_title_trim_enabled = bool(media_title_trim_var.get())
+            save_config()
+
         page4_ascii_var.trace_add("write", on_page4_ascii_changed)
+        media_title_trim_var.trace_add("write", on_media_title_trim_changed)
 
         for progress_entry in (filled_char_entry, border_char_entry, empty_char_entry):
             progress_entry.bind("<KeyRelease>", apply_progress_char_settings)
@@ -2673,13 +3017,13 @@ def open_help():
         {
             "title": "Page Toggles",
             "content": (
-                "Page Toggles — The four circle buttons below\n"
+                "Page Toggles — The five circle buttons below\n"
                 "the Start/Stop/Restart buttons control which\n"
                 "pages appear in the rotation.\n\n"
                 "● Filled circle  = page is ENABLED\n"
                 "○ Hollow circle = page is DISABLED\n\n"
                 "Each toggle is labelled with the page name\n"
-                "above the circle and P1–P4 below it.\n\n"
+                "above the circle and P1–P5 below it.\n\n"
                 "Click a circle to toggle it on or off.\n"
                 "Disabled pages are skipped entirely.\n\n"
                 "If ALL pages are disabled, the chatbox will\n"
@@ -2718,7 +3062,7 @@ def open_help():
         {
             "title": "Page Text",
             "content": (
-                "Page 1 / 2 / 3 / 4 Text — The first line shown\n"
+                "Page 1 / 2 / 3 / 4 / 5 Text — The first line shown\n"
                 "on each rotating chatbox page.\n\n"
                 "Page 1 also shows: time, network speed, and\n"
                 "currently playing song.\n\n"
@@ -2727,7 +3071,9 @@ def open_help():
                 "Page 3 also shows: RAM & VRAM usage and\n"
                 "currently playing song.\n\n"
                 "Page 4 shows your local weather — see the\n"
-                "next page for setup details."
+                "next page for setup details.\n\n"
+                "Page 5 shows your currently playing media,\n"
+                "album, source app, track info, and progress bar."
             )
         },
         {
@@ -2937,19 +3283,22 @@ page3_entry = dark_entry(10, cfg["page3_text"])
 dark_label("Page 4 Text", 11)
 page4_entry = dark_entry(11, cfg["page4_text"])
 
-dark_label("Text Message", 12)
-forced_text = dark_entry(12, " ")
+dark_label("Page 5 Text", 12)
+page5_entry = dark_entry(12, cfg["page5_text"])
+
+dark_label("Text Message", 13)
+forced_text = dark_entry(13, " ")
 
 # ── Toggles ────────────────────────────────────────────────────────────────
 toggle_outer = tk.Frame(frame, bg=BG)
-toggle_outer.grid(row=13, column=0, columnspan=2, pady=(6, 2), sticky="ew")
+toggle_outer.grid(row=14, column=0, columnspan=2, pady=(6, 2), sticky="ew")
 
 toggle_inner = tk.Frame(toggle_outer, bg=BG)
 toggle_inner.pack(anchor="center")
 
-PAGE_NAMES = ["Network", "CPU/GPU", "RAM", "Weather"]
-PAGE_NUMBERS = ["P1", "P2", "P3", "P4"]
-PAGE_ENABLED_KEYS = ["page1_enabled", "page2_enabled", "page3_enabled", "page4_enabled"]
+PAGE_NAMES = ["Network", "CPU/GPU", "RAM", "Weather", "Media"]
+PAGE_NUMBERS = ["P1", "P2", "P3", "P4", "P5"]
+PAGE_ENABLED_KEYS = ["page1_enabled", "page2_enabled", "page3_enabled", "page4_enabled", "page5_enabled"]
 
 for col, (name, num, key) in enumerate(zip(PAGE_NAMES, PAGE_NUMBERS, PAGE_ENABLED_KEYS)):
     cell = tk.Frame(toggle_inner, bg=BG)
@@ -2970,7 +3319,7 @@ for col, (name, num, key) in enumerate(zip(PAGE_NAMES, PAGE_NUMBERS, PAGE_ENABLE
 
 # ── Main Buttons ───────────────────────────────────────────────────────────
 button_frame = tk.Frame(frame, bg=BG)
-button_frame.grid(row=14, column=0, columnspan=2, pady=15, sticky="ew")
+button_frame.grid(row=15, column=0, columnspan=2, pady=15, sticky="ew")
 
 button_frame.columnconfigure(0, weight=1)
 button_frame.columnconfigure(1, weight=1)
@@ -3037,7 +3386,7 @@ settings_btn = square_button(footer_bar, "⚙", open_settings, base_size=28)
 settings_btn.pack(side="right", padx=(0, 8))
 
 # Set window size
-root.geometry("580x700")
+root.geometry("620x740")
 root.minsize(0, 0)
 
 root.mainloop()
