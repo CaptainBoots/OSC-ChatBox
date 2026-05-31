@@ -79,7 +79,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.8.6"
+VERSION = "7.8.7"
 
 
 class CPUManufacturer(Enum):
@@ -450,6 +450,7 @@ gpu_id_map = {
     "10de:2c02": "GeForce RTX 5070 Ti",
     "10de:2c01": "GeForce RTX 5070",
     "10de:2c00": "GeForce RTX 5060 Ti",
+    "10de:2d04": "GeForce RTX 5060 Ti", # I hate nvidia for being like this why did a driver update do this wtf?
     "10de:2d05": "GeForce RTX 5060",
     "10de:2d83": "GeForce RTX 5050",
 
