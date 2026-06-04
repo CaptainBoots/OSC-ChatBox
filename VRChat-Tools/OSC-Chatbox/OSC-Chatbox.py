@@ -71,6 +71,8 @@ if sys.platform == "win32":
 
 import psutil
 from pythonosc.udp_client import SimpleUDPClient
+from pythonosc.osc_server import AsyncIOOSCUDPServer
+from pythonosc.dispatcher import Dispatcher
 import requests
 
 if sys.platform == "win32":
@@ -124,6 +126,18 @@ page4_line1_text = "error"
 page5_line1_text = "error"
 error_text = "Error: Page error value exceeding limit"
 
+custom_top_line_text_page1 = ""
+custom_top_line_text_page2 = ""
+custom_top_line_text_page3 = ""
+custom_top_line_text_page4 = ""
+custom_top_line_text_page5 = ""
+custom_osc_port = 9001
+custom_osc_enabled_pages = [False, False, False, False, False]
+custom_osc_enabled_vars = [None, None, None, None, None]
+custom_osc_port_entry = None
+osc_server = None
+osc_server_loop = None
+
 cpu_wattage = "error"
 cpu_temp = "error"
 gpu_wattage = "error"
@@ -147,6 +161,39 @@ progress_empty_char: str
 def normalize_progress_char(value, fallback):
     text = "" if value is None else str(value).strip()
     return text[0] if text else fallback
+
+
+def get_custom_osc_port_value() -> int:
+    if custom_osc_port_entry is not None:
+        return int(custom_osc_port_entry.get())
+    return int(custom_osc_port)
+
+
+def get_custom_osc_enabled_pages_value() -> list[bool]:
+    if custom_osc_enabled_vars and all(var is not None for var in custom_osc_enabled_vars):
+        return [var.get() for var in custom_osc_enabled_vars]
+    return list(custom_osc_enabled_pages)
+
+
+def set_custom_top_line_value(page_idx: int, value: str) -> None:
+    global custom_top_line_text_page1, custom_top_line_text_page2, custom_top_line_text_page3, custom_top_line_text_page4, custom_top_line_text_page5
+
+    if page_idx == 0:
+        custom_top_line_text_page1 = value
+    elif page_idx == 1:
+        custom_top_line_text_page2 = value
+    elif page_idx == 2:
+        custom_top_line_text_page3 = value
+    elif page_idx == 3:
+        custom_top_line_text_page4 = value
+    elif page_idx == 4:
+        custom_top_line_text_page5 = value
+
+
+def set_custom_top_line_values(value: str) -> None:
+    for index, enabled in enumerate(custom_osc_enabled_pages):
+        if enabled:
+            set_custom_top_line_value(index, value)
 
 
 def detect_default_interface():
@@ -201,6 +248,12 @@ def get_default_config():
         "progress_filled_char": DEFAULT_PROGRESS_FILLED_CHAR,
         "progress_border_char": DEFAULT_PROGRESS_BORDER_CHAR,
         "progress_empty_char": DEFAULT_PROGRESS_EMPTY_CHAR,
+        "custom_osc_port": 9001,
+        "custom_osc_enabled_page1": False,
+        "custom_osc_enabled_page2": False,
+        "custom_osc_enabled_page3": False,
+        "custom_osc_enabled_page4": False,
+        "custom_osc_enabled_page5": False,
     }
 
 
@@ -282,6 +335,7 @@ def load_config():
 
 def save_config():
     os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+    custom_osc_enabled_page_values = get_custom_osc_enabled_pages_value()
     config = {
         "osc_ip": ip_entry.get(),
         "osc_port": port_entry.get(),
@@ -306,6 +360,12 @@ def save_config():
         "progress_filled_char": progress_filled_char,
         "progress_border_char": progress_border_char,
         "progress_empty_char": progress_empty_char,
+        "custom_osc_port": get_custom_osc_port_value(),
+        "custom_osc_enabled_page1": custom_osc_enabled_page_values[0],
+        "custom_osc_enabled_page2": custom_osc_enabled_page_values[1],
+        "custom_osc_enabled_page3": custom_osc_enabled_page_values[2],
+        "custom_osc_enabled_page4": custom_osc_enabled_page_values[3],
+        "custom_osc_enabled_page5": custom_osc_enabled_page_values[4],
     }
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2)
@@ -314,6 +374,7 @@ def save_config():
 def reset_to_defaults():
     global progress_filled_char, progress_border_char, progress_empty_char
     global page4_ascii_enabled, media_title_trim_enabled
+    global custom_osc_port, custom_osc_enabled_pages
     defaults = get_default_config()
 
     ip_entry.delete(0, tk.END)
@@ -358,10 +419,26 @@ def reset_to_defaults():
     progress_empty_char = defaults["progress_empty_char"]
     page4_ascii_enabled = defaults.get("page4_ascii", False)
     media_title_trim_enabled = defaults.get("media_title_trim", True)
+    custom_osc_port = defaults.get("custom_osc_port", 9001)
+    custom_osc_enabled_pages = [
+        defaults.get("custom_osc_enabled_page1", False),
+        defaults.get("custom_osc_enabled_page2", False),
+        defaults.get("custom_osc_enabled_page3", False),
+        defaults.get("custom_osc_enabled_page4", False),
+        defaults.get("custom_osc_enabled_page5", False),
+    ]
     slow.set(defaults["slow_mode"])
     speed.set(defaults["speed_mode"])
 
     forced_text.delete(0, tk.END)
+
+    if custom_osc_port_entry is not None:
+        custom_osc_port_entry.delete(0, tk.END)
+        custom_osc_port_entry.insert(0, str(defaults["custom_osc_port"]))
+    if custom_osc_enabled_vars and all(var is not None for var in custom_osc_enabled_vars):
+        for i, var in enumerate(custom_osc_enabled_vars):
+            key = f"custom_osc_enabled_page{i+1}"
+            var.set(defaults.get(key, False))
 
     save_config()
 
@@ -401,6 +478,87 @@ def on_slow_mode_changed(_var_name: str, _index: str, _mode: str) -> object:
 def on_speed_mode_changed(_var_name: str, _index: str, _mode: str) -> object:
     apply_sleep_mode_settings("speed")
     return None
+
+
+def start_custom_osc_server(port: int):
+    global osc_server, osc_server_loop
+    try:
+        def make_page_handler(page_idx):
+            def osc_message_handler(unused_addr, *args):
+                if args:
+                    text = str(args[0])
+                    if "root" in globals() and root.winfo_exists():
+                        root.after(0, lambda idx=page_idx, value=text: set_custom_top_line_value(idx, value))
+                    else:
+                        set_custom_top_line_value(page_idx, text)
+            return osc_message_handler
+
+        def chatbox_input_handler(unused_addr, *args):
+            if args:
+                text = str(args[0])
+            else:
+                text = ""
+
+            if "root" in globals() and root.winfo_exists():
+                root.after(0, lambda value=text: set_custom_top_line_values(value))
+            else:
+                set_custom_top_line_values(text)
+
+        dispatcher = Dispatcher()
+        dispatcher.map("/chatbox/custom/page1", make_page_handler(0))
+        dispatcher.map("/chatbox/custom/page2", make_page_handler(1))
+        dispatcher.map("/chatbox/custom/page3", make_page_handler(2))
+        dispatcher.map("/chatbox/custom/page4", make_page_handler(3))
+        dispatcher.map("/chatbox/custom/page5", make_page_handler(4))
+        dispatcher.map("/chatbox/input", chatbox_input_handler)
+
+        osc_server_loop = asyncio.new_event_loop()
+        startup_event = threading.Event()
+        startup_errors = []
+
+        async def setup_server():
+            global osc_server
+            server = AsyncIOOSCUDPServer(("127.0.0.1", port), dispatcher, osc_server_loop)
+            transport, protocol = await server.create_serve_endpoint()
+            osc_server = (transport, protocol)
+            return transport, protocol
+
+        def run_server():
+            asyncio.set_event_loop(osc_server_loop)
+            try:
+                osc_server_loop.run_until_complete(setup_server())
+                startup_event.set()
+                osc_server_loop.run_forever()
+            except Exception as e:
+                startup_errors.append(e)
+                startup_event.set()
+                print(f"[OSC] Server error: {e}")
+
+        thread = threading.Thread(target=run_server, daemon=True)
+        thread.start()
+        if not startup_event.wait(5.0):
+            raise TimeoutError("Timed out waiting for custom OSC server to start")
+        if startup_errors:
+            raise startup_errors[0]
+        print(f"[OSC] Custom OSC server started on port {port}")
+    except Exception as e:
+        print(f"[OSC] Failed to start custom OSC server: {e}")
+
+
+def stop_custom_osc_server():
+    global osc_server, osc_server_loop
+    try:
+        if osc_server_loop:
+            osc_server_loop.call_soon_threadsafe(osc_server_loop.stop)
+        if osc_server:
+            transport, protocol = osc_server
+            if transport:
+                transport.close()
+        osc_server = None
+        osc_server_loop = None
+        print("[OSC] Custom OSC server stopped")
+    except Exception as e:
+        print(f"[OSC] Error stopping OSC server: {e}")
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -2306,7 +2464,7 @@ def run_osc_loop():
 
             prev, up_raw, down_raw, prev_time = get_network_usage(prev, prev_time)
 
-            cur_time_str = time.strftime("%I:%M %p")
+            cur_time_str = time.strftime("%H:%M:%S")
             progress_bar = create_progress_bar(pos, dur)
             cpu_power_text = format_telemetry(cpu_wattage, "w")
             cpu_temp_text = format_telemetry(cpu_temp, "℃")
@@ -2363,10 +2521,10 @@ def run_osc_loop():
                 page_index = MEDIA_PAGE_INDEX
 
             if forced_text.get().strip() == "":
-
                 if page_index == 0:
+                    top_line = custom_top_line_text_page1 if custom_osc_enabled_pages[0] and custom_top_line_text_page1 else None
                     text = (
-                        f"{page1_line1_text}\n"
+                        f"{top_line if top_line else page1_line1_text}\n"
                         f"{cur_time_str}\n"
                         f"Download {fmt(down_raw)}\n"
                         f"Upload {fmt(up_raw)}\n"
@@ -2374,8 +2532,9 @@ def run_osc_loop():
                         f"{media_line}"
                     )
                 elif page_index == 1:
+                    top_line = custom_top_line_text_page2 if custom_osc_enabled_pages[1] and custom_top_line_text_page2 else None
                     text = (
-                        f"{page2_line1_text}\n"
+                        f"{top_line if top_line else page2_line1_text}\n"
                         f"{cur_time_str}\n"
                         f"{cpu_detect} {cpu_load}%\n"
                         f"{cpu_power_text} {cpu_temp_text}\n"
@@ -2383,8 +2542,9 @@ def run_osc_loop():
                         f"{gpu_power_text} {gpu_temp_text}\n"
                     )
                 elif page_index == 2:
+                    top_line = custom_top_line_text_page3 if custom_osc_enabled_pages[2] and custom_top_line_text_page3 else None
                     text = (
-                        f"{page3_line1_text}\n"
+                        f"{top_line if top_line else page3_line1_text}\n"
                         f"{cur_time_str}\n"
                         f"{dram} {dram_load}GB/{dram_detect}GB\n"
                         f"{vram} {vram_load}GB/{vram_detect}GB\n"
@@ -2392,19 +2552,20 @@ def run_osc_loop():
                         f"{media_line}"
                     )
                 elif page_index == 3:
+                    top_line = custom_top_line_text_page4 if custom_osc_enabled_pages[3] and custom_top_line_text_page4 else None
                     if page4_ascii_enabled:
                         text = (
                             f"/|_/|\n"
                             f"(＞.＜)\n"
                             f"|     \\\n"
                             f"      | || |ノ\n"
-                            f"{page4_line1_text}\n"
+                            f"{top_line if top_line else page4_line1_text}\n"
                             f"{weather_temp}℃　{weather_humidity}% humidity\n"
                             f"{weather_desc}"
                         )
                     else:
                         text = (
-                            f"{page4_line1_text}\n"
+                            f"{top_line if top_line else page4_line1_text}\n"
                             f"{cur_time_str}\n"
                             f"{weather_temp}℃  {weather_humidity}% humidity\n"
                             f"{weather_desc}\n"
@@ -2412,7 +2573,8 @@ def run_osc_loop():
                             f"{media_line}"
                         )
                 elif page_index == MEDIA_PAGE_INDEX:
-                    page5_lines = [page5_line1_text, cur_time_str]
+                    top_line = custom_top_line_text_page5 if custom_osc_enabled_pages[4] and custom_top_line_text_page5 else None
+                    page5_lines = [top_line if top_line else page5_line1_text, cur_time_str]
                     if has_media:
                         page5_lines.extend([progress_bar, media_line])
                         page5_lines.extend(media_details)
@@ -2445,6 +2607,7 @@ def run_osc_loop():
 def start_script():
     global running, client, OSC_IP, OSC_PORT, INTERFACE, SWITCH_INTERVAL, LHM_REST_API
     global page1_line1_text, page2_line1_text, page3_line1_text, page4_line1_text, page5_line1_text, error_text
+    global custom_osc_port, custom_osc_enabled_pages
 
     if running:
         return
@@ -2462,9 +2625,14 @@ def start_script():
         page4_line1_text = page4_entry.get()
         page5_line1_text = page5_entry.get()
 
+        custom_osc_port = get_custom_osc_port_value()
+        custom_osc_enabled_pages = get_custom_osc_enabled_pages_value()
+
         save_config()
         error_text = "Error: Page error value exceeding limit"
         client = SimpleUDPClient(OSC_IP, OSC_PORT)
+
+        start_custom_osc_server(custom_osc_port)
 
         running = True
         status_label.config(text="Status: Running", fg=GREEN)
@@ -2488,6 +2656,7 @@ def start_script():
 def stop_script():
     global running
     running = False
+    stop_custom_osc_server()
     status_label.config(text="Status: Stopped", fg=RED)
     footer_label.config(text="Ready")
 
@@ -2558,6 +2727,14 @@ progress_empty_char = normalize_progress_char(
 )
 page4_ascii_enabled = bool(cfg.get("page4_ascii", False))
 media_title_trim_enabled = bool(cfg.get("media_title_trim", True))
+custom_osc_port = cfg.get("custom_osc_port", 9001)
+custom_osc_enabled_pages = [
+    cfg.get("custom_osc_enabled_page1", False),
+    cfg.get("custom_osc_enabled_page2", False),
+    cfg.get("custom_osc_enabled_page3", False),
+    cfg.get("custom_osc_enabled_page4", False),
+    cfg.get("custom_osc_enabled_page5", False),
+]
 
 BG = "#0f0f13"
 PANEL = "#17171f"
@@ -2676,6 +2853,10 @@ def open_settings():
             "title": "Settings",
             "content_type": "scale",
         },
+        {
+            "title": "Custom OSC",
+            "content_type": "custom_osc",
+        },
     ]
 
     current_page = [0]
@@ -2712,7 +2893,21 @@ def open_settings():
 
     def build_scale_page():
         for w in content_frame.winfo_children():
+            try:
+                w.unbind("<KeyRelease>")
+                w.unbind("<FocusOut>")
+            except tk.TclError:
+                pass
             w.destroy()
+        
+        # Clean up any variable traces from previous page builds
+        if hasattr(build_scale_page, 'trace_ids'):
+            for var, trace_id in build_scale_page.trace_ids:
+                try:
+                    var.trace_remove("write", trace_id)
+                except (tk.TclError, ValueError):
+                    pass
+        build_scale_page.trace_ids = []
 
         tk.Label(content_frame, text="UI Scale",
                  bg=PANEL, fg=ACCENT2, font=(UI_FONT, 10, "bold")).pack(pady=(20, 8))
@@ -2939,8 +3134,9 @@ def open_settings():
             media_title_trim_enabled = bool(media_title_trim_var.get())
             save_config()
 
-        page4_ascii_var.trace_add("write", on_page4_ascii_changed)
-        media_title_trim_var.trace_add("write", on_media_title_trim_changed)
+        trace_id_1 = page4_ascii_var.trace_add("write", on_page4_ascii_changed)
+        trace_id_2 = media_title_trim_var.trace_add("write", on_media_title_trim_changed)
+        build_scale_page.trace_ids.extend([(page4_ascii_var, trace_id_1), (media_title_trim_var, trace_id_2)])
 
         for progress_entry in (filled_char_entry, border_char_entry, empty_char_entry):
             progress_entry.bind("<KeyRelease>", apply_progress_char_settings)
@@ -2955,6 +3151,98 @@ def open_settings():
         scale_var.trace_add("write", update_pct)
         update_pct()
 
+    def build_custom_osc_page():
+        global custom_osc_port_entry, custom_osc_enabled_vars
+        
+        for w in content_frame.winfo_children():
+            try:
+                w.unbind("<KeyRelease>")
+                w.unbind("<FocusOut>")
+            except tk.TclError:
+                pass
+            w.destroy()
+
+        tk.Label(content_frame, text="Custom OSC Top Line Per Page",
+                 bg=PANEL, fg=ACCENT2, font=(UI_FONT, 10, "bold")).pack(pady=(20, 8))
+        
+        tk.Label(
+            content_frame,
+            text="Enable custom text input for each page separately",
+            bg=PANEL, fg=SUBTEXT,
+            font=(UI_FONT, 8),
+        ).pack(pady=(0, 12))
+
+        tk.Label(content_frame, text="OSC Port",
+                 bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 9)).pack(pady=(12, 4))
+
+        port_frame = tk.Frame(content_frame, bg=PANEL)
+        port_frame.pack(pady=(0, 4))
+
+        custom_osc_port_entry = tk.Entry(
+            port_frame, width=15, justify="center",
+            bg=ENTRY_BG, fg=TEXT, insertbackground=ACCENT, relief="flat",
+            font=(UI_FONT, 9), highlightthickness=1,
+            highlightbackground=BORDER, highlightcolor=ACCENT
+        )
+        custom_osc_port_entry.pack()
+        custom_osc_port_entry.insert(0, str(custom_osc_port))
+
+        tk.Label(
+            content_frame,
+            text="Default: 9001 (all pages listen on this port)",
+            bg=PANEL, fg=SUBTEXT,
+            font=(UI_FONT, 8),
+        ).pack(pady=(0, 12))
+
+        tk.Label(content_frame, text="Enable Per-Page Input",
+                 bg=PANEL, fg=ACCENT2, font=(UI_FONT, 9, "bold")).pack(pady=(12, 8))
+
+        custom_osc_enabled_vars = []
+        page_names = ["Page 1 (Network)", "Page 2 (CPU/GPU)", "Page 3 (RAM)", "Page 4 (Weather)", "Page 5 (Media)"]
+        page_addresses = ["/chatbox/custom/page1", "/chatbox/custom/page2", "/chatbox/custom/page3", "/chatbox/custom/page4", "/chatbox/custom/page5"]
+        
+        for i, (page_name, page_addr) in enumerate(zip(page_names, page_addresses)):
+            var = tk.BooleanVar(value=custom_osc_enabled_pages[i])
+            custom_osc_enabled_vars.append(var)
+            
+            cb = tk.Checkbutton(
+                content_frame,
+                text=page_name,
+                bg=PANEL, fg=SUBTEXT,
+                variable=var,
+                onvalue=True, offvalue=False,
+                selectcolor=PANEL,
+                font=(UI_FONT, 8),
+            )
+            cb.pack(anchor="w", padx=20, pady=2)
+            
+            addr_label = tk.Label(
+                content_frame,
+                text=f"    {page_addr}",
+                bg=PANEL, fg="#6e6b85",
+                font=(UI_FONT, 7),
+            )
+            addr_label.pack(anchor="w", padx=20, pady=(0, 4))
+
+        def on_custom_osc_changed(*_):
+            global custom_osc_enabled_pages
+            custom_osc_enabled_pages = [var.get() for var in custom_osc_enabled_vars]
+            save_config()
+
+        for var in custom_osc_enabled_vars:
+            var.trace_add("write", on_custom_osc_changed)
+
+        def save_custom_osc_settings(*_):
+            global custom_osc_port
+            try:
+                custom_osc_port = int(custom_osc_port_entry.get())
+                save_config()
+            except ValueError:
+                messagebox.showerror("Error", "OSC Port must be a valid number")
+
+        custom_osc_port_entry.bind("<FocusOut>", save_custom_osc_settings)
+        custom_osc_port_entry.bind("<KeyRelease>", save_custom_osc_settings)
+
     def show_page(idx):
         p = pages[idx]
         title_label.config(text=p["title"])
@@ -2964,6 +3252,8 @@ def open_settings():
         next_btn.config(text="Finish" if is_last else "Next →")
         if p["content_type"] == "scale":
             build_scale_page()
+        elif p["content_type"] == "custom_osc":
+            build_custom_osc_page()
 
     nav_frame = tk.Frame(set_win, bg=BG)
     nav_frame.pack(fill="x", padx=20, pady=(0, 14))
