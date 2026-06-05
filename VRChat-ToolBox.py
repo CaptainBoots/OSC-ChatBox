@@ -62,7 +62,8 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "9.1.5"
+_processes = []
+VERSION = "9.1.6"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
 GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/releases/latest/download/"
