@@ -62,7 +62,7 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "9.1.3"
+VERSION = "9.1.4"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
 GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/releases/latest/download/"
@@ -77,11 +77,7 @@ else:
 TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "VRChat-Tools")
 TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "VRChat-Toolbox")
 TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
-LEGACY_TOOLBOX_CONFIG_FILES = [
-    os.path.join(TOOLS_ROOT_DIR, "osc_config.json"),
-    os.path.join(TOOLS_ROOT_DIR, "chatbox_config.json"),
-    os.path.join(TOOLS_ROOT_DIR, "toolbox_config.json"),
-]
+
 
 os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
 
@@ -93,6 +89,7 @@ DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "OSC-Router.py", "label": "Router(Beta)"},
     {"filename": "OSC-Chatbox.py", "label": "ChatBox"},
     {"filename": "OSC-FaceTrackingController(Beta).py", "label": "Face Tracking Controller(Beta)"},
+    {"filename": "OSC-Gamepad.py", "label": "Gamepad(Beta)"},
 ]
 
 
