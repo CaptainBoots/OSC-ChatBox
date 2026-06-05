@@ -171,6 +171,7 @@ SCRIPT_FOLDER_MAP = {
     "OSC-Chatbox.py": "OSC-Chatbox",
     "OSC-Router.py": "OSC-Router",
     "OSC-FaceTrackingController(Beta).py": "OSC-FaceTrackingController",
+    "OSC-Gamepad.py": "OSC-Gamepad",
 }
 
 _cached_system_python: str | None = None
