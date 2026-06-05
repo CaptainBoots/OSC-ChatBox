@@ -62,12 +62,12 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "9.1.4"
+VERSION = "9.1.5"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
 GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/releases/latest/download/"
 GITHUB_EXE_RAW_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/"
-DEFAULT_EXE_NAME = "VRChat-ToolBox.exe"
+
 
 if getattr(sys, 'frozen', False):
     SCRIPT_DIR = os.path.dirname(sys.executable)
@@ -77,7 +77,11 @@ else:
 TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "VRChat-Tools")
 TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "VRChat-Toolbox")
 TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
-
+LEGACY_TOOLBOX_CONFIG_FILES = [
+    os.path.join(TOOLS_ROOT_DIR, "osc_config.json"),
+    os.path.join(TOOLS_ROOT_DIR, "chatbox_config.json"),
+    os.path.join(TOOLS_ROOT_DIR, "toolbox_config.json"),
+]
 
 os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
 
@@ -103,19 +107,6 @@ def load_managed_scripts():
             print(f"[Config] Error loading config: {e}")
             return DEFAULT_MANAGED_SCRIPTS
 
-    for legacy_path in LEGACY_TOOLBOX_CONFIG_FILES:
-        if not os.path.exists(legacy_path):
-            continue
-        try:
-            with open(legacy_path, "r", encoding="utf-8") as f:
-                legacy = json.load(f)
-            scripts = legacy.get("managed_scripts", DEFAULT_MANAGED_SCRIPTS)
-            save_managed_scripts(scripts)
-            print(f"[Config] Migrated legacy config {legacy_path} -> {TOOLBOX_CONFIG_FILE}")
-            return scripts
-        except Exception as e:
-            print(f"[Config] Error migrating legacy config {legacy_path}: {e}")
-
     save_managed_scripts(DEFAULT_MANAGED_SCRIPTS)
     return DEFAULT_MANAGED_SCRIPTS
 
@@ -138,30 +129,6 @@ print("Boot's ToolBox")
 print("Made By Boots")
 print(f"Version {VERSION}")
 
-
-def rename_self_to_toolbox():
-    try:
-        if getattr(sys, 'frozen', False):
-            print("[Rename] Running as frozen executable, skipping rename.")
-            return
-
-        current_path = os.path.abspath(__file__)
-        directory = os.path.dirname(current_path)
-        new_name = "VRChat-ToolBox.py"
-        new_path = os.path.join(directory, new_name)
-        if os.path.basename(current_path) == new_name:
-            return
-        if os.path.exists(new_path):
-            print("[Rename] Target file already exists, skipping rename.")
-            return
-        os.rename(current_path, new_path)
-        print(f"[Rename] Renamed script to {new_name}")
-    except Exception as e:
-        print(f"[Rename] Failed: {e}")
-
-
-# rename_self_to_toolbox()  # disabled
-
 TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "VRChat-Tools")
 TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "VRChat-Toolbox")
 TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
@@ -173,68 +140,6 @@ SCRIPT_FOLDER_MAP = {
     "OSC-FaceTrackingController(Beta).py": "OSC-FaceTrackingController",
     "OSC-Gamepad.py": "OSC-Gamepad",
 }
-
-_cached_system_python: str | None = None
-
-
-def _load_python_cache() -> str | None:
-    try:
-        if os.path.exists(TOOLBOX_CONFIG_FILE):
-            with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
-                config = json.load(f)
-                python_path = config.get("cached_python_path")
-                if python_path and os.path.isfile(python_path):
-                    print(f"[Python] Loaded from cache: {python_path}")
-                    return python_path
-    except Exception as e:
-        print(f"[Python] Error loading cache: {e}")
-    return None
-
-
-def _save_python_cache(python_path: str) -> None:
-    try:
-        os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
-        config = {}
-        if os.path.exists(TOOLBOX_CONFIG_FILE):
-            with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
-                config = json.load(f)
-        config["cached_python_path"] = python_path
-        with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2)
-        print(f"[Python] Saved to cache: {python_path}")
-    except Exception as e:
-        print(f"[Python] Error saving cache: {e}")
-
-
-def _get_system_python() -> str | None:
-    global _cached_system_python
-
-    if _cached_system_python is not None:
-        return _cached_system_python
-
-    python_path = _load_python_cache()
-    if python_path:
-        try:
-            result = subprocess.run(
-                [python_path, "-c", "import sys; v=sys.version_info; exit(0 if (v.major, v.minor) >= (3, 10) else 1)"],
-                capture_output=True, timeout=5
-            )
-            if result.returncode == 0:
-                _cached_system_python = python_path
-                return _cached_system_python
-        except Exception:
-            pass
-        print("[Python] Cached path invalid, rechecking...")
-
-    print("[Python] Searching for Python...")
-    _cached_system_python = find_system_python()
-    if _cached_system_python:
-        _save_python_cache(_cached_system_python)
-    return _cached_system_python
-
-
-_processes: list[subprocess.Popen] = []
-
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # MANAGED SCRIPT HELPERS
@@ -487,7 +392,7 @@ def launch_script(filename: str) -> None:
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# UPDATER  (self-update for VRChat-Tools.py itself)
+# UPDATER
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 def _set_footer_ready(_unused=None) -> None:
@@ -666,6 +571,7 @@ def check_for_updates(silent=False):
     if main_update_available:
         if remote_newer:
             print(f"[VRChat-Tools] Update available: {VERSION} -> {remote_version}")
+            os.remove(TOOLBOX_CONFIG_FILE)
             prompt = (
                 f"New version {remote_version} is available (you have {VERSION}).\n\n"
                 "Update and restart now?"
