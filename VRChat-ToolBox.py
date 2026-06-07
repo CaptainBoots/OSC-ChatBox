@@ -63,7 +63,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.1.6"
+VERSION = "9.1.7"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
 GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/releases/latest/download/"
@@ -91,10 +91,15 @@ print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
 DEFAULT_MANAGED_SCRIPTS = [
-    {"filename": "OSC-Router.py", "label": "Router(Beta)"},
+    {"filename": "VRChat-Launcher.py", "label": "VRChat Launcher(Beta)"},
+    {"filename": "OSC-Router.py", "label": "Router"},
     {"filename": "OSC-Chatbox.py", "label": "ChatBox"},
-    {"filename": "OSC-FaceTrackingController(Beta).py", "label": "Face Tracking Controller(Beta)"},
     {"filename": "OSC-Gamepad.py", "label": "Gamepad(Beta)"},
+    {"filename": "OSC-FaceTrackingController.py", "label": "Face Tracking Controller(Beta)"},
+    {"filename": "OSC-ParameterBrowser.py", "label": "Parameter Browser(Beta)"},
+    {"filename": "OSC-ScriptMaker.py", "label": "Script Maker(Placeholder)"},
+    {"filename": "VRChat-LocalFavorites.py", "label": "VRChat Local Favorites(Placeholder)"},
+    {"filename": "VRChat-SocialLogger.py", "label": "VRChat SocialLogger(Placeholder)"},
 ]
 
 
@@ -138,8 +143,13 @@ BACKUP_DIR = os.path.join(TOOLBOX_CONFIG_DIR, "ToolBox Backup")
 SCRIPT_FOLDER_MAP = {
     "OSC-Chatbox.py": "OSC-Chatbox",
     "OSC-Router.py": "OSC-Router",
-    "OSC-FaceTrackingController(Beta).py": "OSC-FaceTrackingController",
+    "OSC-FaceTrackingController.py": "OSC-FaceTrackingController",
     "OSC-Gamepad.py": "OSC-Gamepad",
+    "OSC-ScriptMaker.py": "OSC-ScriptMaker",
+    "OSC-ParameterBrowser.py": "OSC-ParameterBrowser",
+    "VRChat-Launcher.py": "VRChat-Launcher",
+    "VRChat-LocalFavorites.py": "LocalFavorites",
+    "VRChat-SocialLogger.py": "VRChat-SocialLogger",
 }
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
