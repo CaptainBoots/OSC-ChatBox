@@ -38,7 +38,7 @@ from pythonosc import udp_client
 # CONFIGURATION
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 print("OSC FaceTrackingController")
 print("Made By Boots")
