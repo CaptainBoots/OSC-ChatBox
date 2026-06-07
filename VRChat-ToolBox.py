@@ -63,7 +63,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.1.8"
+VERSION = "9.1.9"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
 GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/releases/latest/download/"
@@ -1103,8 +1103,8 @@ def refresh_main_buttons():
         script_buttons[i] = btn
 
     btn_count = len(MANAGED_SCRIPTS)
-    root.geometry(f"580x{520 + btn_count * 52}")
-    root.minsize(540, 450 + btn_count * 52)
+    root.geometry(f"580x{400 + btn_count * 52}")
+    root.minsize(0, 0 )
 
 
 refresh_main_buttons()
