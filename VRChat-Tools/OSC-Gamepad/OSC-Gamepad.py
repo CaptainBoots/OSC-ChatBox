@@ -1,7 +1,7 @@
 # ══════════════════════════════════════════════════════════════════════════════════════════#
 #                                    OSC Gamepad                                           #
 # ══════════════════════════════════════════════════════════════════════════════════════════#
-# Made By Boots
+
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -49,7 +49,7 @@ from pythonosc import udp_client
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "0.0.2"
+VERSION = "0.0.3"
 
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "gamepad_config.json")
@@ -175,7 +175,7 @@ class PadState:
                 self.client.send_message("/input/Jump",           jump)
                 self.client.send_message("/input/Grab",           grab)
                 self.client.send_message("/input/Use",            use)
-                self.client.send_message("/input/ExpressionMenu", menu)
+                self.client.send_message("/input/QuickMenuToggleLeft", menu)
                 self.client.send_message("/input/Voice",          voice)
             except Exception: pass
             time.sleep(0.05)
