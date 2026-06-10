@@ -83,7 +83,7 @@ else:
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.9.2"
+VERSION = "7.9.3"
 
 
 class CPUManufacturer(Enum):
@@ -464,33 +464,62 @@ gpu_id_map = {
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — RTX 50 series (Blackwell)
     # ══════════════════════════════════════════════════════════════
-    "10de:2c04": "GeForce RTX 5090",
-    "10de:2c03": "GeForce RTX 5080",
-    "10de:2c02": "GeForce RTX 5070 Ti",
-    "10de:2c01": "GeForce RTX 5070",
-    "10de:2c00": "GeForce RTX 5060 Ti",
-    "10de:2d04": "GeForce RTX 5060 Ti", # I hate nvidia for being like this why did a driver update do this wtf?
+    "10de:2b85": "GeForce RTX 5090",
+    "10de:2b87": "GeForce RTX 5090 D",
+    "10de:2c02": "GeForce RTX 5080",
+    "10de:2c05": "GeForce RTX 5070 Ti",
+    "10de:2c18": "GeForce RTX 5090 Laptop",
+    "10de:2c19": "GeForce RTX 5080 Laptop",
+    "10de:2c58": "GeForce RTX 5090 Laptop",
+    "10de:2c59": "GeForce RTX 5080 Laptop",
+    "10de:2d04": "GeForce RTX 5060 Ti",
+    "1002:13c0": "GeForce RTX 5060 Ti",
     "10de:2d05": "GeForce RTX 5060",
+    "10de:2d18": "GeForce RTX 5070 Laptop",
+    "10de:2d19": "GeForce RTX 5060 Laptop",
+    "10de:2d58": "GeForce RTX 5070 Laptop",
+    "10de:2d59": "GeForce RTX 5060 Laptop",
     "10de:2d83": "GeForce RTX 5050",
+    "10de:2d98": "GeForce RTX 5050 Laptop",
+    "10de:2dd8": "GeForce RTX 5050 Laptop",
+    "10de:2f04": "GeForce RTX 5070",
+    "10de:2f18": "GeForce RTX 5070 Ti Laptop",
+    "10de:2f58": "GeForce RTX 5070 Ti Laptop",
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — RTX 40 series (Ada Lovelace)
     # ══════════════════════════════════════════════════════════════
     "10de:2684": "GeForce RTX 4090",
+    "10de:2685": "GeForce RTX 4090 D",
     "10de:2704": "GeForce RTX 4080",
     "10de:2702": "GeForce RTX 4080 Super",
+    "10de:2703": "GeForce RTX 4080 Super",
     "10de:2782": "GeForce RTX 4070 Ti",
     "10de:2705": "GeForce RTX 4070 Ti Super",
+    "10de:2689": "GeForce RTX 4070 Ti Super",
+    "10de:2783": "GeForce RTX 4070 Super",
     "10de:2786": "GeForce RTX 4070",
+    "10de:2709": "GeForce RTX 4070",
     "10de:2860": "GeForce RTX 4070 Super",
     "10de:2803": "GeForce RTX 4060 Ti",
+    "10de:2805": "GeForce RTX 4060 Ti 16GB",
+    "10de:2808": "GeForce RTX 4060",
     "10de:2882": "GeForce RTX 4060",
-    "10de:27ba": "GeForce RTX 4090 Laptop",
-    "10de:27b8": "GeForce RTX 4080 Laptop",
-    "10de:27b0": "GeForce RTX 4070 Ti Laptop",
-    "10de:27b9": "GeForce RTX 4070 Laptop",
-    "10de:28e0": "GeForce RTX 4060 Laptop",
+    "10de:28a0": "GeForce RTX 4060 Laptop",
     "10de:28a1": "GeForce RTX 4050 Laptop",
+    "10de:28a3": "GeForce RTX 3050 A Laptop",
+    "10de:28e0": "GeForce RTX 4060 Laptop",
+    "10de:28e1": "GeForce RTX 4050 Laptop",
+    "10de:2717": "GeForce RTX 4090 Laptop",
+    "10de:2757": "GeForce RTX 4090 Laptop",
+    "10de:27a0": "GeForce RTX 4080 Laptop",
+    "10de:27e0": "GeForce RTX 4080 Laptop",
+    "10de:2820": "GeForce RTX 4070 Laptop",
+    "10de:27ba": "RTX 4000 Ada Generation Laptop",
+    "10de:27b8": "GeForce RTX 4080 Laptop",
+    "10de:27b0": "RTX 4000 SFF Ada Generation",
+    "10de:27b9": "RTX 3500 Ada Generation Laptop",
+    "10de:2822": "GeForce RTX 3050 A Laptop",
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — RTX 30 series (Ampere)
@@ -499,37 +528,77 @@ gpu_id_map = {
     "10de:2204": "GeForce RTX 3090",
     "10de:2208": "GeForce RTX 3080 Ti",
     "10de:2206": "GeForce RTX 3080",
+    "10de:220a": "GeForce RTX 3080 12GB",
     "10de:2216": "GeForce RTX 3080 12GB",
     "10de:2482": "GeForce RTX 3070 Ti",
     "10de:2484": "GeForce RTX 3070",
+    "10de:2486": "GeForce RTX 3060 Ti",
     "10de:2489": "GeForce RTX 3060 Ti",
     "10de:2503": "GeForce RTX 3060",
+    "10de:2501": "GeForce RTX 3060",
     "10de:2507": "GeForce RTX 3050",
+    "10de:2582": "GeForce RTX 3050 8GB",
+    "10de:2583": "GeForce RTX 3050 4GB",
     "10de:2584": "GeForce RTX 3050 6GB",
     "10de:2420": "GeForce RTX 3080 Ti Laptop",
-    "10de:2460": "GeForce RTX 3080 Laptop",
+    "10de:2460": "GeForce RTX 3080 Ti Laptop",
+    "10de:249c": "GeForce RTX 3080 Laptop",
+    "10de:24dc": "GeForce RTX 3080 Laptop",
     "10de:24b9": "GeForce RTX 3070 Ti Laptop",
+    "10de:249d": "GeForce RTX 3070 Laptop",
     "10de:24dd": "GeForce RTX 3070 Laptop",
-    "10de:249d": "GeForce RTX 3070 Laptop GPU",
     "10de:2520": "GeForce RTX 3060 Laptop",
+    "10de:2521": "GeForce RTX 3060 Laptop",
+    "10de:2523": "GeForce RTX 3050 Ti Laptop",
     "10de:25a0": "GeForce RTX 3050 Ti Laptop",
+    "10de:25e0": "GeForce RTX 3050 Ti Laptop",
     "10de:25a2": "GeForce RTX 3050 Laptop",
+    "10de:25e2": "GeForce RTX 3050 Laptop",
+    "10de:25a5": "GeForce RTX 3050 Laptop",
+    "10de:25a6": "GeForce MX570",
+    "10de:25a7": "GeForce MX570",
+    "10de:25aa": "GeForce MX570 A",
+    "10de:25a9": "GeForce RTX 2050",
+    "10de:25ad": "GeForce RTX 2050",
+    "10de:25ed": "GeForce RTX 2050",
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — RTX 20 series (Turing)
     # ══════════════════════════════════════════════════════════════
     "10de:1e02": "GeForce Titan RTX",
     "10de:1e04": "GeForce RTX 2080 Ti",
+    "10de:1e07": "GeForce RTX 2080 Ti Rev. A",
     "10de:1e87": "GeForce RTX 2080",
-    "10de:1e84": "GeForce RTX 2080 Super",
+    "10de:1e82": "GeForce RTX 2080",
+    "10de:1e81": "GeForce RTX 2080 Super",
+    "10de:1e84": "GeForce RTX 2070 Super",
+    "10de:1ec2": "GeForce RTX 2070 Super",
+    "10de:1ec7": "GeForce RTX 2070 Super",
     "10de:1f02": "GeForce RTX 2070",
-    "10de:1e91": "GeForce RTX 2070 Super",
-    "10de:1f08": "GeForce RTX 2060",
+    "10de:1f07": "GeForce RTX 2070 Rev. A",
+    "10de:1e91": "GeForce RTX 2070 Super Laptop",
+    "10de:1e93": "GeForce RTX 2080 Super Laptop",
     "10de:1f06": "GeForce RTX 2060 Super",
+    "10de:1f42": "GeForce RTX 2060 Super",
+    "10de:1f08": "GeForce RTX 2060",
+    "10de:1e89": "GeForce RTX 2060",
+    "10de:1f03": "GeForce RTX 2060 12GB",
     "10de:1f36": "GeForce RTX 2060 12GB",
     "10de:1e90": "GeForce RTX 2080 Laptop",
+    "10de:1ed0": "GeForce RTX 2080 Laptop",
     "10de:1f91": "GeForce RTX 2070 Laptop",
+    "10de:1f10": "GeForce RTX 2070 Laptop",
+    "10de:1f50": "GeForce RTX 2070 Laptop",
+    "10de:1f11": "GeForce RTX 2060 Laptop",
+    "10de:1f12": "GeForce RTX 2060 Laptop",
     "10de:1f15": "GeForce RTX 2060 Laptop",
+    "10de:1f51": "GeForce RTX 2060 Laptop",
+    "10de:1f55": "GeForce RTX 2060 Laptop",
+    "10de:1f97": "GeForce MX450",
+    "10de:1f98": "GeForce MX450",
+    "10de:1f9c": "GeForce MX450",
+    "10de:1f9f": "GeForce MX550",
+    "10de:1fa0": "GeForce MX550",
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — GTX 16 series (Turing)
@@ -537,32 +606,73 @@ gpu_id_map = {
     "10de:2182": "GeForce GTX 1660 Ti",
     "10de:2184": "GeForce GTX 1660",
     "10de:21c4": "GeForce GTX 1660 Super",
+    "10de:1f09": "GeForce GTX 1660 Super",
     "10de:1f82": "GeForce GTX 1650",
+    "10de:1f0a": "GeForce GTX 1650",
+    "10de:2188": "GeForce GTX 1650",
     "10de:2187": "GeForce GTX 1650 Super",
     "10de:1f83": "GeForce GTX 1630",
-    "10de:1f9d": "GeForce GTX 1650 Ti Laptop",
+    "10de:1f95": "GeForce GTX 1650 Ti Laptop",
+    "10de:2192": "GeForce GTX 1650 Ti Laptop",
     "10de:1f99": "GeForce GTX 1650 Laptop",
-    "10de:1f9f": "GeForce GTX 1660 Ti Laptop",
-    "10de:1f95": "GeForce GTX 1660 Ti Laptop",
+    "10de:1f92": "GeForce GTX 1650 Laptop",
+    "10de:1f94": "GeForce GTX 1650 Laptop",
+    "10de:1f96": "GeForce GTX 1650 Laptop",
+    "10de:1f9d": "GeForce GTX 1650 Laptop",
+    "10de:1fd9": "GeForce GTX 1650 Laptop",
+    "10de:1fdd": "GeForce GTX 1650 Laptop",
+    "10de:2191": "GeForce GTX 1660 Ti Laptop",
+    "10de:21d1": "GeForce GTX 1660 Ti Laptop",
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — GTX 10 series (Pascal)
     # ══════════════════════════════════════════════════════════════
     "10de:1b06": "GeForce GTX 1080 Ti",
+    "10de:1b01": "GeForce GTX 1080 Ti 10GB",
     "10de:1b00": "GeForce Titan Xp",
+    "10de:1b02": "GeForce Titan Xp",
     "10de:1b80": "GeForce GTX 1080",
     "10de:1b81": "GeForce GTX 1070",
     "10de:1b82": "GeForce GTX 1070 Ti",
+    "10de:1b83": "GeForce GTX 1060 6GB",
     "10de:1c03": "GeForce GTX 1060 6GB",
+    "10de:1c06": "GeForce GTX 1060 6GB",
+    "10de:1b84": "GeForce GTX 1060 3GB",
     "10de:1c02": "GeForce GTX 1060 3GB",
     "10de:1c82": "GeForce GTX 1050 Ti",
+    "10de:1c83": "GeForce GTX 1050 3GB",
     "10de:1c81": "GeForce GTX 1050",
     "10de:1d01": "GeForce GT 1030",
-    "10de:1c8d": "GeForce GTX 1050 Laptop",
-    "10de:1be1": "GeForce GTX 1080 Laptop",
-    "10de:1be0": "GeForce GTX 1070 Laptop",
-    "10de:1c20": "GeForce GTX 1060 Laptop",
+    "10de:0fc5": "GeForce GT 1030",
+    "10de:1d02": "GeForce GT 1010",
     "10de:1c8c": "GeForce GTX 1050 Ti Laptop",
+    "10de:1c8f": "GeForce GTX 1050 Ti Laptop",
+    "10de:1ccc": "GeForce GTX 1050 Ti Laptop",
+    "10de:1c8d": "GeForce GTX 1050 Laptop",
+    "10de:1c92": "GeForce GTX 1050 Laptop",
+    "10de:1ccd": "GeForce GTX 1050 Laptop",
+    "10de:1ba0": "GeForce GTX 1080 Laptop",
+    "10de:1ba1": "GeForce GTX 1070 Laptop",
+    "10de:1ba2": "GeForce GTX 1070 Laptop",
+    "10de:1be1": "GeForce GTX 1070 Laptop",
+    "10de:1c20": "GeForce GTX 1060 Laptop",
+    "10de:1c21": "GeForce GTX 1050 Ti Laptop",
+    "10de:1c22": "GeForce GTX 1050 Laptop",
+    "10de:1c60": "GeForce GTX 1060 Laptop 6GB",
+    "10de:1c61": "GeForce GTX 1050 Ti Laptop",
+    "10de:1c62": "GeForce GTX 1050 Laptop",
+    "10de:1c90": "GeForce MX150",
+    "10de:1d10": "GeForce MX150",
+    "10de:1d12": "GeForce MX150",
+    "10de:1d11": "GeForce MX230",
+    "10de:1d13": "GeForce MX250",
+    "10de:1d52": "GeForce MX250",
+    "10de:1d16": "GeForce MX330",
+    "10de:1d56": "GeForce MX330",
+    "10de:1c94": "GeForce MX350",
+    "10de:1c96": "GeForce MX350",
+    "10de:174d": "GeForce MX130",
+    "10de:174e": "GeForce MX110",
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — GTX 900 series (Maxwell 2)
@@ -571,41 +681,109 @@ gpu_id_map = {
     "10de:17c2": "GeForce Titan X (Maxwell)",
     "10de:13c0": "GeForce GTX 980",
     "10de:13c2": "GeForce GTX 970",
+    "10de:13d7": "GeForce GTX 980M",
+    "10de:1617": "GeForce GTX 980M",
+    "10de:13d8": "GeForce GTX 970M",
+    "10de:1618": "GeForce GTX 970M",
+    "10de:13d9": "GeForce GTX 965M",
+    "10de:1619": "GeForce GTX 965M",
+    "10de:1667": "GeForce GTX 965M",
     "10de:1401": "GeForce GTX 960",
     "10de:1402": "GeForce GTX 950",
-    "10de:1340": "GeForce GTX 940M",
-    "10de:1341": "GeForce GTX 940MX",
-    "10de:139b": "GeForce GTX 950M",
-    "10de:1617": "GeForce GTX 980M",
-    "10de:1618": "GeForce GTX 970M",
-    "10de:1619": "GeForce GTX 960M",
+    "10de:1427": "GeForce GTX 965M",
+    "10de:1340": "GeForce 830M",
+    "10de:1341": "GeForce 840M",
+    "10de:1347": "GeForce 940M",
+    "10de:134b": "GeForce 940MX",
+    "10de:134d": "GeForce 940MX",
+    "10de:179c": "GeForce 940MX",
+    "10de:1348": "GeForce 945M",
+    "10de:1399": "GeForce 945M",
+    "10de:1346": "GeForce 930M",
+    "10de:1349": "GeForce 930M",
+    "10de:134e": "GeForce 930MX",
+    "10de:134f": "GeForce 920MX",
+    "10de:1344": "GeForce 845M",
+    "10de:1390": "GeForce 845M",
+    "10de:1398": "GeForce 845M",
+    "10de:1341": "GeForce 840M",
+    "10de:1393": "GeForce 840M",
+    "10de:139a": "GeForce GTX 950M",
+    "10de:139b": "GeForce GTX 960M",
+    "10de:1391": "GeForce GTX 850M",
+    "10de:1392": "GeForce GTX 860M",
+    "10de:139c": "GeForce 940M",
+    "10de:139d": "GeForce GTX 750 Ti",
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — GTX 700 series (Kepler GK110/GK104/GK106)
     # ══════════════════════════════════════════════════════════════
     "10de:100a": "GeForce GTX 780 Ti",
-    "10de:1004": "GeForce GTX 780 Ti",
-    "10de:1005": "GeForce GTX 780",
+    "10de:1004": "GeForce GTX 780",
+    "10de:1005": "GeForce GTX Titan",
+    "10de:1007": "GeForce GTX 780 Rev. 2",
+    "10de:1001": "GeForce GTX Titan Z",
+    "10de:100c": "GeForce GTX Titan Black",
     "10de:1187": "GeForce GTX 770",
+    "10de:1184": "GeForce GTX 770",
     "10de:1189": "GeForce GTX 760",
+    "10de:1187": "GeForce GTX 760",
     "10de:11fc": "GeForce GTX 760 Ti OEM",
     "10de:1380": "GeForce GTX 750 Ti",
     "10de:1381": "GeForce GTX 750",
+    "10de:1382": "GeForce GTX 745",
     "10de:1392": "GeForce GTX 745",
+    "10de:11e0": "GeForce GTX 770M",
+    "10de:11e1": "GeForce GTX 765M",
+    "10de:11e3": "GeForce GTX 760M",
+    "10de:1198": "GeForce GTX 880M",
+    "10de:1199": "GeForce GTX 870M",
+    "10de:119a": "GeForce GTX 860M",
+    "10de:11a0": "GeForce GTX 680M",
+    "10de:11a1": "GeForce GTX 670MX",
+    "10de:11a3": "GeForce GTX 680MX",
+    "10de:11a7": "GeForce GTX 675MX",
+    "10de:11a9": "GeForce GTX 870M",
+    "10de:119f": "GeForce GTX 780M",
+    "10de:119e": "GeForce GTX 780M Mac Edition",
+    "10de:119d": "GeForce GTX 775M Mac Edition",
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — GTX 600 series (Kepler GK104/GK106/GK107/GK110)
     # ══════════════════════════════════════════════════════════════
     "10de:1180": "GeForce GTX 680",
-    "10de:1188": "GeForce GTX 670",
+    "10de:1188": "GeForce GTX 690",
+    "10de:1189": "GeForce GTX 670",
     "10de:1183": "GeForce GTX 660 Ti",
+    "10de:1186": "GeForce GTX 660 Ti",
     "10de:11c0": "GeForce GTX 660",
+    "10de:1185": "GeForce GTX 660 OEM",
+    "10de:11c2": "GeForce GTX 650 Ti Boost",
     "10de:11c6": "GeForce GTX 650 Ti",
-    "10de:11c8": "GeForce GTX 650 Ti Boost",
-    "10de:1280": "GeForce GTX 650",
-    "10de:1282": "GeForce GT 640",
+    "10de:11c8": "GeForce GTX 650",
     "10de:0fc6": "GeForce GTX 650",
+    "10de:1280": "GeForce GT 635",
+    "10de:1281": "GeForce GT 710",
+    "10de:128b": "GeForce GT 710",
+    "10de:1289": "GeForce GT 710",
+    "10de:1282": "GeForce GT 640",
     "10de:0fc1": "GeForce GT 640",
+    "10de:0fc0": "GeForce GT 640 OEM",
+    "10de:1287": "GeForce GT 730",
+    "10de:0fc9": "GeForce GT 730",
+    "10de:0f02": "GeForce GT 730",
+    "10de:0fc8": "GeForce GT 740",
+    "10de:11c5": "GeForce GT 740",
+    "10de:11cb": "GeForce GT 740",
+    "10de:11c7": "GeForce GTX 750 Ti",
+    "10de:0fc2": "GeForce GT 630 OEM",
+    "10de:1284": "GeForce GT 630",
+    "10de:0f00": "GeForce GT 630",
+    "10de:0f01": "GeForce GT 620",
+    "10de:1286": "GeForce GT 720",
+    "10de:0fcc": "GeForce GT 720",
+    "10de:1288": "GeForce GT 720",
+    "10de:1295": "GeForce 710M",
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — GTX 500 series (Fermi GF110/GF114/GF116)
@@ -613,190 +791,403 @@ gpu_id_map = {
     "10de:1088": "GeForce GTX 590",
     "10de:1080": "GeForce GTX 580",
     "10de:1081": "GeForce GTX 570",
-    "10de:1084": "GeForce GTX 560 Ti (448 cores)",
+    "10de:1084": "GeForce GTX 560 Ti 448 Cores",
+    "10de:1087": "GeForce GTX 560 Ti 448 Cores",
     "10de:1200": "GeForce GTX 560 Ti",
     "10de:1201": "GeForce GTX 560",
-    "10de:1203": "GeForce GTX 460 SE",
+    "10de:1203": "GeForce GTX 460 SE v2",
+    "10de:1205": "GeForce GTX 460 v2",
     "10de:1244": "GeForce GTX 550 Ti",
     "10de:1245": "GeForce GTS 450",
+    "10de:0dc4": "GeForce GTS 450",
+    "10de:0de1": "GeForce GT 430",
+    "10de:0de0": "GeForce GT 440",
+    "10de:0dc0": "GeForce GT 440",
 
     # ══════════════════════════════════════════════════════════════
     # NVIDIA — GTX 400 series (Fermi GF100/GF104/GF106)
     # ══════════════════════════════════════════════════════════════
     "10de:06c0": "GeForce GTX 480",
+    "10de:06cb": "GeForce GTX 480",
+    "10de:06c4": "GeForce GTX 465",
     "10de:06cd": "GeForce GTX 470",
     "10de:0e22": "GeForce GTX 460",
-    "10de:0e24": "GeForce GTX 460 SE",
-    "10de:0dc0": "GeForce GTX 460",
-    "10de:06d2": "GeForce GTX 450",
-    "10de:0de1": "GeForce GT 430",
+    "10de:0e23": "GeForce GTX 460 SE",
+    "10de:0e24": "GeForce GTX 460 OEM",
+    "10de:0dd1": "GeForce GTX 460M",
+    "10de:0e30": "GeForce GTX 470M",
+    "10de:0e31": "GeForce GTX 485M",
+
+    # ══════════════════════════════════════════════════════════════
+    # NVIDIA — GTX 200 / GT 200 (Tesla/GT200)
+    # ══════════════════════════════════════════════════════════════
+    "10de:05e0": "GeForce GTX 295",
+    "10de:05e1": "GeForce GTX 280",
+    "10de:05e2": "GeForce GTX 260",
+    "10de:05e3": "GeForce GTX 285",
+    "10de:05e6": "GeForce GTX 275",
+    "10de:05ea": "GeForce GTX 260",
+    "10de:05f1": "GeForce GTX 280",
+    "10de:05f2": "GeForce GTX 260",
+    "10de:060a": "GeForce GTX 280M",
+    "10de:060f": "GeForce GTX 285M",
+    "10de:0618": "GeForce GTX 260M",
 
     # ══════════════════════════════════════════════════════════════
     # AMD — RX 9000 series (RDNA 4)
     # ══════════════════════════════════════════════════════════════
+    "1002:7550": "Radeon RX 9070 / 9070 XT",        # Navi 48 [RX 9070/9070 XT/9070 GRE]
+    "1002:7551": "Radeon AI PRO R9700",
+    "1002:7590": "Radeon RX 9060 XT",               # Navi 44
     "1002:7518": "Radeon RX 9070 XT",
     "1002:7580": "Radeon RX 9070",
-    "1002:7590": "Radeon RX 9060 XT",
     "1002:7591": "Radeon RX 9060",
 
     # ══════════════════════════════════════════════════════════════
     # AMD — RX 7000 series (RDNA 3)
     # ══════════════════════════════════════════════════════════════
-    "1002:744c": "Radeon RX 7900 XTX",
-    "1002:7448": "Radeon RX 7900 XT",
-    "1002:744e": "Radeon RX 7900 GRE",
-    "1002:747e": "Radeon RX 7800 XT",
-    "1002:7483": "Radeon RX 7700 XT",
-    "1002:7489": "Radeon RX 7700",
-    "1002:7422": "Radeon RX 7600",
-    "1002:7424": "Radeon RX 7600 XT",
-    "1002:7470": "Radeon RX 7500 XT",
-    "1002:7466": "Radeon RX 7600M Laptop",
-    "1002:7474": "Radeon RX 7600S Laptop",
+    "1002:744c": "Radeon RX 7900 XTX / 7900 XT / 7900 GRE / 7900M",
+    "1002:7448": "Radeon Pro W7900",
+    "1002:7449": "Radeon Pro W7800 48GB",
+    "1002:744a": "Radeon Pro W7900 Dual Slot",
+    "1002:744b": "Radeon Pro W7900D",
+    "1002:745e": "Radeon Pro W7800",
+    "1002:747e": "Radeon RX 7800 XT / 7700 XT",     # Navi 32
+    "1002:7460": "Radeon PRO V710",
+    "1002:7461": "Radeon PRO V710",
+    "1002:7470": "Radeon PRO W7700",
+    "1002:7480": "Radeon RX 7600 / 7600 XT / 7600M XT / 7600S / 7700S",
+    "1002:7481": "Radeon Graphics (Navi 33)",
+    "1002:7483": "Radeon RX 7600M / 7600M XT",
+    "1002:73f0": "Radeon RX 7600M XT",
+    "1002:7487": "Radeon Graphics (Navi 33)",
+    "1002:7489": "Radeon Pro W7500",
+    "1002:748b": "Radeon Graphics (Navi 33)",
+    "1002:7499": "Radeon RX 7400 / 7300 / Pro W7400",
+    "1002:749f": "Radeon RX 7500",
+    "1002:7422": "Radeon PRO W6400 / RX 6300",      # Navi 24
+    "1002:7423": "Radeon PRO W6300 / W6300M",
+    "1002:7424": "Radeon RX 6300",
+    "1002:743f": "Radeon RX 6400 / 6500 XT / 6500M",
+    "1002:7421": "Radeon PRO W6500M",
+    "1002:73e1": "Radeon PRO W6600M",               # original label was "RX 6700M Laptop"
+    "1002:73e3": "Radeon PRO W6600",
+    "1002:73ef": "Radeon RX 6650 XT / 6700S / 6800S",
+    "1002:73ff": "Radeon RX 6600 / 6600 XT / 6600M",
 
     # ══════════════════════════════════════════════════════════════
     # AMD — RX 6000 series (RDNA 2)
     # ══════════════════════════════════════════════════════════════
-    "1002:73bf": "Radeon RX 6950 XT",
+    "1002:73bf": "Radeon RX 6800 / 6800 XT / 6900 XT",
+    "1002:73af": "Radeon RX 6900 XT",
+    "1002:73a5": "Radeon RX 6950 XT",
     "1002:73b7": "Radeon RX 6800 XT",
     "1002:73b8": "Radeon RX 6800",
-    "1002:73ef": "Radeon RX 6750 XT",
-    "1002:73df": "Radeon RX 6700 XT",
-    "1002:73e3": "Radeon RX 6700",
+    "1002:73df": "Radeon RX 6700 / 6700 XT / 6750 XT / 6800M",
     "1002:73e4": "Radeon RX 6750 GRE",
     "1002:73e8": "Radeon RX 6650 XT",
-    "1002:73ff": "Radeon RX 6600 XT",
+    "1002:73a3": "Radeon PRO W6800",
+    "1002:73a1": "Radeon Pro V620",
+    "1002:73a2": "Radeon Pro W6900X",
+    "1002:73ab": "Radeon Pro W6800X / W6800X Duo",
     "1002:73a0": "Radeon RX 6600",
     "1002:73a4": "Radeon RX 6500 XT",
     "1002:7425": "Radeon RX 6550 XT",
     "1002:743f": "Radeon RX 6400",
     "1002:7421": "Radeon RX 6300",
-    "1002:73e1": "Radeon RX 6700M Laptop",
+    "1002:694c": "Radeon RX Vega M GH",
+    "1002:694e": "Radeon RX Vega M GL",
 
     # ══════════════════════════════════════════════════════════════
     # AMD — RX 5000 series (RDNA 1)
     # ══════════════════════════════════════════════════════════════
-    "1002:731f": "Radeon RX 5700 XT",
-    "1002:7310": "Radeon RX 5700",
-    "1002:7362": "Radeon RX 5600 XT",
-    "1002:7340": "Radeon RX 5500 XT",
-    "1002:7341": "Radeon RX 5500",
-    "1002:7347": "Radeon RX 5500M Laptop",
-    "1002:7360": "Radeon RX 5300",
+    "1002:731f": "Radeon RX 5700 XT / 5600 OEM / 5700",
+    "1002:7310": "Radeon Pro W5700X / W5700",
+    "1002:7312": "Radeon Pro W5700",
+    "1002:7319": "Radeon Pro 5700 XT",
+    "1002:731b": "Radeon Pro 5700",
+    "1002:7362": "Radeon RX 5600 XT / Pro V520 / V540",
+    "1002:7340": "Radeon RX 5500 / 5500M / Pro 5300",
+    "1002:7341": "Radeon Pro W5500",
+    "1002:7347": "Radeon Pro W5500M",
+    "1002:734f": "Radeon Pro W5300M",
+    "1002:7360": "Radeon Pro 5600M / V520 / BC-160",
+    "1002:7300": "Radeon R9 Fury X / Fury / Nano",
 
     # ══════════════════════════════════════════════════════════════
     # AMD — RX 500 / Vega series (Polaris / Vega)
     # ══════════════════════════════════════════════════════════════
-    "1002:687f": "Radeon RX Vega 64",
-    "1002:6863": "Radeon RX Vega 56",
-    "1002:687d": "Radeon Vega Frontier Edition",
-    "1002:6867": "Radeon Pro WX 8200",
-    "1002:67df": "Radeon RX 580 / RX 480",     # Polaris10 — rev e7=580, c7=480
-    "1002:67ef": "Radeon RX 570 / RX 470",     # Polaris10 — rev e0=570, c0=470
-    "1002:67ff": "Radeon RX 560 / RX 460",     # Polaris11 — rev cf=560, c7=460
+    "1002:687f": "Radeon RX Vega 56 / Vega 64",
+    "1002:6867": "Radeon Pro Vega 56 / PRO WX 8200",
+    "1002:6868": "Radeon PRO WX 8100 / 8200",
+    "1002:6861": "Radeon PRO WX 9100",
+    "1002:6863": "Radeon Vega Frontier Edition",
+    "1002:6860": "Radeon Instinct MI25 / V340 / V320",
+    "1002:686c": "Radeon Instinct MI25 MxGPU",
+    "1002:686b": "Radeon Pro Vega 64X",
+    "1002:6869": "Radeon Pro Vega 48",
+    "1002:66af": "Radeon VII",
+    "1002:66a1": "Radeon Pro VII / Instinct MI50",
+    "1002:66a0": "Radeon Pro / Instinct (Vega 20)",
+    "1002:66a3": "Radeon Pro Vega II / Vega II Duo",
+    "1002:66a7": "Radeon Pro Vega 20",
+    "1002:69af": "Radeon Pro Vega 20 (Vega 12)",
+    "1002:67df": "Radeon RX 470 / 480 / 570 / 580 / 590",  # Polaris 10/20 — rev distinguishes
+    "1002:6fdf": "Radeon RX 580 2048SP",
+    "1002:67ef": "Radeon RX 460 / 470 / 560 / 560X",
+    "1002:67ff": "Radeon RX 550 640SP / 560 / 560X",
     "1002:699f": "Radeon RX 550",
-    "1002:6985": "Radeon RX 550X",
-    "1002:6981": "Radeon RX 550 (Lexa)",
+    "1002:6985": "Radeon PRO WX 3100",
+    "1002:6981": "Radeon PRO WX 3200",
+    "1002:6987": "Radeon 540X / 550X / 630",
+    "1002:6995": "Radeon PRO WX 2100",
 
     # ══════════════════════════════════════════════════════════════
-    # AMD — R9 300 / Fury series (Fiji / Tonga / Antigua)
+    # AMD — R9 300 / Fury series (Fiji / Tonga / Antigua / Hawaii)
     # ══════════════════════════════════════════════════════════════
-    "1002:7300": "Radeon R9 Fury X / Fury / Nano",
-    "1002:6939": "Radeon R9 390X",
-    "1002:6938": "Radeon R9 390",
+    "1002:6939": "Radeon R9 285 / 380",             # Tonga PRO
+    "1002:6938": "Radeon R9 380X",                  # Tonga XT
+    "1002:6930": "Radeon R9 380 4GB",
     "1002:6937": "Radeon R9 380X",
     "1002:6935": "Radeon R9 380",
-    "1002:6810": "Radeon R9 380",
-    "1002:6860": "Radeon R9 390X",
-    "1002:683d": "Radeon R9 290X",
-    "1002:67b0": "Radeon R9 390X",
-    "1002:67b1": "Radeon R9 390",
+    "1002:6810": "Radeon R7 370 / R9 270X / 370X",  # Curacao XT
+    "1002:6811": "Radeon R7 370 / R9 270",
+    "1002:6818": "Radeon HD 7870 / R9 280X",        # Pitcairn XT
+    "1002:6819": "Radeon R7 265 / R9 270",          # Pitcairn PRO
+    "1002:683d": "Radeon HD 7770 / R7 250X",        # Cape Verde XT
+    "1002:683f": "Radeon HD 7750 / R7 250E",
+    "1002:67b0": "Radeon R9 290X / 390X",           # Hawaii XT / Grenada XT
+    "1002:67b1": "Radeon R9 290 / 390",             # Hawaii PRO
+    "1002:67b9": "Radeon R9 295X2",                 # Vesuvius
+    "1002:6798": "Radeon HD 7970 / R9 280X",        # Tahiti XT
+    "1002:679a": "Radeon HD 7950 / R9 280",         # Tahiti PRO
+    "1002:679b": "Radeon HD 7990 / R9 295X2",       # Malta
+    "1002:6780": "Radeon R9 280X",
+    "1002:6900": "Radeon R7 M260 / M265 / M440",
+    "1002:6907": "Radeon R5 M315",
+    "1002:6921": "Radeon R9 M295X / M390X",
+    "1002:6920": "Radeon R9 M395 / M395X",
 
     # ══════════════════════════════════════════════════════════════
-    # AMD — R9 200 series (Hawaii / Tahiti / Pitcairn)
+    # AMD — R9 200 / HD 7000 series (Hawaii / Pitcairn / Tahiti)
     # ══════════════════════════════════════════════════════════════
-    "1002:6798": "Radeon R9 290X",
-    "1002:6799": "Radeon R9 290",
-    "1002:679a": "Radeon R9 290",
-    "1002:679b": "Radeon R9 295X2",
-    "1002:6780": "Radeon R9 280X",
-    "1002:6818": "Radeon R9 280X",
-    "1002:6819": "Radeon R9 285",
-    "1002:6900": "Radeon R9 285",
+    "1002:679e": "Radeon HD 7870 XT",
+    "1002:68b8": "Radeon HD 5770 / R7 260X",        # Juniper XT
+    "1002:6658": "Radeon R7 260X / 360",            # Bonaire XTX
+    "1002:665c": "Radeon HD 7790 / R7 360 / R9 260",
+    "1002:665d": "Radeon R7 200 Series",
+    "1002:665f": "Radeon R7 360 / R9 360 OEM",
+    "1002:6646": "Radeon R9 M280X",
+    "1002:6647": "Radeon R9 M270X / M280X",
+    "1002:6610": "Radeon HD 8670 / R7 250 / R7 350",
+    "1002:6611": "Radeon HD 8570 / R7 240 / 430",
+    "1002:6613": "Radeon R7 240 / 340",
+    "1002:6617": "Radeon R7 240",
+
+    # ══════════════════════════════════════════════════════════════
+    # AMD — HD 6000 / HD 5000 series (Cayman / Barts / Juniper / Cedar)
+    # ══════════════════════════════════════════════════════════════
+    "1002:6718": "Radeon HD 6970",                  # Cayman XT
+    "1002:6719": "Radeon HD 6950",                  # Cayman PRO
+    "1002:671c": "Radeon HD 6990",
+    "1002:671f": "Radeon HD 6930",
+    "1002:6720": "Radeon HD 6970M / 6990M",
+    "1002:6738": "Radeon HD 6870",                  # Barts XT
+    "1002:6739": "Radeon HD 6850",                  # Barts PRO
+    "1002:673e": "Radeon HD 6790",
+    "1002:6758": "Radeon HD 6670 / 7670",           # Turks XT
+    "1002:6759": "Radeon HD 6570 / 7570 / R5 230",  # Turks PRO
+    "1002:6779": "Radeon HD 6450 / 7450 / 8450",    # Caicos
+    "1002:6778": "Radeon HD 7470 / 8470",           # Caicos XT
+    "1002:6898": "Radeon HD 5870",                  # Cypress XT
+    "1002:6899": "Radeon HD 5850",                  # Cypress PRO
+    "1002:689c": "Radeon HD 5970",                  # Hemlock
+    "1002:68b8": "Radeon HD 5770",
+    "1002:68b9": "Radeon HD 5670",
+    "1002:68be": "Radeon HD 5750",
+    "1002:68d8": "Radeon HD 5670 / 5730",           # Redwood XT
+    "1002:68d9": "Radeon HD 5550 / 5570 / 5630",    # Redwood PRO
+    "1002:68f9": "Radeon HD 5450 / 6350 / 7350",    # Cedar
+    "1002:68fa": "Radeon HD 7350 / 8350 / R5 220",
 
     # ══════════════════════════════════════════════════════════════
     # Intel — Arc Battlemage (B-series)
     # ══════════════════════════════════════════════════════════════
     "8086:e20b": "Intel Arc B580",
     "8086:e20c": "Intel Arc B570",
-    "8086:e210": "Intel Arc B580M Laptop",
-    "8086:e211": "Intel Arc B570M Laptop",
+    "8086:e210": "Intel Arc Battlemage (Mobile)",
+    "8086:e211": "Intel Arc Pro B60",
+    "8086:e212": "Intel Arc Pro B50",
+    "8086:e202": "Intel Arc Battlemage G21",
+    "8086:e20d": "Intel Arc Battlemage G21",
+    "8086:e215": "Intel Arc Battlemage G21",
+    "8086:e216": "Intel Arc Battlemage G21",
+    "8086:e220": "Intel Arc Battlemage G31",
+    "8086:e221": "Intel Arc Battlemage G31",
+    "8086:e222": "Intel Arc Pro B65",
+    "8086:e223": "Intel Arc Pro B70",
+    "8086:b080": "Intel Arc B390 (Panther Lake)",
+    "8086:b081": "Intel Arc B370 (Panther Lake)",
+    "8086:b082": "Intel Arc B390 (Panther Lake)",
+    "8086:b083": "Intel Arc B370 (Panther Lake)",
+    "8086:b084": "Intel Arc Pro B390 (Panther Lake)",
+    "8086:b085": "Intel Arc Pro B370 (Panther Lake)",
+    "8086:b086": "Intel Arc Pro B390 (Panther Lake)",
+    "8086:b087": "Intel Arc Pro B370 (Panther Lake)",
 
     # ══════════════════════════════════════════════════════════════
     # Intel — Arc Alchemist (A-series)
     # ══════════════════════════════════════════════════════════════
     "8086:56a0": "Intel Arc A770",
     "8086:56a1": "Intel Arc A750",
-    "8086:56a5": "Intel Arc A580",
-    "8086:56a6": "Intel Arc A380",
-    "8086:56a3": "Intel Arc A310",
-    "8086:56b0": "Intel Arc A770M Laptop",
-    "8086:56b1": "Intel Arc A730M Laptop",
-    "8086:56b2": "Intel Arc A550M Laptop",
-    "8086:56c0": "Intel Arc A370M Laptop",
-    "8086:56c1": "Intel Arc A350M Laptop",
-    "8086:5690": "Intel Arc A370M Laptop",
-    "8086:5691": "Intel Arc A350M Laptop",
-    "8086:5693": "Intel Arc A330M Laptop",
+    "8086:56a2": "Intel Arc A580",
+    "8086:56a5": "Intel Arc A380",
+    "8086:56a6": "Intel Arc A310",
+    "8086:56a3": "Intel Arc Xe Graphics",
+    "8086:56a4": "Intel Arc Xe Graphics",
+    "8086:56a7": "Intel Arc Xe Graphics",
+    "8086:56a8": "Intel Arc Xe Graphics",
+    "8086:56a9": "Intel Arc Xe Graphics",
+    "8086:56b0": "Intel Arc Pro A30M",
+    "8086:56b1": "Intel Arc Pro A40 / A50",
+    "8086:56b2": "Intel Arc Pro A60M",
+    "8086:56b3": "Intel Arc Pro A60",
+    "8086:5690": "Intel Arc A770M Laptop",
+    "8086:5691": "Intel Arc A730M Laptop",
+    "8086:5692": "Intel Arc A550M Laptop",
+    "8086:5693": "Intel Arc A370M Laptop",
+    "8086:5694": "Intel Arc A350M Laptop",
+    "8086:5695": "Intel Iris Xe MAX A200M",
+    "8086:5696": "Intel Arc A570M Laptop",
+    "8086:5697": "Intel Arc A530M Laptop",
+    "8086:56ba": "Intel Arc A380E",
+    "8086:56bb": "Intel Arc A310E",
+    "8086:56bc": "Intel Arc A370E",
+    "8086:56bd": "Intel Arc A350E",
+    "8086:56be": "Intel Arc A750E",
+    "8086:56bf": "Intel Arc A580E",
+    "8086:56c0": "Intel Arc (Data Center GPU Flex 170)",
+    "8086:56c1": "Intel Arc (Data Center GPU Flex 140)",
+    "8086:56c2": "Intel Arc (Data Center GPU Flex 170V)",
+    # DG1 (Xe MAX)
+    "8086:4905": "Intel Iris Xe MAX Graphics",
+    "8086:4906": "Intel Iris Xe MAX (Pod)",
+    "8086:4908": "Intel Iris Xe Graphics (DG1)",
+    "8086:4909": "Intel Iris Xe MAX 100",
 
     # ══════════════════════════════════════════════════════════════
-    # Intel — Iris Xe (Tiger / Alder / Raptor Lake)
+    # Intel — Iris Xe / Xe integrated (Tiger / Alder / Raptor / Meteor Lake)
     # ══════════════════════════════════════════════════════════════
-    "8086:9a40": "Intel Iris Xe Graphics",
-    "8086:9a49": "Intel Iris Xe Graphics",
-    "8086:9a60": "Intel Iris Xe Graphics",
-    "8086:9a68": "Intel Iris Xe Graphics",
-    "8086:9a70": "Intel Iris Xe Graphics",
-    "8086:9a78": "Intel Iris Xe Graphics",
-    "8086:46a6": "Intel Iris Xe Graphics",
-    "8086:46a8": "Intel Iris Xe Graphics",
-    "8086:4626": "Intel Iris Xe Graphics",
-    "8086:4628": "Intel Iris Xe Graphics",
-    "8086:46d0": "Intel Iris Xe Graphics",
-    "8086:46d1": "Intel Iris Xe Graphics",
-    "8086:46d2": "Intel Iris Xe Graphics",
-    "8086:a780": "Intel Iris Xe Graphics",
-    "8086:a781": "Intel Iris Xe Graphics",
-    "8086:a788": "Intel Iris Xe Graphics",
-    "8086:a789": "Intel Iris Xe Graphics",
+    "8086:9a40": "Intel Iris Xe Graphics (Tiger Lake-UP4)",
+    "8086:9a49": "Intel Iris Xe Graphics (Tiger Lake-LP)",
+    "8086:9a60": "Intel UHD Graphics (Tiger Lake-H)",
+    "8086:9a68": "Intel UHD Graphics (Tiger Lake-H)",
+    "8086:9a70": "Intel UHD Graphics (Tiger Lake-H)",
+    "8086:9a78": "Intel UHD Graphics G4 (Tiger Lake-LP)",
+    "8086:46a6": "Intel Iris Xe Graphics (Alder Lake-P)",
+    "8086:46a8": "Intel Iris Xe Graphics (Alder Lake-UP3)",
+    "8086:46aa": "Intel Iris Xe Graphics (Alder Lake-UP4)",
+    "8086:46a3": "Intel UHD Graphics (Alder Lake-P GT1)",
+    "8086:46b0": "Intel Iris Xe Graphics (Alder Lake-P)",
+    "8086:46b1": "Intel Iris Xe Graphics (Alder Lake-P)",
+    "8086:46b3": "Intel UHD Graphics (Alder Lake-UP3)",
+    "8086:46b6": "Intel Iris Xe Graphics (Alder Lake-P)",
+    "8086:46b8": "Intel Iris Xe Graphics (Alder Lake-P)",
+    "8086:46ba": "Intel Iris Xe Graphics (Alder Lake-P)",
+    "8086:46c1": "Intel Iris Xe Graphics (Alder Lake-M)",
+    "8086:46c3": "Intel UHD Graphics (Alder Lake-UP4)",
+    "8086:4626": "Intel Iris Xe Graphics (Alder Lake-P)",
+    "8086:4628": "Intel UHD Graphics (Alder Lake-UP3)",
+    "8086:462a": "Intel UHD Graphics (Alder Lake-P)",
+    "8086:46d0": "Intel UHD Graphics (Alder Lake-N)",
+    "8086:46d1": "Intel UHD Graphics (Alder Lake-N)",
+    "8086:46d2": "Intel UHD Graphics (Alder Lake-N)",
+    "8086:a7a0": "Intel Iris Xe Graphics (Raptor Lake-P)",
+    "8086:a7a1": "Intel Iris Xe Graphics (Raptor Lake-P)",
+    "8086:a7a8": "Intel UHD Graphics (Raptor Lake-P)",
+    "8086:a7a9": "Intel UHD Graphics (Raptor Lake-P)",
+    "8086:a780": "Intel UHD Graphics 770 (Raptor Lake-S)",
+    "8086:a781": "Intel UHD Graphics (Raptor Lake-S)",
+    "8086:a782": "Intel UHD Graphics (Raptor Lake-S)",
+    "8086:a783": "Intel UHD Graphics (Raptor Lake-S)",
+    "8086:a788": "Intel UHD Graphics (Raptor Lake-S)",
+    "8086:a789": "Intel UHD Graphics (Raptor Lake-S)",
+    "8086:7d45": "Intel Arc Graphics (Meteor Lake-P)",
+    "8086:7d55": "Intel Arc Graphics (Meteor Lake-P)",
+    "8086:7d40": "Intel Graphics (Meteor Lake-M)",
+    "8086:7d60": "Intel Graphics (Meteor Lake-M)",
+    "8086:7dd5": "Intel Graphics (Meteor Lake-P)",
+    "8086:7d41": "Intel Graphics (Arrow Lake-U)",
+    "8086:7d67": "Intel Graphics (Arrow Lake-S)",
+    "8086:7dd1": "Intel Graphics (Arrow Lake-P)",
+    "8086:7d51": "Intel Arc Pro 130T / 140T (Arrow Lake-P)",
+    "8086:b640": "Intel Graphics (Arrow Lake-H)",
+    "8086:64a0": "Intel Arc Graphics 130V / 140V (Lunar Lake)",
+    "8086:6420": "Intel Graphics (Lunar Lake)",
+    "8086:64b0": "Intel Graphics (Lunar Lake)",
 
     # ══════════════════════════════════════════════════════════════
-    # Intel — UHD / HD (integrated)
+    # Intel — UHD / HD Graphics (Coffee / Comet / Whiskey / Kaby / Skylake)
     # ══════════════════════════════════════════════════════════════
-    "8086:3e92": "Intel UHD Graphics 630",
-    "8086:3e9b": "Intel UHD Graphics 630",
-    "8086:3e98": "Intel UHD Graphics 630",
-    "8086:9bc5": "Intel UHD Graphics 630",
-    "8086:9bc8": "Intel UHD Graphics 630",
-    "8086:4680": "Intel UHD Graphics 770",
-    "8086:4682": "Intel UHD Graphics 770",
-    "8086:4692": "Intel UHD Graphics 730",
-    "8086:4693": "Intel UHD Graphics 730",
-    "8086:4698": "Intel UHD Graphics 710",
-    "8086:4699": "Intel UHD Graphics 710",
-    "8086:3ea0": "Intel UHD Graphics 620",
-    "8086:3e9a": "Intel UHD Graphics 620",
-    "8086:5917": "Intel UHD Graphics 620",
-    "8086:5912": "Intel HD Graphics 630",
-    "8086:591b": "Intel HD Graphics 630",
-    "8086:1912": "Intel HD Graphics 530",
-    "8086:191b": "Intel HD Graphics 530",
-    "8086:1616": "Intel HD Graphics 5500",
-    "8086:1626": "Intel HD Graphics 6000",
-    "8086:162b": "Intel Iris Graphics 6100",
-    "8086:1622": "Intel Iris Pro Graphics 6200",
+    "8086:3e92": "Intel UHD Graphics 630 (Coffee Lake-S)",
+    "8086:3e91": "Intel UHD Graphics 630 (Coffee Lake-S)",
+    "8086:3e9b": "Intel UHD Graphics 630 (Coffee Lake-H)",
+    "8086:3e98": "Intel UHD Graphics 630 (Coffee Lake-S)",
+    "8086:3e94": "Intel UHD Graphics P630 (Coffee Lake)",
+    "8086:9bc5": "Intel UHD Graphics 630 (Comet Lake-S)",
+    "8086:9bc8": "Intel UHD Graphics 630 (Comet Lake-S)",
+    "8086:9bc4": "Intel UHD Graphics (Comet Lake-H)",
+    "8086:9ba4": "Intel UHD Graphics 610 (Comet Lake-H)",
+    "8086:9ba8": "Intel UHD Graphics 610 (Comet Lake-S)",
+    "8086:9b21": "Intel UHD Graphics 620 (Comet Lake-U)",
+    "8086:9b41": "Intel UHD Graphics (Comet Lake-U)",
+    "8086:4680": "Intel UHD Graphics 770 (Alder Lake-S)",
+    "8086:4682": "Intel UHD Graphics 730 (Alder Lake-S)",
+    "8086:4688": "Intel UHD Graphics 770 (Alder Lake-HX)",
+    "8086:4690": "Intel UHD Graphics 770 (Alder Lake-S)",
+    "8086:4692": "Intel UHD Graphics 730 (Alder Lake-S)",
+    "8086:4693": "Intel UHD Graphics 710 (Alder Lake-S)",
+    "8086:3ea0": "Intel UHD Graphics 620 (Whiskey Lake-U)",
+    "8086:3ea1": "Intel UHD Graphics 610 (Whiskey Lake-U)",
+    "8086:3ea9": "Intel UHD Graphics 620 (Coffee Lake-U)",
+    "8086:3ea5": "Intel Iris Plus Graphics 655 (Coffee Lake-U)",
+    "8086:3ea6": "Intel Iris Plus Graphics 645 (Coffee Lake-U)",
+    "8086:3ea8": "Intel Iris Plus Graphics 655 (Coffee Lake-U)",
+    "8086:3e9a": "Intel UHD Graphics P630 (Coffee Lake)",
+    "8086:5917": "Intel UHD Graphics 620 (Kaby Lake-R)",
+    "8086:5912": "Intel HD Graphics 630 (Kaby Lake-S)",
+    "8086:591b": "Intel HD Graphics 630 (Kaby Lake-H)",
+    "8086:5916": "Intel HD Graphics 620 (Kaby Lake-U)",
+    "8086:591e": "Intel HD Graphics 615 (Kaby Lake-Y)",
+    "8086:5926": "Intel Iris Plus Graphics 640 (Kaby Lake-U)",
+    "8086:5927": "Intel Iris Plus Graphics 650 (Kaby Lake-U)",
+    "8086:591d": "Intel HD Graphics P630 (Kaby Lake)",
+    "8086:1912": "Intel HD Graphics 530 (Skylake-S)",
+    "8086:191b": "Intel HD Graphics 530 (Skylake-H)",
+    "8086:1916": "Intel HD Graphics 520 (Skylake-U)",
+    "8086:191e": "Intel HD Graphics 515 (Skylake-Y)",
+    "8086:1926": "Intel Iris Graphics 540 (Skylake-U)",
+    "8086:1927": "Intel Iris Graphics 550 (Skylake-U)",
+    "8086:1932": "Intel Iris Pro Graphics 580",
+    "8086:193b": "Intel Iris Pro Graphics 580 (Skylake-H)",
+    "8086:1616": "Intel HD Graphics 5500 (Broadwell-U)",
+    "8086:1626": "Intel HD Graphics 6000 (Broadwell-U)",
+    "8086:162b": "Intel Iris Graphics 6100 (Broadwell-U)",
+    "8086:1622": "Intel Iris Pro Graphics 6200 (Broadwell-DT)",
+    "8086:162a": "Intel Iris Pro Graphics P6300 (Broadwell-DT)",
+    "8086:1612": "Intel HD Graphics 5600 (Broadwell-H)",
+    "8086:4c8a": "Intel UHD Graphics 750 (Rocket Lake-S)",
+    "8086:4c8b": "Intel UHD Graphics 730 (Rocket Lake-S)",
+    "8086:8a51": "Intel Iris Plus Graphics G7 (Ice Lake)",
+    "8086:8a52": "Intel Iris Plus Graphics G7 (Ice Lake)",
+    "8086:8a53": "Intel Iris Plus Graphics G7 (Ice Lake)",
+    "8086:8a56": "Intel Iris Plus Graphics G1 (Ice Lake)",
+    "8086:8a5a": "Intel Iris Plus Graphics G4 (Ice Lake)",
+    "8086:87c0": "Intel UHD Graphics 617",
+    "8086:87ca": "Intel UHD Graphics 617",
+    "8086:3184": "Intel UHD Graphics 605 (Gemini Lake)",
+    "8086:3185": "Intel UHD Graphics 600 (Gemini Lake)",
 }
-
 
 def _linux_detect_gpu_pci_id():
     try:
@@ -2546,6 +2937,7 @@ class CircleToggle(tk.Canvas):
 # GUI
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+# Configuration Data Decoders & Value Normalizers
 cfg = load_config()
 progress_filled_char = normalize_progress_char(
     cfg.get("progress_filled_char"), DEFAULT_PROGRESS_FILLED_CHAR
@@ -2559,12 +2951,14 @@ progress_empty_char = normalize_progress_char(
 page4_ascii_enabled = bool(cfg.get("page4_ascii", False))
 media_title_trim_enabled = bool(cfg.get("media_title_trim", True))
 
+# UI Color Palette Configurations (Unified Theme)
 BG = "#0f0f13"
-PANEL = "#17171f"
+PANEL = "#1f102a"
 BORDER = "#2a2a38"
-ACCENT = "#7c5cfc"
-ACCENT2 = "#a78bfa"
+ACCENT = "#9D00FF"
+ACCENT2 = "#b44bff"
 TEXT = "#e2e0f0"
+TEXT2 = "#E0E0E0"
 SUBTEXT = "#7e7b9a"
 GREEN = "#4ade80"
 RED = "#f87171"
@@ -2574,15 +2968,18 @@ BTN_BG = PANEL
 BTN_FG = TEXT
 UI_FONT = "Consolas"
 
+# Dynamic Scaling Variables
 ui_scale = 1.0
 scalable_widgets = []
 square_widgets = []
 
+# Main Application Window Initialization
 root = tk.Tk()
 root.title("OSC Chatbox")
 root.configure(bg=BG)
 root.resizable(True, True)
 
+# Application Performance Tracers & State Variables
 slow = tk.BooleanVar(value=bool(cfg.get("slow_mode", False)))
 speed = tk.BooleanVar(value=bool(cfg.get("speed_mode", False)))
 if slow.get() and speed.get():
@@ -2591,13 +2988,15 @@ sleep_delay_seconds = get_sleep_delay(slow.get(), speed.get())
 slow.trace_add("write", on_slow_mode_changed)
 speed.trace_add("write", on_speed_mode_changed)
 
-# Header with title and version
+# Top Bar Container Frame
 title_bar = tk.Frame(root, bg=PANEL, pady=14)
 title_bar.pack(fill="x")
 
+# Header Padding and Alignment Frame
 header_frame = tk.Frame(title_bar, bg=PANEL)
 header_frame.pack(fill="x", padx=16, expand=True)
 
+# Main Application Brand Title Label
 header_title_label = tk.Label(
     header_frame,
     text="◈  OSC CHATBOX",
@@ -2607,6 +3006,7 @@ header_title_label = tk.Label(
 )
 header_title_label.pack(side="left", anchor="w")
 
+# Application Version Display Label
 version_label = tk.Label(
     header_frame,
     text=f"v{VERSION}",
@@ -2616,6 +3016,7 @@ version_label = tk.Label(
 )
 version_label.pack(side="right", anchor="e", padx=(32, 16))
 
+# Script Process Runtime Status Monitoring Label
 status_label = tk.Label(
     header_frame,
     text="Status: Stopped",
@@ -2625,9 +3026,10 @@ status_label = tk.Label(
 )
 status_label.pack(side="right", anchor="e")
 
+# Visual Separator Line (Border)
 tk.Frame(root, bg=BORDER, height=1).pack(fill="x")
 
-# Main content frame with better padding
+# Central Content Wrapper Frame
 frame = tk.Frame(root, bg=BG)
 frame.pack(fill="both", expand=True, padx=16, pady=14)
 
@@ -2658,6 +3060,7 @@ def apply_scale(scale):
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
+# Window View: App Feature Preference Configurator Modal Overlay Window
 def open_settings():
     set_win = tk.Toplevel(root)
     set_win.title("Settings")
@@ -2680,9 +3083,11 @@ def open_settings():
 
     current_page = [0]
 
+    # Settings Window Top Header Frame
     header = tk.Frame(set_win, bg=PANEL, pady=10)
     header.pack(fill="x")
 
+    # Settings Window Structural Header Text Label
     title_label = tk.Label(
         header,
         text="",
@@ -2692,6 +3097,7 @@ def open_settings():
     )
     title_label.pack(side="left", padx=16)
 
+    # Settings Window Pagination Tracker Label
     page_indicator = tk.Label(
         header,
         text="",
@@ -2701,24 +3107,30 @@ def open_settings():
     )
     page_indicator.pack(side="right", padx=16)
 
+    # Settings Panel Top Visual Border Partition
     tk.Frame(set_win, bg=BORDER, height=1).pack(fill="x")
 
+    # Settings Layout Main Dynamic Form Wrapper Box Frame
     content_frame = tk.Frame(set_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
     content_frame.pack(padx=20, pady=(14, 0), fill="both", expand=True)
 
+    # Configuration Array System Reset Alert Guard Function
     def confirm_reset():
         if messagebox.askyesno("Reset", "Reset all settings to defaults?"):
             reset_to_defaults()
 
+    # Layout Engine: Core Interactive Controls Factory Pipeline
     def build_scale_page():
         for w in content_frame.winfo_children():
             w.destroy()
 
+        # Scale Control Partition Category Section Header
         tk.Label(content_frame, text="UI Scale",
                  bg=PANEL, fg=ACCENT2, font=(UI_FONT, 10, "bold")).pack(pady=(20, 8))
 
         scale_var = tk.DoubleVar(value=ui_scale)
 
+        # UI Scale Factor Range Slider Entry Component Block
         slider = tk.Scale(
             content_frame,
             from_=0.7, to=2.0,
@@ -2735,13 +3147,16 @@ def open_settings():
         )
         slider.pack(pady=4)
 
+        # UI Slider Scaling Fractional Percentage Tracker Label
         pct_label = tk.Label(content_frame, text="", bg=PANEL, fg=SUBTEXT,
                              font=(UI_FONT, 9))
         pct_label.pack()
 
+        # Application Properties Config Group Partition Title Header
         tk.Label(content_frame, text="Config",
                  bg=PANEL, fg=ACCENT2, font=(UI_FONT, 10, "bold")).pack(pady=(20, 8))
 
+        # Runtime Parameter State Initialization Overwrite Command Button
         tk.Button(
             content_frame,
             text="Reset to Defaults",
@@ -2755,16 +3170,20 @@ def open_settings():
             command=confirm_reset
         ).pack(pady=(20, 5))
 
+        # Progress Indicator Character Assignment Sub-Section Title Label
         tk.Label(content_frame, text="Progress Bar",
                  bg=PANEL, fg=ACCENT2, font=(UI_FONT, 10, "bold")).pack(pady=(20, 8))
 
+        # Font/String Glyph Character Form Layout Dock Frame
         chars_frame = tk.Frame(content_frame, bg=PANEL)
         chars_frame.pack(pady=(0, 6))
 
+        # Glyph Field Matrix Descriptive Labels
         tk.Label(chars_frame, text="Filled", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)).grid(row=0, column=0, padx=4)
         tk.Label(chars_frame, text="Border", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)).grid(row=0, column=1, padx=4)
         tk.Label(chars_frame, text="Empty",  bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)).grid(row=0, column=2, padx=4)
 
+        # Glyph String Input Parameters Interface Form Input Data Boxes
         filled_char_entry = tk.Entry(
             chars_frame, width=4, justify="center",
             bg=ENTRY_BG, fg=TEXT, insertbackground=ACCENT, relief="flat",
@@ -2792,13 +3211,16 @@ def open_settings():
         border_char_entry.insert(0, progress_border_char)
         empty_char_entry.insert(0, progress_empty_char)
 
+        # Output String Real-Time Graphics Rendering Simulation Sandbox Outer Frame
         preview_frame = tk.Frame(content_frame, bg=PANEL)
         preview_frame.pack(pady=(2, 8))
 
+        # Component Workspace Render Simulation Identity Header Label
         tk.Label(preview_frame, text="Preview", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)).grid(
             row=0, column=0, columnspan=3, pady=(0, 3)
         )
 
+        # Character Formatting Simulator Output Monitor Terminal Text Items
         filled_preview = tk.Label(
             preview_frame,
             text=progress_filled_char * 6,
@@ -2823,16 +3245,19 @@ def open_settings():
         )
         empty_preview.grid(row=1, column=2, padx=4)
 
+        # Content Insertion Data Sanitizer Unit
         def set_entry_char(entry, value):
             if entry.get() != value:
                 entry.delete(0, tk.END)
                 entry.insert(0, value)
 
+        # Output Engine Render Screen Interceptor Force Sync Thread Method
         def refresh_progress_previews():
             filled_preview.config(text=progress_filled_char * 6)
             border_preview.config(text=progress_border_char * 6)
             empty_preview.config(text=progress_empty_char * 6)
 
+        # State Target Variable Mutation Validator Dispatcher Callback Action
         def apply_progress_char_settings(_event=None):
             global progress_filled_char, progress_border_char, progress_empty_char
 
@@ -2855,6 +3280,7 @@ def open_settings():
         page4_ascii_var = tk.BooleanVar(value=page4_ascii_enabled)
         media_title_trim_var = tk.BooleanVar(value=media_title_trim_enabled)
 
+        # Feature Flags Configuration: Option Multi-Selector Component Checkbuttons
         cb = tk.Checkbutton(
             content_frame,
             text="Cat Mode",
@@ -2929,6 +3355,7 @@ def open_settings():
             font=(UI_FONT, 8),
         ).pack(pady=(0, 6))
 
+        # Interactive Component Flag Sync Interceptors
         def on_page4_ascii_changed(*_):
             global page4_ascii_enabled
             page4_ascii_enabled = bool(page4_ascii_var.get())
@@ -2946,6 +3373,7 @@ def open_settings():
             progress_entry.bind("<KeyRelease>", apply_progress_char_settings)
             progress_entry.bind("<FocusOut>",   apply_progress_char_settings)
 
+        # Dynamic Refresh Interface Realignment Callback Logic
         def update_pct(*_):
             pct_label.config(text=f"{int(scale_var.get() * 100)}%")
             set_win.update_idletasks()
@@ -2955,6 +3383,7 @@ def open_settings():
         scale_var.trace_add("write", update_pct)
         update_pct()
 
+    # Pagination View Engine Configuration Block
     def show_page(idx):
         p = pages[idx]
         title_label.config(text=p["title"])
@@ -2965,10 +3394,12 @@ def open_settings():
         if p["content_type"] == "scale":
             build_scale_page()
 
+    # Settings Window Lower Navigation Dock Frame
     nav_frame = tk.Frame(set_win, bg=BG)
     nav_frame.pack(fill="x", padx=20, pady=(0, 14))
     nav_frame.columnconfigure(1, weight=1)
 
+    # Settings Window Previous Page Pagination Control Button
     prev_btn = tk.Button(
         nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
         command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
@@ -2980,6 +3411,7 @@ def open_settings():
         cursor="hand2", font=(UI_FONT, 9, "bold"),
     )
 
+    # Execution Link Logic Block for Next/Finish Routines
     def next_or_finish():
         if current_page[0] < len(pages) - 1:
             current_page[0] += 1
@@ -2987,19 +3419,21 @@ def open_settings():
         else:
             set_win.destroy()
 
+    # Settings Window Next Page/Finish Progression Action Button (Dark Text on Accent)
     next_btn = tk.Button(
         nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
         command=next_or_finish
     )
     next_btn.grid(row=0, column=2, sticky="e")
     next_btn.configure(
-        bg=ACCENT, fg="#FFFFFF", activebackground=ACCENT2, activeforeground="#FFFFFF",
+        bg=ACCENT, fg=BG, activebackground=ACCENT2, activeforeground=BG,
         cursor="hand2", font=(UI_FONT, 9, "bold"),
     )
 
     show_page(0)
 
 
+# Window View: Help and Tutorial Modal Overlay Viewport Context
 def open_help():
     help_win = tk.Toplevel(root)
     help_win.title("OSC Chatbox Tutorial")
@@ -3109,24 +3543,30 @@ def open_help():
 
     current_page = [0]
 
+    # Help Window Top Header Frame
     header = tk.Frame(help_win, bg=PANEL, pady=10)
     header.pack(fill="x")
 
+    # Help Window Section Title Label
     title_label = tk.Label(
         header, text="", bg=PANEL, fg=ACCENT2, font=(UI_FONT, 12, "bold")
     )
     title_label.pack(side="left", padx=16)
 
+    # Help Window Pagination Tracker Label
     page_indicator = tk.Label(
         header, text="", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)
     )
     page_indicator.pack(side="right", padx=16)
 
+    # Help Window Top Visual Separator Line
     tk.Frame(help_win, bg=BORDER, height=1).pack(fill="x")
 
+    # Help Window Content Card Outer Boundary Panel
     content_panel = tk.Frame(help_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
     content_panel.pack(padx=20, pady=(14, 0), fill="both", expand=True)
 
+    # Help Window Main Text Reader Body Label
     content_label = tk.Label(
         content_panel,
         text="",
@@ -3138,6 +3578,7 @@ def open_help():
     )
     content_label.pack(padx=14, pady=14, fill="both", expand=True)
 
+    # Dynamic Render Page Update Handler Method
     def show_page(idx):
         p = pages[idx]
         title_label.config(text=p["title"])
@@ -3147,10 +3588,12 @@ def open_help():
         is_last = idx == len(pages) - 1
         next_btn.config(text="Finish" if is_last else "Next →")
 
+    # Help Window Lower Navigation Dock Frame
     nav_frame = tk.Frame(help_win, bg=BG)
     nav_frame.pack(fill="x", padx=20, pady=(0, 14))
     nav_frame.columnconfigure(1, weight=1)
 
+    # Help Window Previous Page Pagination Control Button
     prev_btn = tk.Button(
         nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
         command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
@@ -3162,6 +3605,7 @@ def open_help():
         cursor="hand2", font=(UI_FONT, 9, "bold"),
     )
 
+    # Context Closure Interceptor Handler Routine
     def next_or_finish():
         if current_page[0] < len(pages) - 1:
             current_page[0] += 1
@@ -3169,13 +3613,14 @@ def open_help():
         else:
             help_win.destroy()
 
+    # Help Window Next Page/Finish Progression Action Button (Dark Text on Accent)
     next_btn = tk.Button(
         nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
         command=next_or_finish
     )
     next_btn.grid(row=0, column=2, sticky="e")
     next_btn.configure(
-        bg=ACCENT, fg="#FFFFFF", activebackground=ACCENT2, activeforeground="#FFFFFF",
+        bg=ACCENT, fg=BG, activebackground=ACCENT2, activeforeground=BG,
         cursor="hand2", font=(UI_FONT, 9, "bold"),
     )
 
@@ -3185,12 +3630,14 @@ def open_help():
 frame.columnconfigure(1, weight=1)
 
 
+# Factory Function: Standard UI Subtext Label
 def dark_label(text, r, **kwargs):
     lbl = tk.Label(frame, text=text, bg=BG, fg=SUBTEXT, anchor="w", font=(UI_FONT, 9))
     lbl.grid(row=r, column=0, sticky="w", pady=6, **kwargs)
     return lbl
 
 
+# Factory Function: Standard Form Input Field
 def dark_entry(r, default=""):
     e = tk.Entry(
         frame,
@@ -3208,6 +3655,7 @@ def dark_entry(r, default=""):
     return e
 
 
+# Factory Function: Fixed Aspect-Ratio Square Button
 def square_button(parent, text, command, base_size=32):
     container = tk.Frame(parent, bg=BTN_BG, highlightthickness=1, highlightbackground=BORDER)
     container.pack_propagate(False)
@@ -3236,6 +3684,7 @@ def square_button(parent, text, command, base_size=32):
 frame.columnconfigure(1, weight=1)
 
 # ── Data Config ────────────────────────────────────────────────────────────
+# Section Block Title Header: Data Config Parameters Block
 tk.Label(
     frame,
     text="Data Config",
@@ -3244,6 +3693,7 @@ tk.Label(
     font=(UI_FONT, 11, "bold"),
 ).grid(row=0, column=0, columnspan=2, pady=(2, 6))
 
+# Input Parameters Interface: Forms Grid Layout Definitions
 dark_label("OSC IP", 1)
 ip_entry = dark_entry(1, cfg["osc_ip"])
 
@@ -3263,6 +3713,7 @@ dark_label("Location (lat,lon)", 6)
 location_entry = dark_entry(6, cfg["location"])
 
 # ── Page Text ──────────────────────────────────────────────────────────────
+# Section Block Title Header: Page Content Form Block
 tk.Label(
     frame,
     text="Page Text",
@@ -3271,6 +3722,7 @@ tk.Label(
     font=(UI_FONT, 11, "bold"),
 ).grid(row=7, column=0, columnspan=2, pady=(8, 6))
 
+# Input System Matrix: Static Text String Modification Fields
 dark_label("Page 1 Text", 8)
 page1_entry = dark_entry(8, cfg["page1_text"])
 
@@ -3290,27 +3742,35 @@ dark_label("Text Message", 13)
 forced_text = dark_entry(13, " ")
 
 # ── Toggles ────────────────────────────────────────────────────────────────
+# Custom Array Structural Layout Box: Page Selector Dock Outer Base Boundary Frame
 toggle_outer = tk.Frame(frame, bg=BG)
 toggle_outer.grid(row=14, column=0, columnspan=2, pady=(6, 2), sticky="ew")
 
+# Layout Box Inner Centering Grid Layout Dock Frame
 toggle_inner = tk.Frame(toggle_outer, bg=BG)
 toggle_inner.pack(anchor="center")
 
+# Iteration System Model Key Arrays
 PAGE_NAMES = ["Network", "CPU/GPU", "RAM", "Weather", "Media"]
 PAGE_NUMBERS = ["P1", "P2", "P3", "P4", "P5"]
 PAGE_ENABLED_KEYS = ["page1_enabled", "page2_enabled", "page3_enabled", "page4_enabled", "page5_enabled"]
 
+# Iteration Thread Generator Strategy Object Interface Engine Loop Block
 for col, (name, num, key) in enumerate(zip(PAGE_NAMES, PAGE_NUMBERS, PAGE_ENABLED_KEYS)):
+    # Custom Row Single Matrix Element Content Wrapper Frame
     cell = tk.Frame(toggle_inner, bg=BG)
     cell.grid(row=0, column=col, padx=18)
 
+    # Element Meta Indicator Descriptive Subtext Item Label
     name_lbl = tk.Label(cell, text=name, bg=BG, fg=SUBTEXT, font=(UI_FONT, 8))
     name_lbl.pack()
     scalable_widgets.append((name_lbl, 8, ()))
 
+    # Circle Object Render Control Dynamic Instance Custom Graphic Widget
     tog = CircleToggle(cell, enabled=bool(cfg.get(key, True)))
     tog.pack()
 
+    # Index Number Target Visual Identity Header Label Component
     num_lbl = tk.Label(cell, text=num, bg=BG, fg=ACCENT2, font=(UI_FONT, 8, "bold"))
     num_lbl.pack()
     scalable_widgets.append((num_lbl, 8, ()))
@@ -3318,6 +3778,7 @@ for col, (name, num, key) in enumerate(zip(PAGE_NAMES, PAGE_NUMBERS, PAGE_ENABLE
     page_toggles.append(tog)
 
 # ── Main Buttons ───────────────────────────────────────────────────────────
+# Controller Operations Management Grid Interface Alignment Layout Box Frame
 button_frame = tk.Frame(frame, bg=BG)
 button_frame.grid(row=15, column=0, columnspan=2, pady=15, sticky="ew")
 
@@ -3325,19 +3786,21 @@ button_frame.columnconfigure(0, weight=1)
 button_frame.columnconfigure(1, weight=1)
 button_frame.columnconfigure(2, weight=1)
 
+# Dashboard Command Control: Application Task Trigger Process Button (Dark Text on Accent)
 tk.Button(
     button_frame,
     text="Start",
     command=start_script,
     bg=ACCENT,
-    fg="#FFFFFF",
+    fg=BG,
     relief="flat",
     activebackground=ACCENT2,
-    activeforeground="#FFFFFF",
+    activeforeground=BG,
     cursor="hand2",
     font=(UI_FONT, 9, "bold"),
 ).grid(row=0, column=0, sticky="ew", padx=2)
 
+# Dashboard Command Control: Execution Engine Interrupt Command Button
 tk.Button(
     button_frame,
     text="Stop",
@@ -3351,6 +3814,7 @@ tk.Button(
     font=(UI_FONT, 9, "bold"),
 ).grid(row=0, column=1, sticky="ew", padx=2)
 
+# Dashboard Command Control: Service Loop Hot Reload Dispatch Command Button
 tk.Button(
     button_frame,
     text="Restart",
@@ -3365,14 +3829,17 @@ tk.Button(
 ).grid(row=0, column=2, sticky="ew", padx=2)
 
 # ── Footer with status and settings ────────────────────────────────────────────
+# App Window Core Status Shelf Base Layout Frame
 footer_bar = tk.Frame(root, bg=PANEL, pady=8)
 footer_bar.pack(fill="x", side="bottom")
 
 footer_bar.columnconfigure(0, weight=1)
 
+# Status Footer Navigation System Information Callout Entry Utility Button
 help_btn = square_button(footer_bar, "？", open_help, base_size=28)
 help_btn.pack(side="left", padx=(8, 0))
 
+# Status Footer System Operational Message Text Display Feedback Label
 footer_label = tk.Label(
     footer_bar,
     text="Ready",
@@ -3382,10 +3849,11 @@ footer_label = tk.Label(
 )
 footer_label.pack(side="left", padx=16)
 
+# Status Footer App Preferences Component Settings Navigation Button Entry Widget
 settings_btn = square_button(footer_bar, "⚙", open_settings, base_size=28)
 settings_btn.pack(side="right", padx=(0, 8))
 
-# Set window size
+# Window View Boundary Matrix Dimensions Set Block
 root.geometry("620x740")
 root.minsize(0, 0)
 
