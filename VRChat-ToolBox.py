@@ -2,7 +2,7 @@
 #                                              Boot's ToolBox Script                                                      #
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Hi :3
-# Wellcome to my code
+# Welcome to my code
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Imports
@@ -14,11 +14,12 @@ import importlib
 import re
 import time
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 import tkinter.font as font
 import os
 import site
 import json
+
 
 def install_if_missing(package, import_name=None):
     if import_name is None:
@@ -63,13 +64,12 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.1.9"
+VERSION = "9.2.0"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
 GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/releases/latest/download/"
 GITHUB_EXE_RAW_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/"
-
 
 if getattr(sys, 'frozen', False):
     SCRIPT_DIR = os.path.dirname(sys.executable)
@@ -152,6 +152,7 @@ SCRIPT_FOLDER_MAP = {
     "VRChat-LocalFavorites.py": "LocalFavorites",
     "VRChat-SocialLogger.py": "VRChat-SocialLogger",
 }
+
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # MANAGED SCRIPT HELPERS
@@ -358,6 +359,11 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
         return False
 
 
+def _get_system_python():
+    # Helper fallback method to return system platform execution contexts.
+    return sys.executable
+
+
 def launch_script(filename: str) -> None:
     global _processes
 
@@ -472,31 +478,6 @@ def get_remote_script_info() -> dict[str, str] | None:
     return None
 
 
-def _exe_update_urls() -> list[str]:
-    # EXE update URLs disabled — self-update for executables removed.
-    return []
-
-
-def _download_latest_exe(timeout: int = 30) -> tuple[str | None, str | None]:
-    # Disabled: downloading EXE updates removed.
-    print("[Updater] EXE self-update disabled.")
-    return None, None
-
-
-def _write_exe_updater_script(target_exe: str, downloaded_exe: str, backup_exe: str) -> str:
-    # EXE updater script creation disabled.
-    raise RuntimeError("EXE updater is disabled in this build.")
-
-
-def _perform_exe_update() -> None:
-    # EXE self-update removed. Inform the user.
-    messagebox.showinfo(
-        "Update Disabled",
-        "Automatic EXE self-update has been disabled. Please update manually by downloading the latest release from GitHub."
-    )
-    return
-
-
 def perform_update(remote_text=None, source_url=None):
     try:
         if getattr(sys, 'frozen', False):
@@ -583,7 +564,8 @@ def check_for_updates(silent=False):
     if main_update_available:
         if remote_newer:
             print(f"[VRChat-Tools] Update available: {VERSION} -> {remote_version}")
-            os.remove(TOOLBOX_CONFIG_FILE)
+            if os.path.exists(TOOLBOX_CONFIG_FILE):
+                os.remove(TOOLBOX_CONFIG_FILE)
             prompt = (
                 f"New version {remote_version} is available (you have {VERSION}).\n\n"
                 "Update and restart now?"
@@ -615,12 +597,14 @@ def check_for_updates(silent=False):
 # GUI
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+# UI Color Palette Configurations
 BG = "#0f0f13"
-PANEL = "#17171f"
+PANEL = "#1f102a"
 BORDER = "#2a2a38"
-ACCENT = "#7c5cfc"
-ACCENT2 = "#a78bfa"
+ACCENT = "#9D00FF"
+ACCENT2 = "#b44bff"
 TEXT = "#e2e0f0"
+TEXT2 = "#E0E0E0"
 SUBTEXT = "#7e7b9a"
 GREEN = "#4ade80"
 RED = "#f87171"
@@ -630,21 +614,26 @@ BTN_BG = PANEL
 BTN_FG = TEXT
 UI_FONT = "Consolas"
 
+# Dynamic Scaling Variables
 ui_scale = 1.0
 scalable_widgets = []
 square_widgets = []
 
+# Main Application Window Initialization
 root = tk.Tk()
 root.title("Boot's ToolBox")
 root.configure(bg=BG)
 root.resizable(True, True)
 
+# Top Bar Container Frame
 title_bar = tk.Frame(root, bg=PANEL, pady=14)
 title_bar.pack(fill="x")
 
+# Header Padding and Alignment Frame
 header_frame = tk.Frame(title_bar, bg=PANEL)
 header_frame.pack(fill="x", padx=16, expand=True)
 
+# Main Application Brand Title Label
 header_title_label = tk.Label(
     header_frame,
     text="◈  Boot's TOOLBOX",
@@ -654,6 +643,7 @@ header_title_label = tk.Label(
 )
 header_title_label.pack(side="left", anchor="w")
 
+# Application Version Display Label
 version_label = tk.Label(
     header_frame,
     text=f"v{VERSION}",
@@ -663,8 +653,10 @@ version_label = tk.Label(
 )
 version_label.pack(side="right", anchor="e", padx=(32, 0))
 
+# Visual Separator Line (Border)
 tk.Frame(root, bg=BORDER, height=1).pack(fill="x")
 
+# Central Content Wrapper Frame
 main_frame = tk.Frame(root, bg=BG)
 main_frame.pack(fill="both", expand=True, padx=16, pady=14)
 
@@ -693,12 +685,14 @@ def apply_scale(scale):
         btn_widget.config(font=(UI_FONT, max(8, int(12 * scale))))
 
 
+# Factory Function: Standard UI Subtext Label
 def dark_label(text, r, **kwargs):
     lbl = tk.Label(main_frame, text=text, bg=BG, fg=SUBTEXT, anchor="w", font=(UI_FONT, 9))
     lbl.grid(row=r, column=0, sticky="w", pady=6, **kwargs)
     return lbl
 
 
+# Factory Function: Standard Form Input Field
 def dark_entry(r, default=""):
     e = tk.Entry(
         main_frame,
@@ -716,6 +710,7 @@ def dark_entry(r, default=""):
     return e
 
 
+# Factory Function: Fixed Aspect-Ratio Square Button
 def square_button(parent, text, command, base_size=32):
     container = tk.Frame(parent, bg=BTN_BG, highlightthickness=1, highlightbackground=BORDER)
     container.pack_propagate(False)
@@ -741,6 +736,7 @@ def square_button(parent, text, command, base_size=32):
     return container
 
 
+# Window View: Help and Tutorial Modal Overlay
 def open_help():
     help_win = tk.Toplevel(root)
     help_win.title("Tutorial")
@@ -834,24 +830,30 @@ def open_help():
 
     current_page = [0]
 
+    # Help Window Top Header Frame
     header = tk.Frame(help_win, bg=PANEL, pady=10)
     header.pack(fill="x")
 
+    # Help Window Section Title Label
     title_label = tk.Label(
         header, text="", bg=PANEL, fg=ACCENT2, font=(UI_FONT, 12, "bold")
     )
     title_label.pack(side="left", padx=16)
 
+    # Help Window Pagination Tracker Label
     page_indicator = tk.Label(
         header, text="", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)
     )
     page_indicator.pack(side="right", padx=16)
 
+    # Help Window Top Visual Separator Line
     tk.Frame(help_win, bg=BORDER, height=1).pack(fill="x")
 
+    # Help Window Content Card Outer Boundary Panel
     content_panel = tk.Frame(help_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
     content_panel.pack(padx=20, pady=(14, 0), fill="both", expand=True)
 
+    # Help Window Main Text Reader Body Label
     content_label = tk.Label(
         content_panel,
         text="",
@@ -863,6 +865,7 @@ def open_help():
     )
     content_label.pack(padx=14, pady=14, fill="both", expand=True)
 
+    # Pagination View Engine Configuration Block
     def show_page(idx):
         p = pages[idx]
         title_label.config(text=p["title"])
@@ -872,10 +875,12 @@ def open_help():
         is_last = idx == len(pages) - 1
         next_btn.config(text="Finish" if is_last else "Next →")
 
+    # Help Window Lower Navigation Dock Frame
     nav_frame = tk.Frame(help_win, bg=BG)
     nav_frame.pack(fill="x", padx=20, pady=(0, 14))
     nav_frame.columnconfigure(1, weight=1)
 
+    # Help Window Previous Page Pagination Control Button
     prev_btn = tk.Button(
         nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
         command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
@@ -887,6 +892,7 @@ def open_help():
         cursor="hand2", font=(UI_FONT, 9, "bold"),
     )
 
+    # Execution Link Logic Block for Next/Finish Routines
     def next_or_finish():
         if current_page[0] < len(pages) - 1:
             current_page[0] += 1
@@ -894,19 +900,21 @@ def open_help():
         else:
             help_win.destroy()
 
+    # Help Window Next Page/Finish Progression Action Button
     next_btn = tk.Button(
         nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
         command=next_or_finish
     )
     next_btn.grid(row=0, column=2, sticky="e")
     next_btn.configure(
-        bg=ACCENT, fg="#FFFFFF", activebackground=ACCENT2, activeforeground="#FFFFFF",
+        bg=ACCENT, fg=TEXT2, activebackground=ACCENT2, activeforeground=TEXT2,
         cursor="hand2", font=(UI_FONT, 9, "bold"),
     )
 
     show_page(0)
 
 
+# Window View: Core App Preference Management Overlay Window
 def open_settings():
     global MANAGED_SCRIPTS
 
@@ -922,49 +930,63 @@ def open_settings():
     root_y = root.winfo_y()
     settings_win.geometry(f"{help_w}x{help_h}+{root_x}+{root_y}")
 
+    # Settings Panel Top Header Frame
     header = tk.Frame(settings_win, bg=PANEL, pady=10)
     header.pack(fill="x")
 
+    # Settings Window Structural Header Text Label
     title_label = tk.Label(
         header, text="Manage Scripts", bg=PANEL, fg=ACCENT2, font=(UI_FONT, 12, "bold")
     )
     title_label.pack(side="left", padx=16)
 
+    # Settings Panel Top Visual Border Partition
     tk.Frame(settings_win, bg=BORDER, height=1).pack(fill="x")
 
+    # Settings Scrollable View Core Container Panel
     content_panel = tk.Frame(settings_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
     content_panel.pack(padx=20, pady=(14, 0), fill="both", expand=True)
 
+    # Settings Dynamic Rendering Scroll Engine Canvas Viewport
     inner_canvas = tk.Canvas(content_panel, bg=PANEL, highlightthickness=0)
+
+    # Settings Scroller Bar Component Interceptor Link
     scrollbar = tk.Scrollbar(content_panel, orient="vertical", command=inner_canvas.yview)
     inner_canvas.configure(yscrollcommand=scrollbar.set)
 
     scrollbar.pack(side="right", fill="y")
     inner_canvas.pack(side="left", fill="both", expand=True)
 
+    # Settings Inner Grid Core Packaging Frame Layout Box
     inner_frame = tk.Frame(inner_canvas, bg=PANEL)
     inner_canvas.create_window((0, 0), window=inner_frame, anchor="nw")
 
+    # Tracking Event Loop Boundary Adjuster Call
     def on_frame_configure(event=None):
         inner_canvas.configure(scrollregion=inner_canvas.bbox("all"))
 
     inner_frame.bind("<Configure>", on_frame_configure)
 
+    # Content Generator Rendering Core Function
     def refresh_script_list():
         for widget in inner_frame.winfo_children():
             widget.destroy()
 
         for idx, script in enumerate(MANAGED_SCRIPTS):
+            # Row Boundary Segment Wrapper Frame
             script_row = tk.Frame(inner_frame, bg=BG)
             script_row.pack(fill="x", padx=10, pady=6)
 
+            # Row Entry Display Label Description Header
             tk.Label(script_row, text=f"{script['label']}", bg=BG, fg=TEXT, font=(UI_FONT, 9, "bold")).pack(side="left",
                                                                                                             fill="x",
                                                                                                             expand=True)
+            # Row Entry Meta-Info Technical String Subtext Label
             tk.Label(script_row, text=f"({script['filename']})", bg=BG, fg=SUBTEXT, font=(UI_FONT, 8)).pack(side="left",
                                                                                                             padx=(10,
                                                                                                                   0))
 
+            # Entry Item Deletion/Removal Management Interceptor Button
             remove_btn = tk.Button(
                 script_row,
                 text="✕ Remove",
@@ -978,12 +1000,14 @@ def open_settings():
             remove_btn.pack(side="right", padx=(10, 0))
             remove_btn.configure(activebackground=BORDER, activeforeground=RED)
 
+    # Entry Erasure Logic Array Mutator
     def remove_script(idx):
         MANAGED_SCRIPTS.pop(idx)
         save_managed_scripts(MANAGED_SCRIPTS)
         refresh_script_list()
         refresh_main_buttons()
 
+    # View Component Context: Modal Form Window Container View
     def add_script():
         add_win = tk.Toplevel(settings_win)
         add_win.title("Add Script")
@@ -991,18 +1015,23 @@ def open_settings():
         add_win.geometry("400x200")
         add_win.resizable(False, False)
 
+        # Form Display Script Label Section Title Header
         tk.Label(add_win, text="Script Label:", bg=BG, fg=TEXT, font=(UI_FONT, 9)).pack(pady=(10, 0), padx=10,
                                                                                         anchor="w")
+        # Form Form-Field Value Entry Interface Text Box
         label_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(UI_FONT, 9), relief="flat", insertbackground=ACCENT,
                                highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
         label_entry.pack(pady=(0, 10), padx=10, fill="x")
 
+        # Form System Storage Path / Resource Filename Title Label
         tk.Label(add_win, text="Filename/Path:", bg=BG, fg=TEXT, font=(UI_FONT, 9)).pack(pady=(10, 0), padx=10,
                                                                                          anchor="w")
+        # Form System Target Parameter String Input Data Box
         file_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(UI_FONT, 9), relief="flat", insertbackground=ACCENT,
                               highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
         file_entry.pack(pady=(0, 20), padx=10, fill="x")
 
+        # Action Execution Validation Sequence Mutator Method
         def save_new_script():
             label = label_entry.get().strip()
             filename = file_entry.get().strip()
@@ -1013,16 +1042,19 @@ def open_settings():
                 refresh_main_buttons()
                 add_win.destroy()
 
+        # Modal Form Action Button Alignment Layout Box Frame
         btn_frame = tk.Frame(add_win, bg=BG)
         btn_frame.pack(pady=10)
 
+        # Form Operations Commitment Target Dispatch Execution Button
         tk.Button(
-            btn_frame, text="Add", bg=ACCENT, fg="#FFFFFF", relief="flat",
+            btn_frame, text="Add", bg=ACCENT, fg=TEXT2, relief="flat",
             font=(UI_FONT, 9, "bold"), cursor="hand2",
-            activebackground=ACCENT2, activeforeground="#FFFFFF",
+            activebackground=ACCENT2, activeforeground=TEXT2,
             command=save_new_script
         ).pack(side="left", padx=5)
 
+        # Form Operations Termination Abort View Modal Close Button
         tk.Button(
             btn_frame, text="Cancel", bg=PANEL, fg=SUBTEXT, relief="flat",
             font=(UI_FONT, 9, "bold"), cursor="hand2",
@@ -1032,20 +1064,23 @@ def open_settings():
 
     refresh_script_list()
 
+    # Settings Window Footer Navigation Command Panel Frame
     nav_frame = tk.Frame(settings_win, bg=BG)
     nav_frame.pack(fill="x", padx=20, pady=(0, 14))
     nav_frame.columnconfigure(0, weight=1)
 
+    # Settings Panel Trigger Interface New Entry Creation Action Button
     add_btn = tk.Button(
-        nav_frame, text="+ Add Script", bg=ACCENT, fg="#FFFFFF", relief="flat", width=15,
+        nav_frame, text="+ Add Script", bg=ACCENT, fg=TEXT2, relief="flat", width=15,
         command=add_script
     )
     add_btn.pack(side="left")
     add_btn.configure(
-        activebackground=ACCENT2, activeforeground="#FFFFFF",
+        activebackground=ACCENT2, activeforeground=TEXT2,
         cursor="hand2", font=(UI_FONT, 9, "bold"),
     )
 
+    # Settings Panel Termination UI Dismiss Command Execution Button
     close_btn = tk.Button(
         nav_frame, text="Close", bg=PANEL, fg=SUBTEXT, relief="flat", width=10,
         command=settings_win.destroy
@@ -1060,6 +1095,7 @@ def open_settings():
 main_frame.columnconfigure(1, weight=1)
 
 # ── Tool buttons section with label ────────────────────────────────────────
+# Main View Dashboard Content Partition Text Heading Label
 tools_label = tk.Label(
     main_frame,
     text="MANAGED SCRIPTS",
@@ -1069,6 +1105,7 @@ tools_label = tk.Label(
 )
 tools_label.grid(row=14, column=0, columnspan=2, sticky="w", pady=(16, 8))
 
+# Main Dashboard Dynamic Scripts Grid Allocation Box Layout Frame
 bottom_bar = tk.Frame(main_frame, bg=BG)
 bottom_bar.grid(row=15, column=0, columnspan=2, pady=(0, 6), sticky="ew")
 bottom_bar.columnconfigure(0, weight=1)
@@ -1076,6 +1113,7 @@ bottom_bar.columnconfigure(0, weight=1)
 script_buttons = {}
 
 
+# Component Refresher Task Invocation Engine
 def refresh_main_buttons():
     global script_buttons
     for btn in script_buttons.values():
@@ -1086,15 +1124,16 @@ def refresh_main_buttons():
         script_filename = entry["filename"]
         label = entry["label"]
 
+        # Dashboard Interface Target Application Launch/Initialization Command Button
         btn = tk.Button(
             bottom_bar,
             text=f"▶  {label}",
             command=lambda fn=script_filename: launch_script(fn),
             bg=ACCENT,
-            fg="#FFFFFF",
+            fg=TEXT2,
             relief="flat",
             activebackground=ACCENT2,
-            activeforeground="#FFFFFF",
+            activeforeground=TEXT2,
             cursor="hand2",
             font=(UI_FONT, 10, "bold"),
             padx=20,
@@ -1105,23 +1144,27 @@ def refresh_main_buttons():
 
     btn_count = len(MANAGED_SCRIPTS)
     root.geometry(f"580x{400 + btn_count * 52}")
-    root.minsize(0, 0 )
+    root.minsize(0, 0)
 
 
 refresh_main_buttons()
 
 # ── Footer with update info ────────────────────────────────────────────────
+# App Window Core Status Shelf Base Layout Frame
 footer_bar = tk.Frame(root, bg=PANEL, pady=8)
 footer_bar.pack(fill="x", side="bottom")
 
 footer_bar.columnconfigure(0, weight=1)
 
+# Status Footer Navigation System Information Callout Entry Utility Button
 help_btn = square_button(footer_bar, "？", open_help, base_size=28)
 help_btn.pack(side="left", padx=(8, 0))
 
+# Status Footer App Preferences Component Settings Navigation Button Entry Widget
 settings_btn = square_button(footer_bar, "⚙", open_settings, base_size=28)
 settings_btn.pack(side="right", padx=(0, 8))
 
+# Status Footer System Operational Message Text Display Feedback Label
 footer_label = tk.Label(
     footer_bar,
     text="Checking for updates on startup...",
