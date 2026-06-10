@@ -46,37 +46,13 @@ install_if_missing("python-osc==1.9.3", "pythonosc")
 from pythonosc import udp_client
 
 # ══════════════════════════════════════════════════════════════════════════════════════════#
-# CONSTANTS
+# CONSTANTS & CONFIG DATA
 # ══════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "0.0.3"
+VERSION = "0.1.0"
 
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "gamepad_config.json")
-
-# ── Colours (match OSC-Chatbox exactly) ───────────────────────────────────
-BG       = "#0f0f13"
-PANEL    = "#17171f"
-BORDER   = "#2a2a38"
-ACCENT   = "#7c5cfc"
-ACCENT2  = "#a78bfa"
-TEXT     = "#e2e0f0"
-SUBTEXT  = "#7e7b9a"
-GREEN    = "#4ade80"
-RED      = "#f87171"
-ENTRY_BG = PANEL
-BTN_BG   = PANEL
-BTN_FG   = TEXT
-UI_FONT  = "Consolas"
-
-# Pad-specific button colours
-BTN_IDLE  = "#1e1e2e"
-BTN_HOV   = "#2a2a3e"
-BTN_ACT   = ACCENT
-
-# ══════════════════════════════════════════════════════════════════════════════════════════#
-# CONFIG
-# ══════════════════════════════════════════════════════════════════════════════════════════#
 
 DEFAULT_CONFIG = {
     "pads": []
@@ -87,7 +63,6 @@ def load_config():
         try:
             with open(CONFIG_FILE, "r") as f:
                 data = json.load(f)
-                # Merge with defaults so new keys always exist
                 for k, v in DEFAULT_CONFIG.items():
                     data.setdefault(k, v)
                 return data
@@ -183,10 +158,33 @@ class PadState:
     def stop(self):
         self.running = False
 
+
 # ══════════════════════════════════════════════════════════════════════════════════════════#
-# SHARED BUTTON FACTORIES
+# GUI
 # ══════════════════════════════════════════════════════════════════════════════════════════#
 
+# UI Color Palette Configurations (Unified Theme)
+BG = "#0f0f13"
+PANEL = "#1f102a"
+BORDER = "#2a2a38"
+ACCENT = "#9D00FF"
+ACCENT2 = "#b44bff"
+TEXT = "#e2e0f0"
+TEXT2 = "#E0E0E0"
+SUBTEXT = "#7e7b9a"
+GREEN = "#4ade80"
+RED = "#f87171"
+ENTRY_BG = PANEL
+BTN_BG = PANEL
+BTN_FG = TEXT
+UI_FONT = "Consolas"
+
+# Pad-specific button configurations
+BTN_IDLE  = "#1e1e2e"
+BTN_HOV   = "#2a2a3e"
+BTN_ACT   = ACCENT
+
+# Factory Function: Navigation Axis Movement Component Block
 def make_axis_btn(parent, label, action, state, font_size=13):
     b = tk.Label(parent, text=label, font=(UI_FONT, font_size, "bold"),
                  width=2, height=1, fg=TEXT, bg=BTN_IDLE,
@@ -198,6 +196,7 @@ def make_axis_btn(parent, label, action, state, font_size=13):
     b.bind("<Leave>",  lambda e, w=b, a=action: (state.release_axis(a), w.config(bg=BTN_IDLE)))
     return b
 
+# Factory Function: Standard Interactive Single Action Command Block
 def make_action_btn(parent, label, action, colour, state, width=5, height=2):
     b = tk.Label(parent, text=label, font=(UI_FONT, 8, "bold"),
                  width=width, height=height, fg=colour, bg=BTN_IDLE,
@@ -209,6 +208,7 @@ def make_action_btn(parent, label, action, colour, state, width=5, height=2):
     b.bind("<Leave>",  lambda e, w=b, a=action: (state.release_btn(a), w.config(bg=BTN_IDLE)))
     return b
 
+# Factory Function: Interactive Bi-State Toggle Selection Block
 def make_toggle_btn(parent, label, param, colour, state, width=5, height=2):
     active = [False]
     b = tk.Label(parent, text=label, font=(UI_FONT, 8, "bold"),
@@ -224,6 +224,7 @@ def make_toggle_btn(parent, label, param, colour, state, width=5, height=2):
     b.bind("<Leave>", lambda e, w=b: w.config(bg=BTN_ACT if active[0] else BTN_IDLE))
     return b
 
+# Factory Function: Fixed Aspect-Ratio Square Button
 def square_button(parent, text, command, base_size=28):
     container = tk.Frame(parent, bg=BTN_BG, highlightthickness=1,
                          highlightbackground=BORDER)
@@ -236,10 +237,8 @@ def square_button(parent, text, command, base_size=28):
     btn.pack(fill="both", expand=True)
     return container
 
-# ══════════════════════════════════════════════════════════════════════════════════════════#
-# NES PAD WIDGET
-# ══════════════════════════════════════════════════════════════════════════════════════════#
 
+# Layout Component: Modular Classic Directional Interface Frame
 class NESPad(tk.Frame):
     def __init__(self, parent, state, **kwargs):
         super().__init__(parent, bg=PANEL, **kwargs)
@@ -282,10 +281,8 @@ class NESPad(tk.Frame):
                 else make_action_btn(act, label, action, colour, self.state)
             b.grid(row=i // 2, column=i % 2, padx=4, pady=4)
 
-# ══════════════════════════════════════════════════════════════════════════════════════════#
-# JOYSTICK PAD WIDGET
-# ══════════════════════════════════════════════════════════════════════════════════════════#
 
+# Layout Component: Analogue Spatial Coordination Workspace Drawing Panel
 class JoystickPad(tk.Frame):
     def __init__(self, parent, state, **kwargs):
         super().__init__(parent, bg=PANEL, **kwargs)
@@ -371,10 +368,8 @@ class JoystickPad(tk.Frame):
                 else make_action_btn(act, label, action, colour, self.state)
             b.grid(row=i//2, column=i%2, padx=4, pady=4)
 
-# ══════════════════════════════════════════════════════════════════════════════════════════#
-# PAD CARD
-# ══════════════════════════════════════════════════════════════════════════════════════════#
 
+# Layout Component: Hardware Instance Segment Matrix Wrapper Card
 class PadCard(tk.Frame):
     def __init__(self, parent, index, on_remove, host="127.0.0.1", port="9000", style="nes", name="", **kwargs):
         super().__init__(parent, bg=PANEL,
@@ -442,8 +437,8 @@ class PadCard(tk.Frame):
 
         # Connect/Disconnect button
         self._conn_btn = tk.Button(cfg_row, text="Connect", font=(UI_FONT, 8, "bold"),
-                                   fg=TEXT, bg=BTN_BG, relief="flat",
-                                   activebackground=ACCENT, activeforeground="#ffffff",
+                                   fg=BG, bg=ACCENT, relief="flat",
+                                   activebackground=ACCENT2, activeforeground=BG,
                                    cursor="hand2", padx=6,
                                    command=self._toggle_connect)
         self._conn_btn.pack(side=tk.LEFT, padx=(8, 0))
@@ -477,8 +472,8 @@ class PadCard(tk.Frame):
         self._connected = True
         self._status_dot.config(fg=GREEN)
         self._conn_btn.config(text="Disconnect",
-                              fg=RED, activebackground=RED,
-                              activeforeground="#ffffff")
+                              fg=TEXT2, bg=RED, activebackground=RED,
+                              activeforeground=TEXT2)
         self._rebuild_pad()
 
     def _disconnect(self):
@@ -488,8 +483,8 @@ class PadCard(tk.Frame):
         self._connected = False
         self._status_dot.config(fg=SUBTEXT)
         self._conn_btn.config(text="Connect",
-                              fg=TEXT, activebackground=ACCENT,
-                              activeforeground="#ffffff")
+                              fg=BG, bg=ACCENT, activebackground=ACCENT2,
+                              activeforeground=BG)
         for w in self._pad_area.winfo_children():
             w.destroy()
         tk.Label(self._pad_area, text="Press Connect to activate",
@@ -515,10 +510,8 @@ class PadCard(tk.Frame):
         if self.state:
             self.state.stop()
 
-# ══════════════════════════════════════════════════════════════════════════════════════════#
-# SETTINGS WINDOW
-# ══════════════════════════════════════════════════════════════════════════════════════════#
 
+# Window View: App Feature Preference Configurator Modal Overlay Window
 def open_settings(root):
     win = tk.Toplevel(root)
     win.title("OSC Gamepad — Settings")
@@ -550,75 +543,209 @@ def open_settings(root):
               cursor="hand2", font=(UI_FONT, 9, "bold"),
               padx=12).pack(side="right", padx=8)
 
-# ══════════════════════════════════════════════════════════════════════════════════════════#
-# HELP WINDOW
-# ══════════════════════════════════════════════════════════════════════════════════════════#
 
+# Window View: Help and Tutorial Modal Overlay Viewport Context
 def open_help(root):
-    win = tk.Toplevel(root)
-    win.title("OSC Gamepad — Help")
-    win.configure(bg=BG)
-    win.resizable(False, False)
-    win.geometry("420x380")
+    help_win = tk.Toplevel(root)
+    help_win.title("OSC Gamepad — Help")
+    help_win.configure(bg=BG)
+    help_win.resizable(True, True)
 
-    hdr = tk.Frame(win, bg=PANEL, pady=10)
-    hdr.pack(fill="x")
-    tk.Label(hdr, text="◈  HELP", font=(UI_FONT, 12, "bold"),
-             fg=ACCENT2, bg=PANEL).pack(side="left", padx=16)
-    tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
+    root.update_idletasks()
+    help_w = root.winfo_width()
+    help_h = root.winfo_height()
+    root_x = root.winfo_x()
+    root_y = root.winfo_y()
+    help_win.geometry(f"{help_w}x{help_h}+{root_x}+{root_y}")
 
-    content = tk.Frame(win, bg=PANEL, highlightthickness=1,
-                       highlightbackground=BORDER)
-    content.pack(padx=20, pady=14, fill="both", expand=True)
-
-    lines = [
-        ("SETUP", True),
-        ("1. Enable OSC in VRChat: Action Menu → OSC → Enabled", False),
-        ("2. Launch VRChat with --osc=9000:127.0.0.1:9001", False),
-        ("   or use custom ports per pad below.", False),
-        ("", False),
-        ("PADS", True),
-        ("+ Add Pad  — adds a new controller.", False),
-        ("Host/Port  — OSC destination (default 127.0.0.1:9000).", False),
-        ("NES        — D-pad style movement buttons.", False),
-        ("Joystick   — analogue stick + look sliders.", False),
-        ("Connect    — green dot = active.", False),
-        ("", False),
-        ("BUTTONS", True),
-        ("SIT / CROUCH  — toggle avatar parameters (click once on/off).", False),
-        ("MUTE          — pulses /input/Voice to toggle mute.", False),
-        ("JUMP          — single pulse per press.", False),
-        ("GRAB/USE/MENU — held while button is down.", False),
-        ("", False),
-        ("Config is saved automatically on exit.", False),
+    pages = [
+        {
+            "title": "◈  Getting Started",
+            "content": (
+                "OSC Gamepad lets you control your VRChat avatar using on-screen\n"
+                "buttons and joysticks, sent over OSC.\n\n"
+                "1.  Make sure VRChat is running with OSC enabled.\n"
+                "    (Action Menu → Options → OSC → Enabled)\n\n"
+                "2.  Click '＋ Add Pad' in the title bar to create a new pad.\n\n"
+                "3.  Set the Host and Port to match your VRChat OSC settings.\n"
+                "    Default is  127.0.0.1 : 9000  for a local game instance.\n\n"
+                "4.  Click Connect. The status dot turns green when active.\n\n"
+                "5.  Use the pad controls to move and interact in-game.\n\n"
+                "Your pad layout and connection settings are saved automatically\n"
+                "when you close the app."
+            )
+        },
+        {
+            "title": "◈  NES Pad Mode",
+            "content": (
+                "NES mode gives you a classic D-pad layout.\n\n"
+                "D-PAD  (top-left)\n"
+                "  ▲ ▼ ◀ ▶  —  Move your avatar forward, back, left, right.\n\n"
+                "LOOK  (bottom-left)\n"
+                "  ◀ ▶  —  Rotate camera left / right.\n"
+                "  ▲ ▼  —  Look up / down.\n"
+                "  Hold a button to keep looking in that direction.\n\n"
+                "ACTION BUTTONS  (right side)\n"
+                "  JUMP   —  Make your avatar jump. Fires once per press.\n"
+                "  GRAB   —  Hold to grab objects or players.\n"
+                "  USE    —  Interact with world objects.\n"
+                "  MENU   —  Toggle the Quick Menu.\n"
+                "  MUTE   —  Toggle microphone mute.\n\n"
+                "TOGGLE BUTTONS\n"
+                "  SIT    —  Toggles the Seated avatar parameter on/off.\n"
+                "  CROUCH —  Toggles the Crouching avatar parameter on/off.\n"
+                "  Active toggles stay highlighted in purple."
+            )
+        },
+        {
+            "title": "◈  Joystick Mode",
+            "content": (
+                "Joystick mode replaces the D-pad with an analogue stick and sliders.\n\n"
+                "ANALOGUE STICK  (circle canvas)\n"
+                "  Click and drag inside the circle to move your avatar.\n"
+                "  The stick snaps back to centre when released.\n"
+                "  Movement is proportional — drag further for faster movement.\n\n"
+                "LOOK H SLIDER\n"
+                "  Drag left/right to rotate the camera horizontally.\n"
+                "  Returns to centre on release.\n\n"
+                "LOOK V SLIDER\n"
+                "  Drag left/right to look up or down.\n"
+                "  Returns to centre on release.\n\n"
+                "ACTION BUTTONS  (right side)\n"
+                "  Same as NES mode — JUMP, GRAB, USE, MENU, MUTE, SIT, CROUCH.\n\n"
+                "Joystick mode is useful when you want smoother, variable-speed\n"
+                "movement instead of binary on/off inputs."
+            )
+        },
+        {
+            "title": "◈  Multiple Pads",
+            "content": (
+                "You can run as many pads as you like at the same time.\n\n"
+                "Each pad is independent and can have its own:\n"
+                "  •  Custom name  (click the name field to edit)\n"
+                "  •  Host and Port\n"
+                "  •  NES or Joystick style\n\n"
+                "USE CASES\n"
+                "  •  One pad for movement, another for actions only.\n"
+                "  •  Control two separate VRChat instances on the same PC\n"
+                "     (e.g. one on port 9000, one on port 9001).\n"
+                "  •  Send OSC to another app on a different port alongside VRChat.\n\n"
+                "REMOVING A PAD\n"
+                "  Click the  ✕  button in the pad's header.\n"
+                "  This also disconnects the OSC client cleanly.\n\n"
+                "All pad configurations (name, host, port, style) are saved to\n"
+                "gamepad_config.json next to the script and restored on next launch."
+            )
+        },
+        {
+            "title": "◈  OSC Reference",
+            "content": (
+                "OSC addresses used by this app:\n\n"
+                "  /input/Vertical          Float  -1.0 to 1.0  (forward/back)\n"
+                "  /input/Horizontal        Float  -1.0 to 1.0  (strafe left/right)\n"
+                "  /input/LookHorizontal    Float  -1.0 to 1.0  (turn left/right)\n"
+                "  /input/LookVertical      Float  -1.0 to 1.0  (look up/down)\n"
+                "  /input/Jump              Int    0 or 1\n"
+                "  /input/Grab              Int    0 or 1\n"
+                "  /input/Use               Int    0 or 1\n"
+                "  /input/QuickMenuToggleLeft  Int  0 or 1\n"
+                "  /input/Voice             Int    0 or 1  (mute toggle)\n\n"
+                "  /avatar/parameters/Seated    Bool\n"
+                "  /avatar/parameters/Crouching Bool\n\n"
+                "Axis and button messages are sent on a 50 ms loop (20 Hz) while\n"
+                "the pad is connected. Toggle parameters are sent once on click.\n\n"
+                "Default VRChat OSC port: 9000  (incoming to VRChat)"
+            )
+        },
     ]
 
-    text = tk.Text(content, bg=PANEL, fg=TEXT, font=(UI_FONT, 9),
-                   relief="flat", cursor="arrow", wrap="word",
-                   highlightthickness=0, padx=10, pady=10,
-                   state="normal")
-    text.pack(fill="both", expand=True)
-    text.tag_config("heading", fg=ACCENT2, font=(UI_FONT, 9, "bold"))
-    for line, is_heading in lines:
-        if is_heading:
-            text.insert("end", line + "\n", "heading")
+    current_page = [0]
+
+    # Help Window Top Header Frame
+    header = tk.Frame(help_win, bg=PANEL, pady=10)
+    header.pack(fill="x")
+
+    # Help Window Section Title Label
+    title_label = tk.Label(
+        header, text="", bg=PANEL, fg=ACCENT2, font=(UI_FONT, 12, "bold")
+    )
+    title_label.pack(side="left", padx=16)
+
+    # Help Window Pagination Tracker Label
+    page_indicator = tk.Label(
+        header, text="", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)
+    )
+    page_indicator.pack(side="right", padx=16)
+
+    # Help Window Top Visual Separator Line
+    tk.Frame(help_win, bg=BORDER, height=1).pack(fill="x")
+
+    # Help Window Content Card Outer Boundary Panel
+    content_panel = tk.Frame(help_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+    content_panel.pack(padx=20, pady=(14, 0), fill="both", expand=True)
+
+    # Help Window Main Text Reader Body Label
+    content_label = tk.Label(
+        content_panel,
+        text="",
+        bg=PANEL, fg=TEXT,
+        justify="left",
+        wraplength=460,
+        anchor="nw",
+        font=(UI_FONT, 10)
+    )
+    content_label.pack(padx=14, pady=14, fill="both", expand=True)
+
+    # Dynamic Render Page Update Handler Method
+    def show_page(idx):
+        p = pages[idx]
+        title_label.config(text=p["title"])
+        content_label.config(text=p["content"])
+        page_indicator.config(text=f"Page {idx + 1} of {len(pages)}")
+        prev_btn.config(state="normal" if idx > 0 else "disabled")
+        is_last = idx == len(pages) - 1
+        next_btn.config(text="Finish" if is_last else "Next →")
+
+    # Help Window Lower Navigation Dock Frame
+    nav_frame = tk.Frame(help_win, bg=BG)
+    nav_frame.pack(fill="x", padx=20, pady=(0, 14))
+    nav_frame.columnconfigure(1, weight=1)
+
+    # Help Window Previous Page Pagination Control Button
+    prev_btn = tk.Button(
+        nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
+                         show_page(current_page[0]))
+    )
+    prev_btn.grid(row=0, column=0, sticky="w")
+    prev_btn.configure(
+        fg=SUBTEXT, activebackground=BORDER, activeforeground=TEXT,
+        cursor="hand2", font=(UI_FONT, 9, "bold"),
+    )
+
+    # Context Closure Interceptor Handler Routine
+    def next_or_finish():
+        if current_page[0] < len(pages) - 1:
+            current_page[0] += 1
+            show_page(current_page[0])
         else:
-            text.insert("end", line + "\n")
-    text.config(state="disabled")
+            help_win.destroy()
 
-    tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
-    footer = tk.Frame(win, bg=PANEL, pady=8)
-    footer.pack(fill="x")
-    tk.Button(footer, text="Close", command=win.destroy,
-              bg=BTN_BG, fg=SUBTEXT, relief="flat",
-              activebackground=BORDER, activeforeground=TEXT,
-              cursor="hand2", font=(UI_FONT, 9, "bold"),
-              padx=12).pack(side="right", padx=8)
+    # Help Window Next Page/Finish Progression Action Button (Dark Text on Accent)
+    next_btn = tk.Button(
+        nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        command=next_or_finish
+    )
+    next_btn.grid(row=0, column=2, sticky="e")
+    next_btn.configure(
+        bg=ACCENT, fg=BG, activebackground=ACCENT2, activeforeground=BG,
+        cursor="hand2", font=(UI_FONT, 9, "bold"),
+    )
 
-# ══════════════════════════════════════════════════════════════════════════════════════════#
-# MAIN APP
-# ══════════════════════════════════════════════════════════════════════════════════════════#
+    show_page(0)
 
+
+# Layout Engine: Core Interactive Viewport Manager Pipeline
 class App:
     def __init__(self):
         self.cfg = load_config()
@@ -741,8 +868,13 @@ class App:
         self.root.mainloop()
 
 
-if __name__ == "__main__":
-    print("OSC Gamepad")
-    print("Made By Boots")
-    print(f"Version {VERSION}")
-    App().run()
+# ══════════════════════════════════════════════════════════════════════════════════════════#
+# RUNTIME ENTRYWAY
+# ══════════════════════════════════════════════════════════════════════════════════════════#
+
+
+print("OSC Gamepad")
+print("Made By Boots")
+print(f"Version {VERSION}")
+
+App().run()
