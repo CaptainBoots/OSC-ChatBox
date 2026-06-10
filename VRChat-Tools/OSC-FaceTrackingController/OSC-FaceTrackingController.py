@@ -35,10 +35,10 @@ from pythonosc import udp_client
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# CONFIGURATION
+# CONFIGURATION DATA
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 
 print("OSC FaceTrackingController")
 print("Made By Boots")
@@ -87,12 +87,19 @@ def save_config(ip: str, port: str, prefix: str) -> None:
     except OSError as e:
         print(f"[Config] Save failed: {e}")
 
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# GUI
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+# UI Color Palette Configurations (Unified Theme)
 BG = "#0f0f13"
-PANEL = "#17171f"
+PANEL = "#1f102a"
 BORDER = "#2a2a38"
-ACCENT = "#7c5cfc"
-ACCENT2 = "#a78bfa"
+ACCENT = "#9D00FF"
+ACCENT2 = "#b44bff"
 TEXT = "#e2e0f0"
+TEXT2 = "#E0E0E0"
 SUBTEXT = "#7e7b9a"
 TROUGH = "#252535"
 GREEN = "#4ade80"
@@ -100,6 +107,7 @@ RED = "#f87171"
 
 FONT_FAMILY = "Consolas"
 
+# Mapped Parameters: Facial Morph Target Structural Elements
 FACE_PARAMS = {
     "\U0001F441  Eyes": [
         ("EyeLidRight", 0.0, 1.0, 1.0),
@@ -138,7 +146,7 @@ FACE_PARAMS = {
         ("LipFunnelUpper", 0.0, 1.0, 0.0),
         ("LipFunnelLower", 0.0, 1.0, 0.0),
     ],
-    "\U0001F624 Cheek / Nose": [
+    "\U0001F443 Cheek / Nose": [
         ("CheekPuffRight", 0.0, 1.0, 0.0),
         ("CheekPuffLeft", 0.0, 1.0, 0.0),
         ("CheekSuckRight", 0.0, 1.0, 0.0),
@@ -158,10 +166,7 @@ FACE_PARAMS = {
     ],
 }
 
-
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# UI CONTROLLER
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# Layout Engine: Core Interactive Viewport Manager Pipeline
 class OscFaceController(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -171,9 +176,6 @@ class OscFaceController(tk.Tk):
         self._build_ui()
         self._set_stopped()
 
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# Setup
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
     def _configure_window(self) -> None:
         self.title("OSC Face Tracking Controller")
         self.configure(bg=BG)
@@ -195,9 +197,7 @@ class OscFaceController(tk.Tk):
         self.f_small = font.Font(family=FONT_FAMILY, size=8)
         self.f_btn = font.Font(family=FONT_FAMILY, size=9, weight="bold")
 
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# UI Builders
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+    # Factory Function: Fixed Aspect-Ratio Square Button
     @staticmethod
     def _square_button(parent: tk.Widget, text: str, command, base_size: int = 28) -> tk.Frame:
         container = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
@@ -318,7 +318,6 @@ class OscFaceController(tk.Tk):
         )
         prefix_entry.pack(side="left", padx=(4, 4))
 
-        # Preset dropdown
         preset_var = tk.StringVar(value=list(PREFIX_PRESETS.keys())[0])
 
         def _on_preset_select(*_args) -> None:
@@ -551,6 +550,7 @@ class OscFaceController(tk.Tk):
         )
         self._footer_label.pack(side="left", padx=16)
 
+    # Window View: Help and Tutorial Modal Overlay Viewport Context
     def _open_help(self) -> None:
         help_win = tk.Toplevel(self)
         help_win.title("OSC Face Tracking - Help")
@@ -682,9 +682,6 @@ class OscFaceController(tk.Tk):
 
         show_page(0)
 
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# OSC
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
     def _update_connection_buttons(self) -> None:
         if not hasattr(self, "_start_btn"):
             return
