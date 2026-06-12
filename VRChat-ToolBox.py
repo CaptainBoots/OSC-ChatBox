@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.3.0"
+VERSION = "9.3.1"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -665,9 +665,11 @@ def check_for_updates(silent=False):
     remote_url = info["url"]
 
     try:
-        with open(os.path.abspath(__file__), "r", encoding="utf-8") as f:
+        # FIX: Changed to os.path.realpath to follow links, and added errors="ignore"
+        # to prevent crashing on computers with non-English system locales/encodings.
+        with open(os.path.realpath(__file__), "r", encoding="utf-8", errors="ignore") as f:
             local_text = f.read()
-    except OSError:
+    except Exception:
         local_text = ""
 
     local_norm = local_text.replace("\r\n", "\n")
@@ -682,7 +684,10 @@ def check_for_updates(silent=False):
         if remote_newer:
             print(f"[VRChat-Tools] Update available: {VERSION} -> {remote_version}")
             if os.path.exists(TOOLBOX_CONFIG_FILE):
-                os.remove(TOOLBOX_CONFIG_FILE)
+                try:
+                    os.remove(TOOLBOX_CONFIG_FILE)
+                except Exception:
+                    pass
             prompt = (
                 f"New version {remote_version} is available (you have {VERSION}).\n\n"
                 "Update and restart now?"
@@ -708,7 +713,6 @@ def check_for_updates(silent=False):
 
     if not silent and not main_update_available and not any_tool_updated:
         messagebox.showinfo("Up to Date", f"You're on the latest version ({VERSION}).")
-
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # GUI
