@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.2.2"
+VERSION = "9.2.3"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -91,7 +91,7 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
-if VERSION == "9.2.2":
+if VERSION == "9.2.3":
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             os.remove(TOOLBOX_CONFIG_FILE)
@@ -167,6 +167,42 @@ SUBFOLDER_SCRIPT_MAP = {
         "remote_path": "OSC-Chatbox/main.py",
         "local_path":  os.path.join("OSC-Chatbox", "main.py"),
     },
+}
+TOOL_DEPENDENCIES_MAP = {
+    "OSC-Chatbox/main.py": [
+        # Sibling files in the main folder
+        "OSC-Chatbox/__init__.py",
+        "OSC-Chatbox/config.py",
+        "OSC-Chatbox/gpu_ids.py",
+        "OSC-Chatbox/osc_loop.py",
+        "OSC-Chatbox/state.py",
+
+        # Hardware module
+        "OSC-Chatbox/hardware/__init__.py",
+        "OSC-Chatbox/hardware/cpu.py",
+        "OSC-Chatbox/hardware/gpu.py",
+        "OSC-Chatbox/hardware/lhm.py",
+        "OSC-Chatbox/hardware/memory.py",
+
+        # Modules module
+        "OSC-Chatbox/modules/__init__.py",
+        "OSC-Chatbox/modules/registry.py",
+
+        # Monitors module
+        "OSC-Chatbox/monitors/__init__.py",
+        "OSC-Chatbox/monitors/media.py",
+        "OSC-Chatbox/monitors/network.py",
+        "OSC-Chatbox/monitors/weather.py",
+
+        # UI module
+        "OSC-Chatbox/ui/__init__.py",
+        "OSC-Chatbox/ui/app.py",
+        "OSC-Chatbox/ui/builder.py",
+        "OSC-Chatbox/ui/chatbox_tab.py",
+        "OSC-Chatbox/ui/help_dialog.py",
+        "OSC-Chatbox/ui/settings_dialog.py",
+        "OSC-Chatbox/ui/theme.py",
+    ],
 }
 
 # Per-tool config files to wipe on update (paths relative to TOOLS_ROOT_DIR).
@@ -268,6 +304,42 @@ def _script_bundle_candidates(filename: str) -> list[str]:
     return list(dict.fromkeys(candidates))
 
 
+def launch_script(filename: str) -> None:
+    """Ensures the target script exists/is updated, then launches it in a separate process."""
+    footer_label.config(text=f"Starting up {filename}...")
+    root.update_idletasks()
+
+    # 1. Make sure the script and its dependencies exist locally
+    if not ensure_script(filename, show_errors=True):
+        footer_label.config(text="Error preparing script")
+        return
+
+    # 2. Resolve local execution paths
+    _, dest_path = _script_paths(filename)
+    script_dir = os.path.dirname(dest_path)
+
+    try:
+        # 3. Launch script via current Python interpreter in a detached environment
+        # Uses sys.executable to ensure it runs on the exact same Python env (like virtual envs)
+        p = subprocess.Popen(
+            [sys.executable, os.path.basename(dest_path)],
+            cwd=script_dir,
+            creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
+        )
+        _processes.append(p)  # Keep track of the process handle
+
+        print(f"[Launcher] Successfully started {filename} (PID: {p.pid})")
+        footer_label.config(text="Ready")
+
+    except Exception as e:
+        print(f"[Launcher] Failed to execute {filename}: {e}")
+        footer_label.config(text="Error launching script")
+        messagebox.showerror(
+            "Launch Error",
+            f"Failed to start {filename}.\n\nTechnical details:\n{e}"
+        )
+
+
 def _script_paths(filename: str) -> tuple[str, str]:
     if filename in SUBFOLDER_SCRIPT_MAP:
         local_path = SUBFOLDER_SCRIPT_MAP[filename]["local_path"]
@@ -294,8 +366,13 @@ _migrate_legacy_layout()
 
 def ensure_script(filename: str, show_errors: bool = False) -> bool:
     bundled_path, dest_path = _script_paths(filename)
+    dependencies = TOOL_DEPENDENCIES_MAP.get(filename, [])
 
-    if os.path.isfile(dest_path):
+    # Check if the main file and all of its dependency files exist locally
+    main_file_exists = os.path.isfile(dest_path)
+    deps_exist = all(os.path.isfile(os.path.join(TOOLS_ROOT_DIR, dep.replace("/", os.sep))) for dep in dependencies)
+
+    if main_file_exists and deps_exist:
         return True
 
     try:
@@ -327,6 +404,26 @@ def ensure_script(filename: str, show_errors: bool = False) -> bool:
             with open(dest_path, "w", encoding="utf-8") as f:
                 f.write(remote_text)
             print(f"[{filename}] Downloaded to {dest_path}")
+
+            # Download all associated project dependency files
+            for dep in dependencies:
+                dep_url = f"{GITHUB_BASE_URL}{dep}"
+                dep_dest = os.path.join(TOOLS_ROOT_DIR, dep.replace("/", os.sep))
+                os.makedirs(os.path.dirname(dep_dest), exist_ok=True)
+                try:
+                    dep_resp = requests.get(
+                        dep_url,
+                        timeout=10,
+                        params={"_": int(time.time())},
+                        headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
+                    )
+                    dep_resp.raise_for_status()
+                    with open(dep_dest, "w", encoding="utf-8") as df:
+                        df.write(dep_resp.text)
+                    print(f"[{filename}] Downloaded dependency: {dep_dest}")
+                except requests.RequestException as dep_err:
+                    print(f"[{filename}] Failed to download dependency {dep_url}: {dep_err}")
+
             return True
         except OSError as e:
             print(f"[{filename}] Could not save downloaded script: {e}")
@@ -389,6 +486,26 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
             lf.write(remote_text)
         print(f"[{filename}] Updated: {local_version} -> {remote_version}")
 
+        # Update dependency submodules as well
+        dependencies = TOOL_DEPENDENCIES_MAP.get(filename, [])
+        for dep in dependencies:
+            dep_url = f"{GITHUB_BASE_URL}{dep}"
+            dep_dest = os.path.join(TOOLS_ROOT_DIR, dep.replace("/", os.sep))
+            os.makedirs(os.path.dirname(dep_dest), exist_ok=True)
+            try:
+                dep_resp = requests.get(
+                    dep_url,
+                    timeout=10,
+                    params={"_": int(time.time())},
+                    headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
+                )
+                dep_resp.raise_for_status()
+                with open(dep_dest, "w", encoding="utf-8") as df:
+                    df.write(dep_resp.text)
+                print(f"[{filename}] Updated dependency: {dep_dest}")
+            except requests.RequestException as dep_err:
+                print(f"[{filename}] Failed to update dependency {dep_url}: {dep_err}")
+
         # Wipe any tool-specific config files so stale config doesn't break the new version
         for relative_cfg in TOOL_CONFIG_WIPE_MAP.get(filename, []):
             cfg_path = os.path.join(TOOLS_ROOT_DIR, relative_cfg)
@@ -406,64 +523,8 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
             )
         return True
     except OSError as e:
-        print(f"[{filename}] Failed to write update: {e}")
-        if not silent:
-            messagebox.showerror(
-                f"{filename} Update Failed",
-                f"Could not update {filename}:\n{e}"
-            )
+        print(f"[{filename}] Could not save updated script: {e}")
         return False
-
-
-def _get_system_python():
-    # Helper fallback method to return system platform execution contexts.
-    return sys.executable
-
-
-def launch_script(filename: str) -> None:
-    global _processes
-
-    if not ensure_script(filename, show_errors=True):
-        return
-
-    script_label = next((s["label"] for s in MANAGED_SCRIPTS if s["filename"] == filename), filename)
-
-    _, dest_path = _script_paths(filename)
-    work_dir = os.path.dirname(dest_path)
-    try:
-        footer_label.config(text=f"Starting up ({script_label})")
-
-        if dest_path.lower().endswith('.exe'):
-            proc = subprocess.Popen(
-                [dest_path],
-                cwd=work_dir,
-            )
-        else:
-            if getattr(sys, 'frozen', False):
-                python_exe = _get_system_python()
-                if not python_exe:
-                    messagebox.showerror(
-                        f"{filename} Error",
-                        "Could not find Python interpreter to run script.\n"
-                        "Please ensure Python 3.10+ is installed."
-                    )
-                    return
-            else:
-                python_exe = sys.executable
-
-            proc = subprocess.Popen(
-                [python_exe, dest_path],
-                cwd=work_dir,
-            )
-
-        _processes.append(proc)
-        _processes[:] = [p for p in _processes if p.poll() is None]
-
-        root.after(2000, _set_footer_ready, None)
-    except Exception as e:
-        footer_label.config(text="Error")
-        messagebox.showerror(f"{filename} Error", f"Failed to start {filename}:\n{e}")
-
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # UPDATER
