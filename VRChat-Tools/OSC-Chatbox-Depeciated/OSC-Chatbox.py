@@ -60,30 +60,29 @@ def install_if_missing(package, import_name=None):
 install_if_missing("python-osc==1.9.3", "pythonosc")
 install_if_missing("psutil==7.2.2", "psutil")
 install_if_missing("requests==2.32.5", "requests")
+install_if_missing("pillow==12.2.0", "PIL")
 
 if sys.platform == "win32":
     install_if_missing("winrt-Windows.Media.Control==3.2.1", "winrt")
     install_if_missing("winrt-windows.foundation==3.2.1", "winrt.windows.foundation")
-    install_if_missing(
-        "winrt-windows.foundation.collections==3.2.1",
-        "winrt.windows.foundation.collections",
-    )
+    install_if_missing("winrt-windows.foundation.collections==3.2.1","winrt.windows.foundation.collections")
+    import winrt.windows.media.control as wmc
+else:
+    wmc = None
 
+from PIL import Image, ImageDraw, ImageTk
 import psutil
 from pythonosc.udp_client import SimpleUDPClient
 import requests
 
-if sys.platform == "win32":
-    import winrt.windows.media.control as wmc
-else:
-    wmc = None
+
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "7.9.3"
+VERSION = "7.9.4"
 
 
 class CPUManufacturer(Enum):
@@ -473,7 +472,6 @@ gpu_id_map = {
     "10de:2c58": "GeForce RTX 5090 Laptop",
     "10de:2c59": "GeForce RTX 5080 Laptop",
     "10de:2d04": "GeForce RTX 5060 Ti",
-    "1002:13c0": "GeForce RTX 5060 Ti",
     "10de:2d05": "GeForce RTX 5060",
     "10de:2d18": "GeForce RTX 5070 Laptop",
     "10de:2d19": "GeForce RTX 5060 Laptop",
@@ -692,7 +690,6 @@ gpu_id_map = {
     "10de:1402": "GeForce GTX 950",
     "10de:1427": "GeForce GTX 965M",
     "10de:1340": "GeForce 830M",
-    "10de:1341": "GeForce 840M",
     "10de:1347": "GeForce 940M",
     "10de:134b": "GeForce 940MX",
     "10de:134d": "GeForce 940MX",
@@ -711,7 +708,6 @@ gpu_id_map = {
     "10de:139a": "GeForce GTX 950M",
     "10de:139b": "GeForce GTX 960M",
     "10de:1391": "GeForce GTX 850M",
-    "10de:1392": "GeForce GTX 860M",
     "10de:139c": "GeForce 940M",
     "10de:139d": "GeForce GTX 750 Ti",
 
@@ -726,8 +722,6 @@ gpu_id_map = {
     "10de:100c": "GeForce GTX Titan Black",
     "10de:1187": "GeForce GTX 770",
     "10de:1184": "GeForce GTX 770",
-    "10de:1189": "GeForce GTX 760",
-    "10de:1187": "GeForce GTX 760",
     "10de:11fc": "GeForce GTX 760 Ti OEM",
     "10de:1380": "GeForce GTX 750 Ti",
     "10de:1381": "GeForce GTX 750",
@@ -868,8 +862,6 @@ gpu_id_map = {
     "1002:7422": "Radeon PRO W6400 / RX 6300",      # Navi 24
     "1002:7423": "Radeon PRO W6300 / W6300M",
     "1002:7424": "Radeon RX 6300",
-    "1002:743f": "Radeon RX 6400 / 6500 XT / 6500M",
-    "1002:7421": "Radeon PRO W6500M",
     "1002:73e1": "Radeon PRO W6600M",               # original label was "RX 6700M Laptop"
     "1002:73e3": "Radeon PRO W6600",
     "1002:73ef": "Radeon RX 6650 XT / 6700S / 6800S",
@@ -972,7 +964,6 @@ gpu_id_map = {
     # AMD — R9 200 / HD 7000 series (Hawaii / Pitcairn / Tahiti)
     # ══════════════════════════════════════════════════════════════
     "1002:679e": "Radeon HD 7870 XT",
-    "1002:68b8": "Radeon HD 5770 / R7 260X",        # Juniper XT
     "1002:6658": "Radeon R7 260X / 360",            # Bonaire XTX
     "1002:665c": "Radeon HD 7790 / R7 360 / R9 260",
     "1002:665d": "Radeon R7 200 Series",
@@ -1069,7 +1060,6 @@ gpu_id_map = {
     "8086:56c0": "Intel Arc (Data Center GPU Flex 170)",
     "8086:56c1": "Intel Arc (Data Center GPU Flex 140)",
     "8086:56c2": "Intel Arc (Data Center GPU Flex 170V)",
-    # DG1 (Xe MAX)
     "8086:4905": "Intel Iris Xe MAX Graphics",
     "8086:4906": "Intel Iris Xe MAX (Pod)",
     "8086:4908": "Intel Iris Xe Graphics (DG1)",
@@ -1187,6 +1177,28 @@ gpu_id_map = {
     "8086:87ca": "Intel UHD Graphics 617",
     "8086:3184": "Intel UHD Graphics 605 (Gemini Lake)",
     "8086:3185": "Intel UHD Graphics 600 (Gemini Lake)",
+
+    # ══════════════════════════════════════════════════════════════
+    # AMD — Radeon 600M / 700M / 800M (RDNA 2 / 3 / 3.5 — Strix / Phoenix / Rembrandt / Mendocino)
+    # ══════════════════════════════════════════════════════════════
+    "1002:150e": "AMD Radeon 880M / 890M (Strix Point)",
+    "1002:15bf": "AMD Radeon 760M / 780M (Phoenix)",
+    "1002:1900": "AMD Radeon 740M / 760M / 780M (Hawk Point)",
+    "1002:1681": "AMD Radeon 660M / 680M (Rembrandt)",
+    "1002:1506": "AMD Radeon 610M (Mendocino)",
+    "1002:164e": "AMD Radeon Graphics (Raphael — Ryzen 7000/9000 Desktop)",
+    "1002:13c0": "AMD Radeon Graphics (Granite Ridge — Ryzen 9000 Desktop)",
+    "1002:163f": "AMD Custom GPU (Van Gogh — Steam Deck)",
+
+    # ══════════════════════════════════════════════════════════════
+    # AMD — Radeon RX Vega Series (Vega — Cezanne / Renoir / Barcelo / Picasso / Raven)
+    # ══════════════════════════════════════════════════════════════
+    "1002:1638": "AMD Radeon Vega Series (Cezanne)",
+    "1002:1636": "AMD Radeon Vega Series (Renoir)",
+    "1002:164c": "AMD Radeon Vega Series (Lucienne)",
+    "1002:15e7": "AMD Radeon Vega Series (Barcelo)",
+    "1002:15d8": "AMD Radeon Vega Series (Picasso / Raven 2)",
+    "1002:15dd": "AMD Radeon Vega Series (Raven Ridge)",
 }
 
 def _linux_detect_gpu_pci_id():
@@ -2894,8 +2906,7 @@ def restart_script():
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 class CircleToggle(tk.Canvas):
-
-    SIZE = 22
+    SIZE = 25
     PAD = 3
     COLOR = "#a78bfa"
 
@@ -2908,18 +2919,42 @@ class CircleToggle(tk.Canvas):
             **kwargs
         )
         self._enabled = enabled
+        self._image_cache = {}
         self._draw()
         self.bind("<Button-1>", self._on_click)
 
+    def _get_smooth_circle(self, filled):
+        cache_key = "filled" if filled else "outline"
+        if cache_key in self._image_cache:
+            return self._image_cache[cache_key]
+
+        # 1. Draw at 4x size for high-res details
+        scale = 4
+        big_size = self.SIZE * scale
+        big_pad = self.PAD * scale
+
+        # Create a transparent canvas image
+        img = Image.new("RGBA", (big_size, big_size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+
+        cords = [big_pad, big_pad, big_size - big_pad, big_size - big_pad]
+
+        if filled:
+            draw.ellipse(cords, fill=self.COLOR)
+        else:
+            draw.ellipse(cords, outline=self.COLOR, width=2 * scale)
+
+        smooth_img = img.resize((self.SIZE, self.SIZE), Image.Resampling.LANCZOS)
+
+        tk_img = ImageTk.PhotoImage(smooth_img)
+        self._image_cache[cache_key] = tk_img
+        return tk_img
+
     def _draw(self):
         self.delete("all")
-        p, s = self.PAD, self.SIZE
-        if self._enabled:
-            self.create_oval(p, p, s - p, s - p,
-                             fill=self.COLOR, outline=self.COLOR)
-        else:
-            self.create_oval(p, p, s - p, s - p,
-                             fill="", outline=self.COLOR, width=2)
+        center = self.SIZE // 2
+        circle_image = self._get_smooth_circle(self._enabled)
+        self.create_image(center, center, image=circle_image, anchor="center")
 
     def _on_click(self, _event=None):
         self._enabled = not self._enabled
@@ -2951,9 +2986,9 @@ progress_empty_char = normalize_progress_char(
 page4_ascii_enabled = bool(cfg.get("page4_ascii", False))
 media_title_trim_enabled = bool(cfg.get("media_title_trim", True))
 
-# UI Color Palette Configurations (Unified Theme)
 BG = "#0f0f13"
 PANEL = "#1f102a"
+LIGHTPANEL  = "#1f102a"
 BORDER = "#2a2a38"
 ACCENT = "#9D00FF"
 ACCENT2 = "#b44bff"
@@ -2962,10 +2997,6 @@ TEXT2 = "#E0E0E0"
 SUBTEXT = "#7e7b9a"
 GREEN = "#4ade80"
 RED = "#f87171"
-FG = TEXT
-ENTRY_BG = PANEL
-BTN_BG = PANEL
-BTN_FG = TEXT
 UI_FONT = "Consolas"
 
 # Dynamic Scaling Variables
@@ -3160,7 +3191,7 @@ def open_settings():
         tk.Button(
             content_frame,
             text="Reset to Defaults",
-            bg=BTN_BG,
+            bg=PANEL,
             fg=SUBTEXT,
             relief="flat",
             activebackground=BORDER,
@@ -3186,19 +3217,19 @@ def open_settings():
         # Glyph String Input Parameters Interface Form Input Data Boxes
         filled_char_entry = tk.Entry(
             chars_frame, width=4, justify="center",
-            bg=ENTRY_BG, fg=TEXT, insertbackground=ACCENT, relief="flat",
+            bg=PANEL, fg=TEXT, insertbackground=ACCENT, relief="flat",
             font=(UI_FONT, 9), highlightthickness=1,
             highlightbackground=BORDER, highlightcolor=ACCENT
         )
         border_char_entry = tk.Entry(
             chars_frame, width=4, justify="center",
-            bg=ENTRY_BG, fg=TEXT, insertbackground=ACCENT, relief="flat",
+            bg=PANEL, fg=TEXT, insertbackground=ACCENT, relief="flat",
             font=(UI_FONT, 9), highlightthickness=1,
             highlightbackground=BORDER, highlightcolor=ACCENT
         )
         empty_char_entry = tk.Entry(
             chars_frame, width=4, justify="center",
-            bg=ENTRY_BG, fg=TEXT, insertbackground=ACCENT, relief="flat",
+            bg=PANEL, fg=TEXT, insertbackground=ACCENT, relief="flat",
             font=(UI_FONT, 9), highlightthickness=1,
             highlightbackground=BORDER, highlightcolor=ACCENT
         )
@@ -3401,7 +3432,7 @@ def open_settings():
 
     # Settings Window Previous Page Pagination Control Button
     prev_btn = tk.Button(
-        nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        nav_frame, text="← Back", bg=PANEL, fg=TEXT, relief="flat", width=10,
         command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
                          show_page(current_page[0]))
     )
@@ -3421,7 +3452,7 @@ def open_settings():
 
     # Settings Window Next Page/Finish Progression Action Button (Dark Text on Accent)
     next_btn = tk.Button(
-        nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        nav_frame, text="Next →", bg=PANEL, fg=TEXT, relief="flat", width=10,
         command=next_or_finish
     )
     next_btn.grid(row=0, column=2, sticky="e")
@@ -3595,7 +3626,7 @@ def open_help():
 
     # Help Window Previous Page Pagination Control Button
     prev_btn = tk.Button(
-        nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        nav_frame, text="← Back", bg=PANEL, fg=TEXT, relief="flat", width=10,
         command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
                          show_page(current_page[0]))
     )
@@ -3615,7 +3646,7 @@ def open_help():
 
     # Help Window Next Page/Finish Progression Action Button (Dark Text on Accent)
     next_btn = tk.Button(
-        nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        nav_frame, text="Next →", bg=PANEL, fg=TEXT, relief="flat", width=10,
         command=next_or_finish
     )
     next_btn.grid(row=0, column=2, sticky="e")
@@ -3641,7 +3672,7 @@ def dark_label(text, r, **kwargs):
 def dark_entry(r, default=""):
     e = tk.Entry(
         frame,
-        bg=ENTRY_BG,
+        bg=PANEL,
         fg=TEXT,
         insertbackground=ACCENT,
         relief="flat",
@@ -3657,14 +3688,14 @@ def dark_entry(r, default=""):
 
 # Factory Function: Fixed Aspect-Ratio Square Button
 def square_button(parent, text, command, base_size=32):
-    container = tk.Frame(parent, bg=BTN_BG, highlightthickness=1, highlightbackground=BORDER)
+    container = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
     container.pack_propagate(False)
 
     btn = tk.Button(
         container,
         text=text,
         command=command,
-        bg=BTN_BG,
+        bg=PANEL,
         fg=SUBTEXT,
         relief="flat",
         borderwidth=0,
@@ -3791,11 +3822,11 @@ tk.Button(
     button_frame,
     text="Start",
     command=start_script,
-    bg=ACCENT,
-    fg=BG,
+    bg=PANEL,
+    fg=SUBTEXT,
     relief="flat",
-    activebackground=ACCENT2,
-    activeforeground=BG,
+    activebackground=BORDER,
+    activeforeground=TEXT,
     cursor="hand2",
     font=(UI_FONT, 9, "bold"),
 ).grid(row=0, column=0, sticky="ew", padx=2)
@@ -3805,7 +3836,7 @@ tk.Button(
     button_frame,
     text="Stop",
     command=stop_script,
-    bg=BTN_BG,
+    bg=PANEL,
     fg=SUBTEXT,
     relief="flat",
     activebackground=BORDER,
@@ -3819,7 +3850,7 @@ tk.Button(
     button_frame,
     text="Restart",
     command=restart_script,
-    bg=BTN_BG,
+    bg=PANEL,
     fg=SUBTEXT,
     relief="flat",
     activebackground=BORDER,

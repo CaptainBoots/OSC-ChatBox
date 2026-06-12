@@ -1,25 +1,25 @@
-
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import subprocess
 import os
 
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 
 print("VRChat Launcher")
 print("Made By Boots")
 print(f"Version {VERSION}")
 
-BG = "#0f0f13"
-PANEL = "#17171f"
-PANEL2 = "#1f1f2b"
-BORDER = "#2a2a3d"
-TEXT = "#e8e4ff"
-SUBTEXT = "#8878cc"
-ACCENT = "#7c5cfc"
-ACCENT2 = "#5c3fd4"
-GREEN = "#4cff91"
-RED = "#ff4c6a"
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# GUI CONFIGURATION & GRAPHICAL INTERFACE
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+# UI Color Palette Configurations (Unified Theme)
+
+
+PANEL2 = "#29163a"
+
+
 YELLOW = "#ffd166"
 CYAN = "#4cf5ff"
 BTN_BG = "#252535"
@@ -30,8 +30,21 @@ FONT_SMALL = (UI_FONT, 9)
 FONT_LABEL = (UI_FONT, 10, "bold")
 FONT_BIG = (UI_FONT, 14, "bold")
 
+BG = "#0f0f13"
+PANEL = "#1f102a"
+LIGHTPANEL  = "#1f102a"
+BORDER = "#2a2a38"
+ACCENT = "#9D00FF"
+ACCENT2 = "#b44bff"
+TEXT = "#e2e0f0"
+TEXT2 = "#E0E0E0"
+SUBTEXT = "#7e7b9a"
+GREEN = "#4ade80"
+RED = "#f87171"
+UI_FONT  = "Consolas"
+
 DEFAULT_LAUNCH_EXE = r"C:\Program Files (x86)\Steam\steamapps\common\VRChat\launch.exe"
-PROFILE_COLORS = ["#7c5cfc", "#4cf5ff", "#4cff91", "#ffd166", "#ff4c6a", "#a87fff", "#ff9f45", "#ff6eb4"]
+PROFILE_COLORS = ["#9D00FF", "#b44bff", "#4cf5ff", "#4cff91", "#ffd166", "#ff4c6a", "#a87fff", "#ff6eb4"]
 
 LIMIT_NOTE = (
     "VRChat limits 3 simultaneous instances per public IP address.\n"
@@ -41,6 +54,7 @@ LIMIT_NOTE = (
     "  Run extra instances on a different network/hotspot\n\n"
     "The limit is per public IP, not per machine."
 )
+
 
 def default_profile(idx):
     return {
@@ -52,6 +66,8 @@ def default_profile(idx):
         "exe_args": ""
     }
 
+
+# Helper Component: Visual Status Circular Signal Indicator
 class Dot(tk.Canvas):
     def __init__(self, parent, **kw):
         super().__init__(parent, width=10, height=10, bg=parent["bg"], highlightthickness=0, **kw)
@@ -62,6 +78,8 @@ class Dot(tk.Canvas):
         self.create_oval(1, 1, 9, 9, fill=c, outline="")
     def set(self, s): self._s = s; self._draw()
 
+
+# Layout Engine: Core Interactive Viewport Manager Pipeline
 class VRCLauncherApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -77,7 +95,7 @@ class VRCLauncherApp(tk.Tk):
         self._poll()
 
     def _build_ui(self):
-        # ─── TOP BAR ───────────────────────────────────────────────────────
+        # ─── TOP HEADER BAR ───────────────────────────────────────────────
         top_bar = tk.Frame(self, bg=PANEL, height=48)
         top_bar.pack(fill="x", side="top")
         top_bar.pack_propagate(False)
@@ -85,24 +103,24 @@ class VRCLauncherApp(tk.Tk):
         lbl_title = tk.Label(top_bar, text="🚀 VRChat Launcher", font=FONT_BIG, fg=TEXT, bg=PANEL)
         lbl_title.pack(side="left", padx=12, pady=8)
 
-        lbl_ver = tk.Label(top_bar, text="v0.0.1", font=(UI_FONT, 9, "italic"), fg=SUBTEXT, bg=PANEL)
+        lbl_ver = tk.Label(top_bar, text=f"v{VERSION}", font=(UI_FONT, 9, "italic"), fg=SUBTEXT, bg=PANEL)
         lbl_ver.pack(side="left", padx=(0, 12), pady=(14, 0))
 
-        # ─── WARNING BANNER ────────────────────────────────────────────────
+        # ─── WARNING NETWORK LIMIT BANNER ──────────────────────────────────
         wb = tk.Frame(self, bg="#1a1208")
         wb.pack(fill="x", padx=12, pady=(12, 4))
         tk.Label(wb, text="  ⚠  VRChat allows max 3 instances per public IP", font=FONT_SMALL, fg=YELLOW, bg="#1a1208").pack(side="left", padx=6, pady=6)
         tk.Button(wb, text="Why? / Workarounds", command=self._show_limit, bg=BTN_BG, fg=TEXT, relief="flat", font=FONT_SMALL, cursor="hand2").pack(side="right", padx=6, pady=4)
 
-        # ─── MAIN CONTENT SPLIT ────────────────────────────────────────────
+        # ─── MAIN CONTENT VIEWPORT SPLIT ───────────────────────────────────
         main_split = tk.Frame(self, bg=BG)
         main_split.pack(fill="both", expand=True, padx=12, pady=6)
 
-        # Left Column: Profiles List
+        # Left Column: Profiles Interactive Grid
         self._pf = tk.Frame(main_split, bg=BG)
         self._pf.pack(side="left", fill="both", expand=True, padx=(0, 6))
 
-        # Right Column: Config Panel
+        # Right Column: Runtime Custom Config Inline Form Panel
         self._config_panel = tk.Frame(main_split, bg=PANEL, width=320, bd=1, relief="solid", highlightbackground=BORDER)
         self._config_panel.pack(side="right", fill="both", expand=False, padx=(6, 0))
         self._config_panel.pack_propagate(False)
@@ -111,12 +129,12 @@ class VRCLauncherApp(tk.Tk):
 
         self._rebuild_rows()
 
-        # Add Profile Button
+        # Workspace Global Modifiers
         ar = tk.Frame(self, bg=BG)
         ar.pack(fill="x", padx=12, pady=4)
         tk.Button(ar, text="+ Add Profile", command=self._add_profile, bg=ACCENT2, fg=TEXT, relief="flat", font=FONT_SMALL, cursor="hand2", padx=10).pack(side="left")
 
-        # ─── EXE CONFIG PATH BLOCK ─────────────────────────────────────────
+        # ─── CORE SYSTEM INTERNALS FILE SYSTEM LINK ────────────────────────
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=12, pady=8)
 
         ep_lbl = tk.Label(self, text="LAUNCH EXE PATH", font=FONT_LABEL, fg=SUBTEXT, bg=BG)
@@ -130,14 +148,13 @@ class VRCLauncherApp(tk.Tk):
 
         tk.Label(self, text="* Must use launch.exe — launching VRChat.exe directly forces offline test mode.", font=FONT_SMALL, fg=YELLOW, bg=BG).pack(anchor="w", padx=12, pady=(2, 12))
 
-        # ─── BOTTOM FOOTER BAR ─────────────────────────────────────────────
+        # ─── BOTTOM STATUS FOOTER BAR ──────────────────────────────────────
         footer_bar = tk.Frame(self, bg=PANEL, pady=6)
         footer_bar.pack(fill="x", side="bottom")
 
         self.lbl_status = tk.Label(footer_bar, text="Ready", font=FONT_SMALL, fg=SUBTEXT, bg=PANEL)
         self.lbl_status.pack(side="left", padx=12)
 
-        # Unused structural action hooks requested matching core setup style
         tk.Button(footer_bar, text="❓", command=self._help_click, bg=PANEL, fg=SUBTEXT, activebackground=PANEL, activeforeground=TEXT, relief="flat", font=(UI_FONT, 11), cursor="hand2").pack(side="right", padx=6)
         tk.Button(footer_bar, text="⚙", command=self._settings_click, bg=PANEL, fg=SUBTEXT, activebackground=PANEL, activeforeground=TEXT, relief="flat", font=(UI_FONT, 11), cursor="hand2").pack(side="right", padx=6)
 
@@ -287,6 +304,11 @@ class VRCLauncherApp(tk.Tk):
                 row["dot"].set("off")
                 row["pid"].config(text="Stopped", fg=SUBTEXT)
         self.after(1000, self._poll)
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ENTRY POINT
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 if __name__ == "__main__":
     VRCLauncherApp().mainloop()

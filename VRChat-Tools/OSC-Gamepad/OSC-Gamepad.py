@@ -49,7 +49,7 @@ from pythonosc import udp_client
 # CONSTANTS & CONFIG DATA
 # ══════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "gamepad_config.json")
@@ -163,9 +163,9 @@ class PadState:
 # GUI
 # ══════════════════════════════════════════════════════════════════════════════════════════#
 
-# UI Color Palette Configurations (Unified Theme)
 BG = "#0f0f13"
 PANEL = "#1f102a"
+LIGHTPANEL  = "#1f102a"
 BORDER = "#2a2a38"
 ACCENT = "#9D00FF"
 ACCENT2 = "#b44bff"
@@ -174,64 +174,59 @@ TEXT2 = "#E0E0E0"
 SUBTEXT = "#7e7b9a"
 GREEN = "#4ade80"
 RED = "#f87171"
-ENTRY_BG = PANEL
-BTN_BG = PANEL
-BTN_FG = TEXT
 UI_FONT = "Consolas"
 
-# Pad-specific button configurations
-BTN_IDLE  = "#1e1e2e"
-BTN_HOV   = "#2a2a3e"
-BTN_ACT   = ACCENT
+
+
 
 # Factory Function: Navigation Axis Movement Component Block
 def make_axis_btn(parent, label, action, state, font_size=13):
     b = tk.Label(parent, text=label, font=(UI_FONT, font_size, "bold"),
-                 width=2, height=1, fg=TEXT, bg=BTN_IDLE,
+                 width=2, height=1, fg=TEXT, bg=LIGHTPANEL,
                  relief="flat", cursor="hand2",
                  highlightthickness=1, highlightbackground=BORDER)
     b.bind("<ButtonPress-1>",   lambda e, a=action: state.press_axis(a))
     b.bind("<ButtonRelease-1>", lambda e, a=action: state.release_axis(a))
-    b.bind("<Enter>",  lambda e, w=b: w.config(bg=BTN_HOV))
-    b.bind("<Leave>",  lambda e, w=b, a=action: (state.release_axis(a), w.config(bg=BTN_IDLE)))
+    b.bind("<Enter>",  lambda e, w=b: w.config(bg=BORDER))
+    b.bind("<Leave>",  lambda e, w=b, a=action: (state.release_axis(a), w.config(bg=LIGHTPANEL)))
     return b
 
 # Factory Function: Standard Interactive Single Action Command Block
 def make_action_btn(parent, label, action, colour, state, width=5, height=2):
     b = tk.Label(parent, text=label, font=(UI_FONT, 8, "bold"),
-                 width=width, height=height, fg=colour, bg=BTN_IDLE,
+                 width=width, height=height, fg=colour, bg=LIGHTPANEL,
                  relief="flat", cursor="hand2",
                  highlightthickness=1, highlightbackground=colour)
-    b.bind("<ButtonPress-1>",   lambda e, a=action, w=b: (state.press_btn(a), w.config(bg=BTN_ACT)))
-    b.bind("<ButtonRelease-1>", lambda e, a=action, w=b: (state.release_btn(a), w.config(bg=BTN_IDLE)))
-    b.bind("<Enter>",  lambda e, w=b: w.config(bg=BTN_HOV))
-    b.bind("<Leave>",  lambda e, w=b, a=action: (state.release_btn(a), w.config(bg=BTN_IDLE)))
+    b.bind("<ButtonPress-1>",   lambda e, a=action, w=b: (state.press_btn(a), w.config(bg=ACCENT)))
+    b.bind("<ButtonRelease-1>", lambda e, a=action, w=b: (state.release_btn(a), w.config(bg=LIGHTPANEL)))
+    b.bind("<Enter>",  lambda e, w=b: w.config(bg=BORDER))
+    b.bind("<Leave>",  lambda e, w=b, a=action: (state.release_btn(a), w.config(bg=LIGHTPANEL)))
     return b
 
 # Factory Function: Interactive Bi-State Toggle Selection Block
 def make_toggle_btn(parent, label, param, colour, state, width=5, height=2):
     active = [False]
     b = tk.Label(parent, text=label, font=(UI_FONT, 8, "bold"),
-                 width=width, height=height, fg=colour, bg=BTN_IDLE,
+                 width=width, height=height, fg=colour, bg=LIGHTPANEL,
                  relief="flat", cursor="hand2",
                  highlightthickness=1, highlightbackground=colour)
     def click(e):
         result = state.toggle_avatar_param(param)
         active[0] = result
-        b.config(bg=BTN_ACT if result else BTN_IDLE)
+        b.config(bg=ACCENT if result else LIGHTPANEL)
     b.bind("<Button-1>", click)
-    b.bind("<Enter>", lambda e, w=b: w.config(bg=BTN_HOV if not active[0] else BTN_ACT))
-    b.bind("<Leave>", lambda e, w=b: w.config(bg=BTN_ACT if active[0] else BTN_IDLE))
+    b.bind("<Enter>", lambda e, w=b: w.config(bg=BORDER if not active[0] else ACCENT))
+    b.bind("<Leave>", lambda e, w=b: w.config(bg=ACCENT if active[0] else LIGHTPANEL))
     return b
 
 # Factory Function: Fixed Aspect-Ratio Square Button
 def square_button(parent, text, command, base_size=28):
-    container = tk.Frame(parent, bg=BTN_BG, highlightthickness=1,
+    container = tk.Frame(parent, bg=PANEL, highlightthickness=1,
                          highlightbackground=BORDER)
     container.pack_propagate(False)
     container.config(width=base_size, height=base_size)
     btn = tk.Button(container, text=text, command=command,
-                    bg=BTN_BG, fg=SUBTEXT, relief="flat", borderwidth=0,
+                    bg=PANEL, fg=SUBTEXT, relief="flat", borderwidth=0,
                     font=(UI_FONT, 12), activebackground=BORDER,
                     activeforeground=TEXT, cursor="hand2")
     btn.pack(fill="both", expand=True)
@@ -416,7 +411,7 @@ class PadCard(tk.Frame):
 
         def entry(default, width):
             e = tk.Entry(cfg_row, font=(UI_FONT, 9), width=width,
-                         bg=ENTRY_BG, fg=TEXT, insertbackground=ACCENT,
+                         bg=PANEL, fg=TEXT, insertbackground=ACCENT,
                          relief="flat", highlightthickness=1,
                          highlightbackground=BORDER, highlightcolor=ACCENT)
             e.insert(0, default)
@@ -538,7 +533,7 @@ def open_settings(root):
     footer = tk.Frame(win, bg=PANEL, pady=8)
     footer.pack(fill="x")
     tk.Button(footer, text="Close", command=win.destroy,
-              bg=BTN_BG, fg=SUBTEXT, relief="flat",
+              bg=PANEL, fg=SUBTEXT, relief="flat",
               activebackground=BORDER, activeforeground=TEXT,
               cursor="hand2", font=(UI_FONT, 9, "bold"),
               padx=12).pack(side="right", padx=8)
@@ -713,7 +708,7 @@ def open_help(root):
 
     # Help Window Previous Page Pagination Control Button
     prev_btn = tk.Button(
-        nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        nav_frame, text="← Back", bg=PANEL, fg=TEXT, relief="flat", width=10,
         command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
                          show_page(current_page[0]))
     )
@@ -733,7 +728,7 @@ def open_help(root):
 
     # Help Window Next Page/Finish Progression Action Button (Dark Text on Accent)
     next_btn = tk.Button(
-        nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        nav_frame, text="Next →", bg=PANEL, fg=TEXT, relief="flat", width=10,
         command=next_or_finish
     )
     next_btn.grid(row=0, column=2, sticky="e")

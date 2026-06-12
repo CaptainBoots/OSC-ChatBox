@@ -61,7 +61,7 @@ from pythonosc.udp_client import SimpleUDPClient
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 print("OSC Router")
 print("Made By Boots")
@@ -273,17 +273,17 @@ cfg    = load_config()
 # THEME
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-BG      = "#0f0f13"
-PANEL   = "#17171f"
-BORDER  = "#2a2a38"
-ACCENT  = "#7c5cfc"
-ACCENT2 = "#a78bfa"
-TEXT    = "#e2e0f0"
+BG = "#0f0f13"
+PANEL = "#1f102a"
+LIGHTPANEL  = "#1f102a"
+BORDER = "#2a2a38"
+ACCENT = "#9D00FF"
+ACCENT2 = "#b44bff"
+TEXT = "#e2e0f0"
+TEXT2 = "#E0E0E0"
 SUBTEXT = "#7e7b9a"
-GREEN   = "#4ade80"
-RED     = "#f87171"
-ROW_BG  = "#1a1a26"   # slightly lighter than BG for source cards
-ENTRY_BG = "#1c1c2a"
+GREEN = "#4ade80"
+RED = "#f87171"
 UI_FONT  = "Consolas"
 
 
@@ -519,43 +519,43 @@ def add_row(name: str = "New Source", port: int = 9010) -> dict:
     """Create a source row, append it to _rows, return its data dict."""
 
     frm = tk.Frame(
-        _src_frame, bg=ROW_BG,
+        _src_frame, bg=PANEL,
         highlightthickness=1, highlightbackground=BORDER,
     )
     frm.pack(fill="x", pady=3)
 
     # Drag handle
-    handle = tk.Label(frm, text="≡", bg=ROW_BG, fg=SUBTEXT,
+    handle = tk.Label(frm, text="≡", bg=PANEL, fg=SUBTEXT,
                       font=(UI_FONT, 14), cursor="fleur", padx=6)
     handle.pack(side="left")
 
     # Priority badge
-    pri_lbl = tk.Label(frm, text="#?", bg=ROW_BG, fg=ACCENT,
+    pri_lbl = tk.Label(frm, text="#?", bg=PANEL, fg=ACCENT,
                        font=(UI_FONT, 8, "bold"), width=3)
     pri_lbl.pack(side="left")
 
     # Name entry
     name_var = tk.StringVar(value=name)
     tk.Entry(
-        frm, textvariable=name_var, bg=ENTRY_BG, fg=TEXT,
+        frm, textvariable=name_var, bg=BORDER, fg=TEXT,
         insertbackground=ACCENT, relief="flat", font=(UI_FONT, 9),
         highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
         width=14,
     ).pack(side="left", padx=(6, 8), ipady=4)
 
     # Port
-    tk.Label(frm, text="Port", bg=ROW_BG, fg=SUBTEXT,
+    tk.Label(frm, text="Port", bg=PANEL, fg=SUBTEXT,
              font=(UI_FONT, 8)).pack(side="left")
     port_var = tk.StringVar(value=str(port))
     tk.Entry(
-        frm, textvariable=port_var, bg=ENTRY_BG, fg=TEXT,
+        frm, textvariable=port_var, bg=BORDER, fg=TEXT,
         insertbackground=ACCENT, relief="flat", font=(UI_FONT, 9),
         highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
         width=7,
     ).pack(side="left", padx=(4, 10), ipady=4)
 
     # Status / rx counter
-    stats_lbl = tk.Label(frm, text="● offline", bg=ROW_BG, fg=SUBTEXT,
+    stats_lbl = tk.Label(frm, text="● offline", bg=PANEL, fg=SUBTEXT,
                           font=(UI_FONT, 7), width=13, anchor="w")
     stats_lbl.pack(side="left")
 
@@ -568,7 +568,7 @@ def add_row(name: str = "New Source", port: int = 9010) -> dict:
 
     tk.Button(
         frm, text="×", command=_rm,
-        bg=ROW_BG, fg=RED, relief="flat",
+        bg=PANEL, fg=RED, relief="flat",
         activebackground=BORDER, activeforeground=RED,
         cursor="hand2", font=(UI_FONT, 11, "bold"), padx=8, pady=2,
     ).pack(side="right")
