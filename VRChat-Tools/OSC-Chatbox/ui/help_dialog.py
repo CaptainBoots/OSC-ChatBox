@@ -29,9 +29,7 @@ HELP_PAGES = [
         "title": "The Builder Tab",
         "content": (
             "The Builder tab is where you design your pages.\n\n"
-            "Left panel — Module Palette:\n"
-            "  All available data modules grouped by category.\n"
-            "  Click any module to add it to the selected page.\n\n"
+            "  All available data modules grouped by category.\n\n"
             "Right panel — Pages:\n"
             "  Each page is a card. Slots inside it are the lines\n"
             "  sent to VRChat in order.\n\n"

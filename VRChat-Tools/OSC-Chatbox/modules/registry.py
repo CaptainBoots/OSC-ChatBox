@@ -212,13 +212,29 @@ for _m in MODULES:
 
 
 def render_slot(slot: dict, snap: dict) -> str:
-    """Render a single slot dict against a state snapshot. Returns a string line."""
+    """Render a single slot dict against a state snapshot.
+    Supports nested horizontal modules if 'modules' is a list."""
+    # Check if this slot contains multiple side-by-side modules
+    if "modules" in slot and isinstance(slot["modules"], list):
+        sub_texts = []
+        for sub_slot in slot["modules"]:
+            mod = MODULE_BY_ID.get(sub_slot.get("module", ""))
+            if mod:
+                try:
+                    t = mod["render"](snap, sub_slot)
+                    if t:
+                        sub_texts.append(t)
+                except Exception:
+                    sub_texts.append(f"[{sub_slot.get('module','?')} error]")
+        return " ".join(sub_texts)
+
+    # Standard fallback for single original modules
     mod = MODULE_BY_ID.get(slot.get("module", ""))
     if mod is None:
         return ""
     try:
         return mod["render"](snap, slot)
-    except Exception as e:
+    except Exception:
         return f"[{slot.get('module','?')} error]"
 
 
