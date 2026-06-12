@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.2.0"
+VERSION = "9.2.1"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -94,7 +94,7 @@ print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "VRChat-Launcher.py", "label": "VRChat Launcher(Beta)"},
     {"filename": "OSC-Router.py", "label": "Router"},
-    {"filename": "OSC-Chatbox.py", "label": "ChatBox"},
+    {"filename": "OSC-Chatbox/main.py", "label": "ChatBox"},
     {"filename": "OSC-Gamepad.py", "label": "Gamepad(Beta)"},
     {"filename": "OSC-FaceTrackingController.py", "label": "Face Tracking Controller(Beta)"},
     {"filename": "OSC-ParameterBrowser.py", "label": "Parameter Browser(Beta)"},
@@ -141,8 +141,26 @@ TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "VRChat-Toolbox")
 TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
 BACKUP_DIR = os.path.join(TOOLBOX_CONFIG_DIR, "ToolBox Backup")
 
+# Scripts that live as a subfolder/file under VRChat-Tools (not path-like, not single filename).
+# Maps the "filename" key used in MANAGED_SCRIPTS to:
+#   - remote_path: path fragment after GITHUB_BASE_URL
+#   - local_path:  path relative to TOOLS_ROOT_DIR
+SUBFOLDER_SCRIPT_MAP = {
+    "OSC-Chatbox/main.py": {
+        "remote_path": "OSC-Chatbox/main.py",
+        "local_path":  os.path.join("OSC-Chatbox", "main.py"),
+    },
+}
+
+# Per-tool config files to wipe on update (paths relative to TOOLS_ROOT_DIR).
+# This ensures users always get a clean config after a breaking update.
+TOOL_CONFIG_WIPE_MAP: dict[str, list[str]] = {
+    "OSC-Chatbox/main.py": [
+        os.path.join("OSC-Chatbox", "chatbox_config.json"),
+    ],
+}
+
 SCRIPT_FOLDER_MAP = {
-    "OSC-Chatbox.py": "OSC-Chatbox",
     "OSC-Router.py": "OSC-Router",
     "OSC-FaceTrackingController.py": "OSC-FaceTrackingController",
     "OSC-Gamepad.py": "OSC-Gamepad",
@@ -195,10 +213,16 @@ def _migrate_legacy_layout() -> None:
 
 
 def _is_path_like(filename: str) -> bool:
+    """True only for absolute paths or paths with explicit OS separators that aren't in our known maps."""
+    if filename in SUBFOLDER_SCRIPT_MAP:
+        return False
     return os.path.isabs(filename) or ("/" in filename) or ("\\" in filename)
 
 
 def _script_remote_urls(filename: str) -> list[str]:
+    if filename in SUBFOLDER_SCRIPT_MAP:
+        remote_path = SUBFOLDER_SCRIPT_MAP[filename]["remote_path"]
+        return [f"{GITHUB_BASE_URL}{remote_path}"]
     if _is_path_like(filename):
         return []
     script_name = os.path.basename(filename)
@@ -211,10 +235,12 @@ def _script_remote_urls(filename: str) -> list[str]:
 
 
 def _script_bundle_candidates(filename: str) -> list[str]:
+    if filename in SUBFOLDER_SCRIPT_MAP:
+        local_path = SUBFOLDER_SCRIPT_MAP[filename]["local_path"]
+        return [os.path.join(TOOLS_ROOT_DIR, local_path)]
     if _is_path_like(filename):
         resolved = filename if os.path.isabs(filename) else os.path.join(SCRIPT_DIR, filename)
         return [os.path.normpath(resolved)]
-
     script_name = os.path.basename(filename)
     candidates: list[str] = []
     folder = SCRIPT_FOLDER_MAP.get(script_name)
@@ -226,18 +252,20 @@ def _script_bundle_candidates(filename: str) -> list[str]:
 
 
 def _script_paths(filename: str) -> tuple[str, str]:
+    if filename in SUBFOLDER_SCRIPT_MAP:
+        local_path = SUBFOLDER_SCRIPT_MAP[filename]["local_path"]
+        dest_path = os.path.join(TOOLS_ROOT_DIR, local_path)
+        return dest_path, dest_path
     if _is_path_like(filename):
         dest_path = filename if os.path.isabs(filename) else os.path.join(SCRIPT_DIR, filename)
         dest_path = os.path.normpath(dest_path)
         return dest_path, dest_path
-
     script_name = os.path.basename(filename)
     folder = SCRIPT_FOLDER_MAP.get(script_name)
     if folder:
         dest_path = os.path.join(TOOLS_ROOT_DIR, folder, script_name)
     else:
         dest_path = os.path.join(TOOLS_ROOT_DIR, script_name)
-
     bundle_candidates = _script_bundle_candidates(script_name)
     bundled_path = next((p for p in bundle_candidates if os.path.isfile(p)), bundle_candidates[0])
     return bundled_path, dest_path
@@ -343,6 +371,17 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
         with open(dest_path, "w", encoding="utf-8") as lf:
             lf.write(remote_text)
         print(f"[{filename}] Updated: {local_version} -> {remote_version}")
+
+        # Wipe any tool-specific config files so stale config doesn't break the new version
+        for relative_cfg in TOOL_CONFIG_WIPE_MAP.get(filename, []):
+            cfg_path = os.path.join(TOOLS_ROOT_DIR, relative_cfg)
+            if os.path.exists(cfg_path):
+                try:
+                    os.remove(cfg_path)
+                    print(f"[{filename}] Wiped stale config: {cfg_path}")
+                except OSError as wipe_err:
+                    print(f"[{filename}] Could not wipe config {cfg_path}: {wipe_err}")
+
         if not silent:
             messagebox.showinfo(
                 f"{filename} Updated",
