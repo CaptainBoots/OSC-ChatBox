@@ -24,7 +24,10 @@ from ui.chatbox_tab     import ChatboxTab
 from ui.settings_dialog import open_settings
 from ui.help_dialog     import open_help
 
-VERSION = "8.0.1"
+try:
+    from main import VERSION
+except ImportError:
+    VERSION = "version error"
 
 
 class App:

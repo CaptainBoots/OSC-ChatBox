@@ -10,6 +10,7 @@ import subprocess
 import sys
 import os
 
+VERSION = "8.0.2"
 
 # ── Dependency bootstrap ──────────────────────────────────────────────────────
 
@@ -20,7 +21,6 @@ REQUIRED = [
     "Pillow",
 ]
 
-# Windows-only
 if sys.platform == "win32":
     REQUIRED.append("winrt-runtime")
     REQUIRED.append("winrt-Windows.Media.Control")
