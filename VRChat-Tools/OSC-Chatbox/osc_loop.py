@@ -34,7 +34,7 @@ from modules.registry import render_page
 from state import AppState, CHATBOX_MAX_CHARS
 
 # Polling intervals
-_LHM_INTERVAL     = 3.0   # seconds between LHM REST calls
+_LHM_INTERVAL     = 1.0   # seconds between LHM REST calls
 _WEATHER_INTERVAL = 300   # seconds between weather refreshes
 _MEDIA_INTERVAL   = 1.0   # seconds between media polls
 

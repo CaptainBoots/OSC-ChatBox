@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.2.3"
+VERSION = "9.3.0"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -91,7 +91,7 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
-if VERSION == "9.2.3":
+if VERSION == "9.3.0":
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             os.remove(TOOLBOX_CONFIG_FILE)

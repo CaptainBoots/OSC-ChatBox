@@ -7,7 +7,6 @@ Root window. Creates the two-tab notebook and wires together:
   - OSC loop start/stop/restart
   - Config load/save
   - Settings dialog
-  - UI scaling
 """
 
 import sys
@@ -25,14 +24,13 @@ from ui.chatbox_tab     import ChatboxTab
 from ui.settings_dialog import open_settings
 from ui.help_dialog     import open_help
 
-VERSION = "8.0.0"
+VERSION = "8.0.1"
 
 
 class App:
     def __init__(self):
         self._cfg   = load_config()
         self._state = AppState()
-        self._ui_scale = float(self._cfg.get("ui_scale", 1.0))
 
         # Apply state flags from config
         self._state.slow_mode         = self._cfg.get("slow_mode", False)
@@ -45,7 +43,6 @@ class App:
 
         self._build_root()
         self._build_tabs()
-        self._apply_scale(self._ui_scale)
 
     # ── Root window ───────────────────────────────────────────────────────────
 
@@ -138,7 +135,7 @@ class App:
     def _on_preview(self, text: str):
         self.root.after(0, lambda: self._chatbox_tab.set_preview(text))
 
-    # ── Config sync ───────────────────────────────────────────────────────────
+    # ── Config Sync ───────────────────────────────────────────────────────────
 
     def _sync_state_from_cfg(self):
         self._state.slow_mode        = self._cfg.get("slow_mode", False)
@@ -158,19 +155,16 @@ class App:
         self._cfg["progress_filled"]  = self._state.progress_filled
         self._cfg["progress_border"]  = self._state.progress_border
         self._cfg["progress_empty"]   = self._state.progress_empty
-        self._cfg["ui_scale"]         = self._ui_scale
         save_config(self._cfg)
 
-    # ── Settings dialog ───────────────────────────────────────────────────────
+    # ── Settings Dialog ───────────────────────────────────────────────────────
 
     def _open_settings(self):
         open_settings(
-            root          = self.root,
-            state         = self._state,
-            save_cb       = self._save,
-            reset_cb      = self._reset_to_defaults,
-            apply_scale_fn= self._apply_scale,
-            get_scale_fn  = lambda: self._ui_scale,
+            root    = self.root,
+            state   = self._state,
+            save_cb = self._save,
+            reset_cb= self._reset_to_defaults,
         )
 
     def _open_help(self):
@@ -186,18 +180,6 @@ class App:
         self._sync_state_from_cfg()
         self._save()
         self._builder_tab.refresh()
-
-    # ── UI scaling ────────────────────────────────────────────────────────────
-
-    def _apply_scale(self, scale: float):
-        self._ui_scale = scale
-        base = 9
-        new  = max(7, int(base * scale))
-        for name in ("TkDefaultFont", "TkTextFont", "TkFixedFont"):
-            try:
-                tkfont.nametofont(name).configure(size=new)
-            except Exception:
-                pass
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
