@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.2.1"
+VERSION = "9.2.2"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -91,6 +91,14 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
+if VERSION == "9.2.2":
+    if os.path.exists(TOOLBOX_CONFIG_FILE):
+        try:
+            os.remove(TOOLBOX_CONFIG_FILE)
+            print(f"[Config] Version 9.2.2 detected. Forced clean reset of: {TOOLBOX_CONFIG_FILE}")
+        except OSError as e:
+            print(f"[Config] Failed to force-delete config: {e}")
+
 DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "VRChat-Launcher.py", "label": "VRChat Launcher(Beta)"},
     {"filename": "OSC-Router.py", "label": "Router"},
@@ -109,10 +117,16 @@ def load_managed_scripts():
         try:
             with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
                 config = json.load(f)
+
+            # Verify the configuration version matches the current app version
+            config_version = config.get("version")
+            if config_version == VERSION:
                 return config.get("managed_scripts", DEFAULT_MANAGED_SCRIPTS)
+            else:
+                print(
+                    f"[Config] Version mismatch (Config: {config_version}, App: {VERSION}). Wiping and regenerating config...")
         except Exception as e:
             print(f"[Config] Error loading config: {e}")
-            return DEFAULT_MANAGED_SCRIPTS
 
     save_managed_scripts(DEFAULT_MANAGED_SCRIPTS)
     return DEFAULT_MANAGED_SCRIPTS
@@ -121,10 +135,13 @@ def load_managed_scripts():
 def save_managed_scripts(scripts):
     try:
         os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
-        config = {"managed_scripts": scripts}
+        config = {
+            "version": VERSION,
+            "managed_scripts": scripts
+        }
         with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
-        print(f"[Config] Saved {len(scripts)} managed scripts to {TOOLBOX_CONFIG_FILE}")
+        print(f"[Config] Saved {len(scripts)} managed scripts (v{VERSION}) to {TOOLBOX_CONFIG_FILE}")
     except Exception as e:
         print(f"[Config] Error saving config: {e}")
         print(f"[Config] Attempted path: {TOOLBOX_CONFIG_FILE}")
