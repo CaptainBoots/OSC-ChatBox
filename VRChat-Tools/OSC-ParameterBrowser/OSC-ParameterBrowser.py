@@ -13,32 +13,11 @@ try:
 except ImportError:
     PYTHON_OSC = False
 
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 
 print("OSC Parameter Browser")
 print("Made By Boots")
 print(f"Version {VERSION}")
-
-BG = "#0f0f13"
-PANEL = "#17171f"
-PANEL2 = "#1f1f2b"
-BORDER = "#2a2a3d"
-TEXT = "#e8e4ff"
-SUBTEXT = "#8878cc"
-ACCENT = "#4cf5ff"
-ACCENT2 = "#5c3fd4"
-ACCENT3 = "#a87fff"
-GREEN = "#4cff91"
-RED = "#ff4c6a"
-YELLOW = "#ffd166"
-CYAN = "#4cf5ff"
-BTN_BG = "#252535"
-
-UI_FONT = "Segoe UI"
-FONT_MONO = ("Consolas", 10)
-FONT_SMALL = (UI_FONT, 9)
-FONT_LABEL = (UI_FONT, 10, "bold")
-FONT_BIG = (UI_FONT, 14, "bold")
 
 
 def make_client(ip, port):
@@ -88,6 +67,38 @@ def parse_osc(data):
         return None
 
 
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# GUI CONFIGURATION & GRAPHICAL INTERFACE
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+
+
+PANEL2 = "#29163a"
+ACCENT3 = "#a87fff"
+YELLOW = "#ffd166"
+CYAN = "#4cf5ff"
+BTN_BG = "#252535"
+
+UI_FONT = "Segoe UI"
+FONT_MONO = ("Consolas", 10)
+FONT_SMALL = (UI_FONT, 9)
+FONT_LABEL = (UI_FONT, 10, "bold")
+FONT_BIG = (UI_FONT, 14, "bold")
+
+BG = "#0f0f13"
+PANEL = "#1f102a"
+LIGHTPANEL  = "#1f102a"
+BORDER = "#2a2a38"
+ACCENT = "#9D00FF"
+ACCENT2 = "#b44bff"
+TEXT = "#e2e0f0"
+TEXT2 = "#E0E0E0"
+SUBTEXT = "#7e7b9a"
+GREEN = "#4ade80"
+RED = "#f87171"
+UI_FONT  = "Consolas"
+
+# Helper Component: Visual Status Circular Signal Indicator
 class Dot(tk.Canvas):
     def __init__(self, parent, **kw):
         super().__init__(parent, width=10, height=10, bg=parent["bg"], highlightthickness=0, **kw)
@@ -102,6 +113,7 @@ class Dot(tk.Canvas):
     def set(self, s): self._s = s; self._draw()
 
 
+# Layout Engine: Core Interactive Viewport Manager Pipeline
 class OSCBrowserApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -121,7 +133,7 @@ class OSCBrowserApp(tk.Tk):
                                    "python-osc is not installed.\nSend functions will be unavailable.\nRun: pip install python-osc")
 
     def _build_ui(self):
-        # ─── TOP BAR ───────────────────────────────────────────────────────
+        # ─── TOP HEADER BAR ───────────────────────────────────────────────
         top_bar = tk.Frame(self, bg=PANEL, height=48)
         top_bar.pack(fill="x", side="top")
         top_bar.pack_propagate(False)
@@ -129,7 +141,7 @@ class OSCBrowserApp(tk.Tk):
         lbl_title = tk.Label(top_bar, text="🔍 OSC Parameter Browser", font=FONT_BIG, fg=TEXT, bg=PANEL)
         lbl_title.pack(side="left", padx=12, pady=8)
 
-        lbl_ver = tk.Label(top_bar, text="v0.0.1", font=(UI_FONT, 9, "italic"), fg=SUBTEXT, bg=PANEL)
+        lbl_ver = tk.Label(top_bar, text=f"v{VERSION}", font=(UI_FONT, 9, "italic"), fg=SUBTEXT, bg=PANEL)
         lbl_ver.pack(side="left", padx=(0, 12), pady=(14, 0))
 
         # ─── CONFIGURATION NETWORK ROW ─────────────────────────────────────
@@ -230,7 +242,6 @@ class OSCBrowserApp(tk.Tk):
         self._status = tk.Label(footer_bar, text="Status: IDLE", font=FONT_SMALL, fg=SUBTEXT, bg=PANEL)
         self._status.pack(side="left", padx=12)
 
-        # Unused structural action hooks requested matching core setup style
         tk.Button(footer_bar, text="❓", command=self._help_click, bg=PANEL, fg=SUBTEXT, activebackground=PANEL,
                   activeforeground=TEXT, relief="flat", font=(UI_FONT, 11), cursor="hand2").pack(side="right", padx=6)
         tk.Button(footer_bar, text="⚙", command=self._settings_click, bg=PANEL, fg=SUBTEXT, activebackground=PANEL,
@@ -347,6 +358,10 @@ class OSCBrowserApp(tk.Tk):
         else:
             self._status.config(text="Status: Packet network injection failed", fg=RED)
 
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ENTRY POINT
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 if __name__ == "__main__":
     OSCBrowserApp().mainloop()
