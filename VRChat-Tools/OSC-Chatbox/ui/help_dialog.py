@@ -1,7 +1,6 @@
 """
 ui/help_dialog.py
 ─────────────────
-Paginated help window. Called from the Help button on the Chatbox tab.
 """
 
 import tkinter as tk
