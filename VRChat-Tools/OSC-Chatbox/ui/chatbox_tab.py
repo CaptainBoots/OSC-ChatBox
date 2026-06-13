@@ -46,8 +46,8 @@ class ChatboxTab(tk.Frame):
         row += 1
 
         for text, cmd, fg in (
-            ("▶  Start",   self._start_cb,   GREEN),
-            ("■  Stop",    self._stop_cb,    RED),
+            ("▶  Start",   self._start_cb,   ACCENT2),
+            ("■  Stop",    self._stop_cb,    ACCENT2),
             ("↺  Restart", self._restart_cb, ACCENT2),
         ):
             tk.Button(
@@ -112,14 +112,14 @@ class ChatboxTab(tk.Frame):
 
         self._entries = {}
 
+        # "switch_interval" removed as page management handles durations per-page
         fields = [
             # (label, cfg_key, row, col_label, col_entry)
             ("OSC IP",         "osc_ip",          0, 0, 1),
             ("OSC Port",       "osc_port",         0, 2, 3),
             ("Interface",      "interface",        1, 0, 1),
-            ("Interval (s)",   "switch_interval",  1, 2, 3),
-            ("LHM URL",        "lhm_api",          2, 0, 1),
-            ("Location",       "location",         2, 2, 3),
+            ("LHM URL",        "lhm_api",          1, 2, 3),
+            ("Location",       "location",         2, 0, 1),
         ]
 
         for label, key, r, cl, ce in fields:
