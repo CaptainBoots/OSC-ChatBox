@@ -10,7 +10,7 @@ from tkinter import messagebox
 from config import normalize_char
 from state import AppState, DEFAULT_SLEEP, SLOW_SLEEP, SPEED_SLEEP
 from state import DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, RED, YELLOW, FONT
 
 
 def open_settings(root, state: AppState, save_cb, reset_cb):
@@ -138,6 +138,23 @@ def open_settings(root, state: AppState, save_cb, reset_cb):
         )
         chk.pack(anchor="w", padx=20, pady=(8, 0))
         tk.Label(inner, text=hint, bg=PANEL, fg=SUBTEXT, font=(FONT, 8)).pack(anchor="w", padx=40)
+    # ── Config reset ──────────────────────────────────────────────────────────
+    section("Config")
+    tk.Button(
+        inner, text="Reset to Defaults",
+        bg=RED, fg=BG, relief="flat",
+        activebackground=BORDER, activeforeground=TEXT,
+        cursor="hand2", font=(FONT, 9, "bold"),
+        command=lambda: messagebox.askyesno("Config Reset", "Are you sure?") and reset_cb(),
+    ).pack(pady=6)
+
+    tk.Button(
+        win, text="Close", bg=ACCENT, fg=BG, relief="flat",
+        cursor="hand2", font=(FONT, 10, "bold"),
+        activebackground=ACCENT2, activeforeground=BG,
+        command=win.destroy,
+    ).pack(pady=12)
+
 
     # ── Action Buttons ────────────────────────────────────────────────────────
     section("Actions")
