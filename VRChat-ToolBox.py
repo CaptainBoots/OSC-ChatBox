@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.3.1"
+VERSION = "9.3.2"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -91,24 +91,24 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
-if VERSION == "9.3.0":
+if VERSION == "9.3.2":
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             os.remove(TOOLBOX_CONFIG_FILE)
-            print(f"[Config] Version 9.2.2 detected. Forced clean reset of: {TOOLBOX_CONFIG_FILE}")
+            print(f"[Config] Version config change detected. Forced clean reset of: {TOOLBOX_CONFIG_FILE}")
         except OSError as e:
             print(f"[Config] Failed to force-delete config: {e}")
 
 DEFAULT_MANAGED_SCRIPTS = [
-    {"filename": "VRChat-Launcher.py", "label": "VRChat Launcher(Beta)"},
-    {"filename": "OSC-Router.py", "label": "Router"},
+    {"filename": "VRChat-Launcher/main.py", "label": "VRChat Launcher(Beta)"},
+    {"filename": "OSC-Router/main.py", "label": "Router"},
     {"filename": "OSC-Chatbox/main.py", "label": "ChatBox"},
-    {"filename": "OSC-Gamepad.py", "label": "Gamepad(Beta)"},
-    {"filename": "OSC-FaceTrackingController.py", "label": "Face Tracking Controller(Beta)"},
-    {"filename": "OSC-ParameterBrowser.py", "label": "Parameter Browser(Beta)"},
-    {"filename": "OSC-ScriptMaker.py", "label": "Script Maker(Placeholder)"},
-    {"filename": "VRChat-LocalFavorites.py", "label": "VRChat Local Favorites(Placeholder)"},
-    {"filename": "VRChat-SocialLogger.py", "label": "VRChat SocialLogger(Placeholder)"},
+    {"filename": "OSC-Gamepad/main.py", "label": "Gamepad(Beta)"},
+    {"filename": "OSC-FaceTrackingController/main.py", "label": "Face Tracking Controller(Beta)"},
+    {"filename": "OSC-ParameterBrowser/main.py", "label": "Parameter Browser(Beta)"},
+    {"filename": "OSC-ScriptMaker/main.py", "label": "Script Maker(Placeholder)"},
+    {"filename": "VRChat-LocalFavorites/main.py", "label": "VRChat Local Favorites(Placeholder)"},
+    {"filename": "VRChat-SocialLogger/main.py", "label": "VRChat SocialLogger(Placeholder)"},
 ]
 
 
@@ -158,17 +158,67 @@ TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "VRChat-Toolbox")
 TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
 BACKUP_DIR = os.path.join(TOOLBOX_CONFIG_DIR, "ToolBox Backup")
 
-# Scripts that live as a subfolder/file under VRChat-Tools (not path-like, not single filename).
-# Maps the "filename" key used in MANAGED_SCRIPTS to:
-#   - remote_path: path fragment after GITHUB_BASE_URL
-#   - local_path:  path relative to TOOLS_ROOT_DIR
 SUBFOLDER_SCRIPT_MAP = {
+    "VRChat-Launcher/main.py": {
+        "remote_path": "VRChat-Launcher/main.py",
+        "local_path":  os.path.join("VRChat-Launcher", "main.py"),
+    },
+    "OSC-Router/main.py": {
+        "remote_path": "OSC-Router/main.py",
+        "local_path":  os.path.join("OSC-Router", "main.py"),
+    },
     "OSC-Chatbox/main.py": {
         "remote_path": "OSC-Chatbox/main.py",
         "local_path":  os.path.join("OSC-Chatbox", "main.py"),
     },
+    "OSC-Gamepad/main.py": {
+        "remote_path": "OSC-Gamepad/main.py",
+        "local_path":  os.path.join("OSC-Gamepad", "main.py"),
+    },
+    "OSC-FaceTrackingController/main.py": {
+        "remote_path": "OSC-FaceTrackingController/main.py",
+        "local_path":  os.path.join("OSC-FaceTrackingController", "main.py"),
+    },
+    "OSC-ParameterBrowser/main.py": {
+        "remote_path": "OSC-ParameterBrowser/main.py",
+        "local_path":  os.path.join("OSC-ParameterBrowser", "main.py"),
+    },
+    "OSC-ScriptMaker/main.py": {
+        "remote_path": "OSC-ScriptMaker/main.py",
+        "local_path":  os.path.join("OSC-ScriptMaker", "main.py"),
+    },
+    "VRChat-LocalFavorites/main.py": {
+        "remote_path": "VRChat-LocalFavorites/main.py",
+        "local_path":  os.path.join("VRChat-LocalFavorites", "main.py"),
+    },
+    "VRChat-SocialLogger/main.py": {
+        "remote_path": "VRChat-SocialLogger/main.py",
+        "local_path":  os.path.join("VRChat-SocialLogger", "main.py"),
+    },
 }
+
+
 TOOL_DEPENDENCIES_MAP = {
+    "VRChat-Launcher/main.py": [
+   ],
+    "OSC-Router/main.py": [
+        # Sibling files in the main folder
+        "OSC-Router/__init__.py",
+        "OSC-Router/config.py",
+
+        # Core
+        "OSC-Router/core/__init__.py",
+        "OSC-Router/core/router.py",
+        "OSC-Router/core/source.py",
+
+        # UI module
+        "OSC-Router/ui/__init__.py",
+        "OSC-Router/ui/app.py",
+        "OSC-Router/ui/router_tab.py",
+        "OSC-Router/ui/help_dialog.py",
+        "OSC-Router/ui/settings_dialog.py",
+        "OSC-Router/ui/theme.py",
+   ],
     "OSC-Chatbox/main.py": [
         # Sibling files in the main folder
         "OSC-Chatbox/__init__.py",
@@ -203,6 +253,19 @@ TOOL_DEPENDENCIES_MAP = {
         "OSC-Chatbox/ui/settings_dialog.py",
         "OSC-Chatbox/ui/theme.py",
     ],
+    "OSC-Gamepad/main.py": [
+   ],
+    "OSC-FaceTrackingController/main.py": [
+   ],
+    "OSC-ParameterBrowser/main.py": [
+   ],
+    "OSC-ScriptMaker/main.py": [
+   ],
+    "VRChat-LocalFavorites/main.py": [
+   ],
+    "VRChat-SocialLogger/main.py": [
+   ],
+
 }
 
 # Per-tool config files to wipe on update (paths relative to TOOLS_ROOT_DIR).
