@@ -1,15 +1,15 @@
 """
 ui/settings_dialog.py
 ─────────────────────
-Settings modal for OSC-Router: UI scale and config reset.
+Settings modal: Progress bar chars and feature flags.
 """
 
 import tkinter as tk
 from tkinter import messagebox
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, RED, YELLOW, FONT
 
 
-def open_settings(root, save_cb, reset_cb, apply_scale_fn, get_scale_fn):
+def open_settings(root, save_cb, reset_cb, apply_scale_fn=None, get_scale_fn=None):
     win = tk.Toplevel(root)
     win.title("Settings")
     win.configure(bg=BG)
@@ -17,44 +17,53 @@ def open_settings(root, save_cb, reset_cb, apply_scale_fn, get_scale_fn):
     root.update_idletasks()
     win.geometry(f"{root.winfo_width()}x{root.winfo_height()}+{root.winfo_x()}+{root.winfo_y()}")
 
+    # Header section
     hdr = tk.Frame(win, bg=PANEL, pady=10)
     hdr.pack(fill="x")
     tk.Label(hdr, text="Settings", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")).pack(side="left", padx=16)
     tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
 
-    inner = tk.Frame(win, bg=PANEL)
-    inner.pack(fill="both", expand=True, padx=20, pady=14)
+    # Scrollable container frames
+    canvas = tk.Canvas(win, bg=PANEL, highlightthickness=0)
+    vsb    = tk.Scrollbar(win, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=vsb.set)
 
-    def section(label):
-        tk.Label(inner, text=label, bg=PANEL, fg=ACCENT2, font=(FONT, 10, "bold")).pack(pady=(16, 6))
+    vsb.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
 
-    # ── UI Scale ──────────────────────────────────────────────────────────────
-    section("UI Scale")
-    scale_var = tk.DoubleVar(value=get_scale_fn())
-    pct_lbl   = tk.Label(inner, text="", bg=PANEL, fg=SUBTEXT, font=(FONT, 9))
+    inner = tk.Frame(canvas, bg=PANEL)
+    canvas_win = canvas.create_window((0, 0), window=inner, anchor="nw")
 
-    def _scale_changed(v):
-        apply_scale_fn(float(v))
-        pct_lbl.config(text=f"{int(float(v) * 100)}%")
+    def _on_canvas_configure(e):
+        canvas.itemconfigure(canvas_win, width=e.width)
 
-    tk.Scale(
-        inner, from_=0.7, to=2.0, resolution=0.05,
-        orient="horizontal", variable=scale_var,
-        bg=PANEL, fg=TEXT, troughcolor=BORDER, activebackground=ACCENT2,
-        highlightthickness=0, sliderrelief="flat", length=300,
-        command=_scale_changed,
-    ).pack(pady=4)
-    pct_lbl.pack()
-    _scale_changed(scale_var.get())
+    def _on_inner_configure(_):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    canvas.bind("<Configure>", _on_canvas_configure)
+    inner.bind("<Configure>", _on_inner_configure)
+
+    # Mousewheel scrolling hook
+    def _on_mousewheel(e):
+        canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+    win.bind("<MouseWheel>", _on_mousewheel)
+
+    # Section generator helper
+    def section(title: str):
+        f = tk.Frame(inner, bg=PANEL, pady=8)
+        f.pack(fill="x", padx=16, pady=(16, 0))
+        tk.Label(f, text=title.upper(), bg=PANEL, fg=ACCENT2, font=(FONT, 9, "bold")).pack(side="left")
+        div = tk.Frame(inner, bg=BORDER, height=1)
+        div.pack(fill="x", padx=16, pady=(0, 12))
 
     # ── Config reset ──────────────────────────────────────────────────────────
     section("Config")
     tk.Button(
         inner, text="Reset to Defaults",
-        bg=PANEL, fg=SUBTEXT, relief="flat",
+        bg=RED, fg=BG, relief="flat",
         activebackground=BORDER, activeforeground=TEXT,
         cursor="hand2", font=(FONT, 9, "bold"),
-        command=lambda: messagebox.askyesno("Reset", "Reset all settings to defaults?") and reset_cb(),
+        command=lambda: messagebox.askyesno("Config Reset", "Are you sure?") and reset_cb(),
     ).pack(pady=6)
 
     tk.Button(
@@ -63,3 +72,27 @@ def open_settings(root, save_cb, reset_cb, apply_scale_fn, get_scale_fn):
         activebackground=ACCENT2, activeforeground=BG,
         command=win.destroy,
     ).pack(pady=12)
+
+
+    # ── Action Buttons ────────────────────────────────────────────────────────
+    section("Actions")
+
+    def _trigger_reset():
+        if messagebox.askyesno("Reset", "Are you sure you want to restore default values?", parent=win):
+            reset_cb()
+            win.destroy()
+
+    btn_frame = tk.Frame(inner, bg=PANEL, pady=12)
+    btn_frame.pack(fill="x", padx=16)
+
+    tk.Button(
+        btn_frame, text="Restore Defaults", bg=BG, fg=TEXT, relief="flat",
+        font=(FONT, 9), activebackground=BORDER, activeforeground=TEXT,
+        padx=12, pady=4, cursor="hand2", command=_trigger_reset
+    ).pack(side="left")
+
+    tk.Button(
+        btn_frame, text="Close Settings", bg=ACCENT, fg=BG, relief="flat",
+        font=(FONT, 9, "bold"), activebackground=ACCENT2, activeforeground=BG,
+        padx=16, pady=4, cursor="hand2", command=win.destroy
+    ).pack(side="right")
