@@ -98,7 +98,7 @@ HELP_PAGES = [
 
 def open_help(root):
     win = tk.Toplevel(root)
-    win.title("OSC-Router Help")
+    win.title("Info Page")
     win.configure(bg=BG)
     win.resizable(True, True)
     root.update_idletasks()

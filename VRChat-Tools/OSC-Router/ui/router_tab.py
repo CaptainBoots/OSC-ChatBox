@@ -48,8 +48,8 @@ class RouterTab(tk.Frame):
         bf = tk.Frame(self, bg=BG)
         bf.grid(row=1, column=0, sticky="ew", padx=8, pady=4)
         for text, cmd, fg in (
-            ("▶  Start",   self._start_cb,   GREEN),
-            ("■  Stop",    self._stop_cb,    RED),
+            ("▶  Start",   self._start_cb,   ACCENT2),
+            ("■  Stop",    self._stop_cb,    ACCENT2),
             ("↺  Restart", self._restart_cb, ACCENT2),
         ):
             tk.Button(bf, text=text, bg=PANEL, fg=fg, relief="flat", cursor="hand2",
