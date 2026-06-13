@@ -3,7 +3,7 @@ config.py
 ─────────
 Config file I/O, defaults, and migration.
 
-Config is a JSON file stored next to main.py.
+Config is a JSON file stored in a "configs" folder one directory above main.py.
 Pages are stored as a list of {enabled, duration, slots} dicts.
 """
 
@@ -16,8 +16,12 @@ from state import (
     DEFAULT_SLEEP,
 )
 
+# ── Updated Path Logic ────────────────────────────────────────────────────────
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
-CONFIG_FILE = os.path.join(SCRIPT_DIR, "chatbox_config.json")
+# os.path.dirname(SCRIPT_DIR) takes you up exactly 1 directory
+PARENT_DIR  = os.path.dirname(SCRIPT_DIR)
+CONFIG_DIR  = os.path.join(PARENT_DIR, "configs")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "chatbox_config.json")
 
 # ── Default pages ─────────────────────────────────────────────────────────────
 DEFAULT_PAGES = [
@@ -151,6 +155,10 @@ def load_config() -> dict:
 
 
 def save_config(cfg: dict):
+    # This safely creates the 'configs' folder if it doesn't exist yet,
+    # and leaves existing files inside it completely untouched.
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
 
