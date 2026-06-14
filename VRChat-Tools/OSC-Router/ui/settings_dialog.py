@@ -1,15 +1,15 @@
 """
 ui/settings_dialog.py
 ─────────────────────
-Settings modal: Progress bar chars and feature flags.
+Settings modal: Colour Mode and Defaults.
 """
 
 import tkinter as tk
 from tkinter import messagebox
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, RED, YELLOW, FONT
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT
 
 
-def open_settings(root, save_cb, reset_cb, apply_scale_fn=None, get_scale_fn=None):
+def open_settings(root, apply_color_fn, get_color_fn, save_cb, reset_cb):
     win = tk.Toplevel(root)
     win.title("Settings")
     win.configure(bg=BG)
@@ -23,76 +23,70 @@ def open_settings(root, save_cb, reset_cb, apply_scale_fn=None, get_scale_fn=Non
     tk.Label(hdr, text="Settings", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")).pack(side="left", padx=16)
     tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
 
-    # Scrollable container frames
-    canvas = tk.Canvas(win, bg=PANEL, highlightthickness=0)
-    vsb    = tk.Scrollbar(win, orient="vertical", command=canvas.yview)
-    canvas.configure(yscrollcommand=vsb.set)
-
-    vsb.pack(side="right", fill="y")
-    canvas.pack(side="left", fill="both", expand=True)
-
-    inner = tk.Frame(canvas, bg=PANEL)
-    canvas_win = canvas.create_window((0, 0), window=inner, anchor="nw")
-
-    def _on_canvas_configure(e):
-        canvas.itemconfigure(canvas_win, width=e.width)
-
-    def _on_inner_configure(_):
-        canvas.configure(scrollregion=canvas.bbox("all"))
-
-    canvas.bind("<Configure>", _on_canvas_configure)
-    inner.bind("<Configure>", _on_inner_configure)
-
-    # Mousewheel scrolling hook
-    def _on_mousewheel(e):
-        canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
-    win.bind("<MouseWheel>", _on_mousewheel)
+    # Main Container
+    inner = tk.Frame(win, bg=PANEL)
+    inner.pack(fill="both", expand=True, padx=20, pady=14)
 
     # Section generator helper
     def section(title: str):
         f = tk.Frame(inner, bg=PANEL, pady=8)
-        f.pack(fill="x", padx=16, pady=(16, 0))
+        f.pack(fill="x", pady=(16, 0))
         tk.Label(f, text=title.upper(), bg=PANEL, fg=ACCENT2, font=(FONT, 9, "bold")).pack(side="left")
         div = tk.Frame(inner, bg=BORDER, height=1)
-        div.pack(fill="x", padx=16, pady=(0, 12))
+        div.pack(fill="x", pady=(0, 12))
 
-    # ── Config reset ──────────────────────────────────────────────────────────
-    section("Config")
-    tk.Button(
-        inner, text="Reset to Defaults",
-        bg=RED, fg=BG, relief="flat",
-        activebackground=BORDER, activeforeground=TEXT,
-        cursor="hand2", font=(FONT, 9, "bold"),
-        command=lambda: messagebox.askyesno("Config Reset", "Are you sure?") and reset_cb(),
-    ).pack(pady=6)
+    # ── Colour Mode Component ─────────────────────────────────────────────────
+    section("Appearance")
+    row_color = tk.Frame(inner, bg=PANEL, pady=10)
+    row_color.pack(fill="x")
+    tk.Label(row_color, text="Colour Mode:", bg=PANEL, fg=TEXT, font=(FONT, 10)).pack(side="left")
 
-    tk.Button(
-        win, text="Close", bg=ACCENT, fg=BG, relief="flat",
-        cursor="hand2", font=(FONT, 10, "bold"),
-        activebackground=ACCENT2, activeforeground=BG,
-        command=win.destroy,
-    ).pack(pady=12)
+    current_mode = get_color_fn()
+    mode_var = tk.StringVar(value=current_mode)
 
+    def on_mode_change(*args):
+        apply_color_fn(mode_var.get())
 
-    # ── Action Buttons ────────────────────────────────────────────────────────
-    section("Actions")
+    mode_menu = tk.OptionMenu(row_color, mode_var, "light", "old", "new", command=on_mode_change)
+    mode_menu.config(
+        bg=BORDER, fg=TEXT, activebackground=ACCENT, activeforeground=TEXT,
+        highlightthickness=0, font=(FONT, 10), bd=0, relief="flat"
+    )
+    mode_menu["menu"].config(
+        bg=PANEL, fg=TEXT, activebackground=ACCENT, activeforeground=TEXT,
+        font=(FONT, 10), bd=0, relief="flat"
+    )
+    mode_menu.pack(side="right")
 
+    # Restart Notice
+    lbl_notice = tk.Label(
+        inner, text="* Changing color modes requires an application restart.",
+        bg=PANEL, fg=SUBTEXT, font=(FONT, 8, "italic"), anchor="w"
+    )
+    lbl_notice.pack(fill="x", pady=(10, 0))
+
+    # ── Actions Footer ────────────────────────────────────────────────────────
     def _trigger_reset():
         if messagebox.askyesno("Reset", "Are you sure you want to restore default values?", parent=win):
             reset_cb()
             win.destroy()
 
-    btn_frame = tk.Frame(inner, bg=PANEL, pady=12)
-    btn_frame.pack(fill="x", padx=16)
+    def _close_and_save():
+        save_cb()
+        win.destroy()
+
+    btn_frame = tk.Frame(win, bg=PANEL, pady=12)
+    btn_frame.pack(fill="x", side="bottom")
+    tk.Frame(win, bg=BORDER, height=1).pack(fill="x", side="bottom")
 
     tk.Button(
-        btn_frame, text="Restore Defaults", bg=BG, fg=TEXT, relief="flat",
+        btn_frame, text="Restore Defaults", bg=PANEL, fg=TEXT, relief="flat",
         font=(FONT, 9), activebackground=BORDER, activeforeground=TEXT,
         padx=12, pady=4, cursor="hand2", command=_trigger_reset
-    ).pack(side="left")
+    ).pack(side="left", padx=16)
 
     tk.Button(
-        btn_frame, text="Close Settings", bg=ACCENT, fg=BG, relief="flat",
+        btn_frame, text="Save & Close", bg=ACCENT, fg=BG, relief="flat",
         font=(FONT, 9, "bold"), activebackground=ACCENT2, activeforeground=BG,
-        padx=16, pady=4, cursor="hand2", command=win.destroy
-    ).pack(side="right")
+        padx=16, pady=4, cursor="hand2", command=_close_and_save
+    ).pack(side="right", padx=16)
