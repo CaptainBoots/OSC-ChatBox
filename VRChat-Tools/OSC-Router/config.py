@@ -7,7 +7,9 @@ Router config I/O and defaults.
 import json
 import os
 
+# ── Updated Path Logic ────────────────────────────────────────────────────────
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
+# os.path.dirname(SCRIPT_DIR) goes up exactly 1 directory
 PARENT_DIR  = os.path.dirname(SCRIPT_DIR)
 CONFIG_DIR  = os.path.join(PARENT_DIR, "configs")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "router_config.json")
@@ -15,7 +17,6 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "router_config.json")
 
 def get_defaults() -> dict:
     return {
-        "colour_mode": "new",  # Fixed from ["new"]
         "sources": [
             {"name": "Chatbox",       "port": 9011},
             {"name": "Face Tracking", "port": 9012},
@@ -52,7 +53,10 @@ def load_config() -> dict:
 
 
 def save_config(cfg: dict):
+    # This safely creates the 'configs' folder if it doesn't exist yet,
+    # and leaves existing files inside it completely untouched.
     os.makedirs(CONFIG_DIR, exist_ok=True)
+
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
     print(f"[Config] Saved ({len(cfg.get('sources',[]))} sources, {len(cfg.get('outputs',[]))} outputs)")

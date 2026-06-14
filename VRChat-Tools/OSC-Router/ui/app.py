@@ -2,10 +2,11 @@
 ui/app.py
 ─────────
 Root window for OSC-Router.
+Same structure and theme as OSC-Chatbox.
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, font as tkfont, messagebox
 
 from config  import load_config, save_config, get_defaults
 from core.router import OscRouter, OutputTarget
@@ -24,12 +25,14 @@ except ImportError:
 
 class App:
     def __init__(self):
-        self._cfg         = load_config()
-        self._router      = OscRouter()
-        self._colour_mode = self._cfg.get("colour_mode", "new")
+        self._cfg      = load_config()
+        self._router   = OscRouter()
+        self._ui_scale = float(self._cfg.get("ui_scale", 1.0))
 
         self._build_root()
         self._build_tabs()
+        self._apply_scale(self._ui_scale)
+        self._tick()
 
     # ── Root window ───────────────────────────────────────────────────────────
 
@@ -76,6 +79,7 @@ class App:
         )
         self._notebook.add(self._router_tab, text="  Router  ")
 
+        # Populate rows from config
         for src in self._cfg.get("sources", []):
             self._router_tab.add_source_row(src.get("name", "Source"), src.get("port", 9001))
 
@@ -97,7 +101,12 @@ class App:
         self._cfg.update(cfg)
         self._save()
 
-        self._router.sources = [OscSource(s["name"], s["port"]) for s in cfg["sources"]]
+        # Build source objects
+        self._router.sources = [
+            OscSource(s["name"], s["port"]) for s in cfg["sources"]
+        ]
+
+        # Build output target objects
         self._router.outputs = [
             OutputTarget(
                 name         = o["name"],
@@ -131,7 +140,7 @@ class App:
     # ── Config ────────────────────────────────────────────────────────────────
 
     def _save(self):
-        self._cfg["colour_mode"] = self._colour_mode
+        self._cfg["ui_scale"] = self._ui_scale
         save_config(self._cfg)
 
     def _reset_to_defaults(self):
@@ -145,25 +154,37 @@ class App:
     def _open_settings(self):
         open_settings(
             root           = self.root,
-            apply_color_fn = self._apply_colour_mode,
-            get_color_fn   = lambda: self._colour_mode,
             save_cb        = self._save,
-            reset_cb       = self._reset_to_defaults
+            reset_cb       = self._reset_to_defaults,
+            apply_scale_fn = self._apply_scale,
+            get_scale_fn   = lambda: self._ui_scale,
         )
 
     def _open_help(self):
         open_help(self.root)
 
-    # ── Colour Mode ───────────────────────────────────────────────────────────
+    # ── UI scaling ────────────────────────────────────────────────────────────
 
-    def _apply_colour_mode(self, mode: str):
-        self._colour_mode = mode
+    def _apply_scale(self, scale: float):
+        self._ui_scale = scale
+        new = max(7, int(9 * scale))
+        for name in ("TkDefaultFont", "TkTextFont", "TkFixedFont"):
+            try:
+                tkfont.nametofont(name).configure(size=new)
+            except Exception:
+                pass
+
+    # ── Stats tick ────────────────────────────────────────────────────────────
+
+    def _tick(self):
+        self._router_tab.tick()
+        self.root.after(1000, self._tick)
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
     def _on_close(self):
+        self._router.stop()
         self._save()
-        self._stop()  # Cleanly stop the router instead of looking for gamepad tab
         self.root.destroy()
 
     def run(self):
