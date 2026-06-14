@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.3.2"
+VERSION = "9.3.3"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -254,6 +254,23 @@ TOOL_DEPENDENCIES_MAP = {
         "OSC-Chatbox/ui/theme.py",
     ],
     "OSC-Gamepad/main.py": [
+        # Sibling files in the main folder
+        "OSC-Chatbox/__init__.py",
+        "OSC-Chatbox/config.py",
+
+        # Core
+        "OSC-Router/core/__init__.py",
+        "OSC-Router/core/pad_state.py",
+
+        # UI module
+        "OSC-Chatbox/ui/__init__.py",
+        "OSC-Chatbox/ui/app.py",
+        "OSC-Chatbox/ui/gamepad_tab.py",
+        "OSC-Chatbox/ui/pad_card.py",
+        "OSC-Chatbox/ui/help_dialog.py",
+        "OSC-Chatbox/ui/settings_dialog.py",
+        "OSC-Chatbox/ui/theme.py",
+        "OSC-Chatbox/ui/widgets.py",
    ],
     "OSC-FaceTrackingController/main.py": [
    ],
