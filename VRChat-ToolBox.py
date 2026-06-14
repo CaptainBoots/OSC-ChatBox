@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.3.3"
+VERSION = "9.3.4"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -91,7 +91,7 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
-if VERSION == "9.3.2":
+if VERSION == "9.3.4":
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             os.remove(TOOLBOX_CONFIG_FILE)
@@ -255,22 +255,22 @@ TOOL_DEPENDENCIES_MAP = {
     ],
     "OSC-Gamepad/main.py": [
         # Sibling files in the main folder
-        "OSC-Chatbox/__init__.py",
-        "OSC-Chatbox/config.py",
+        "OSC-Gamepad/__init__.py",
+        "OSC-Gamepad/config.py",
 
         # Core
-        "OSC-Router/core/__init__.py",
-        "OSC-Router/core/pad_state.py",
+        "OSC-Gamepad/core/__init__.py",
+        "OSC-Gamepad/core/pad_state.py",
 
         # UI module
-        "OSC-Chatbox/ui/__init__.py",
-        "OSC-Chatbox/ui/app.py",
-        "OSC-Chatbox/ui/gamepad_tab.py",
-        "OSC-Chatbox/ui/pad_card.py",
-        "OSC-Chatbox/ui/help_dialog.py",
-        "OSC-Chatbox/ui/settings_dialog.py",
-        "OSC-Chatbox/ui/theme.py",
-        "OSC-Chatbox/ui/widgets.py",
+        "OSC-Gamepad/ui/__init__.py",
+        "OSC-Gamepad/ui/app.py",
+        "OSC-Gamepad/ui/gamepad_tab.py",
+        "OSC-Gamepad/ui/pad_card.py",
+        "OSC-Gamepad/ui/help_dialog.py",
+        "OSC-Gamepad/ui/settings_dialog.py",
+        "OSC-Gamepad/ui/theme.py",
+        "OSC-Gamepad/ui/widgets.py",
    ],
     "OSC-FaceTrackingController/main.py": [
    ],
