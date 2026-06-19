@@ -2,12 +2,14 @@
 ui/app.py
 ─────────
 Root window for OSC-Gamepad.
+Same structure and theme as OSC-Chatbox / OSC-Router:
+header bar with title + version, dark notebook, single tab.
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
-from config import load_config, save_config
+from config import load_config, save_config, get_defaults
 from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, TITLE_PREFIX
 from ui.gamepad_tab import GamepadTab
 from ui.help_dialog import open_help
@@ -21,9 +23,7 @@ except ImportError:
 
 class App:
     def __init__(self):
-        self._cfg = load_config()
-        # Initialize the colour mode tracking variable from config
-        self._colour_mode = self._cfg.get("colour_mode", "light")
+        self._cfg      = load_config()
 
         self._build_root()
         self._build_tabs()
@@ -47,6 +47,9 @@ class App:
             background=BG, borderwidth=0, tabmargins=(0, 0, 0, 0),
             bordercolor=BG, lightcolor=BG, darkcolor=BG,
         )
+        # Clam draws a separate border around the notebook's client area
+        # using its own layout element; remove that element entirely so
+        # no light-coloured border shows around the tab content.
         style.layout("Dark.TNotebook", [
             ("Notebook.client", {"sticky": "nswe"})
         ])
@@ -94,27 +97,42 @@ class App:
 
     def _save(self):
         pads_data = self._gamepad_tab.collect_pads()
-        self._cfg["pads"]        = pads_data
-        self._cfg["colour_mode"] = self._colour_mode
-        save_config(pads_data, self._colour_mode)
+        self._cfg["pads"] = pads_data
+        save_config(pads_data, self._cfg.get("theme_mode", "new"))
+
+    def _reset_to_defaults(self):
+        defaults = get_defaults()
+        keep_pads  = self._cfg.get("pads", [])
+        keep_theme = self._cfg.get("theme_mode", "new")
+        self._cfg.clear()
+        self._cfg.update(defaults)
+        self._cfg["pads"]       = keep_pads
+        self._cfg["theme_mode"] = keep_theme
+        self._save()
 
     # ── Dialogs ───────────────────────────────────────────────────────────────
 
     def _open_settings(self):
         open_settings(
-            root           = self.root,
-            apply_color_fn = self._apply_colour_mode,
-            get_color_fn   = lambda: self._colour_mode,
-            save_cb        = self._save,
+            root     = self.root,
+            cfg      = self._cfg,
+            save_cb  = self._save,
+            reset_cb = self._reset_to_defaults,
+            theme_cb = self._set_theme,
         )
 
     def _open_help(self):
         open_help(self.root)
 
-    # ── Colour Mode ───────────────────────────────────────────────────────────
+    # ── Theme ─────────────────────────────────────────────────────────────────
 
-    def _apply_colour_mode(self, mode: str):
-        self._colour_mode = mode
+    def _set_theme(self, mode: str):
+        self._cfg["theme_mode"] = mode
+        self._save()
+        messagebox.showinfo(
+            "Theme Changed",
+            "Theme will apply after restarting OSC-Gamepad."
+        )
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
