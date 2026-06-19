@@ -12,7 +12,7 @@ CONFIG_FILE = os.path.join(SCRIPT_DIR, "gamepad_config.json")
 
 
 def get_defaults() -> dict:
-    return {"pads": [], "colour_mode": "new"}
+    return {"pads": [], "theme_mode": "new"}
 
 
 def load_config() -> dict:
@@ -25,8 +25,8 @@ def load_config() -> dict:
         return defaults
 
 
-def save_config(pads_data: list[dict], colour_mode: str = "light"):
+def save_config(pads_data: list[dict], theme_mode: str = "new"):
     os.makedirs(SCRIPT_DIR, exist_ok=True)
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump({"pads": pads_data, "colour_mode": colour_mode}, f, indent=2)
-    print(f"[Config] Saved ({len(pads_data)} pads) with colour mode: {colour_mode}")
+        json.dump({"pads": pads_data, "theme_mode": theme_mode}, f, indent=2)
+    print(f"[Config] Saved ({len(pads_data)} pads)")
