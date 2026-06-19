@@ -29,12 +29,12 @@ from hardware.memory import (
 from monitors.network import sample as net_sample
 from monitors.weather import fetch as weather_fetch
 from monitors import media as media_mod
-from monitors.media  import clean_title, clean_value
+from monitors.media  import clean_title, clean_value, estimate_position
 from modules.registry import render_page
 from state import AppState, CHATBOX_MAX_CHARS
 
 # Polling intervals
-_LHM_INTERVAL     = 1.0   # seconds between LHM REST calls
+_LHM_INTERVAL     = 1.0   # seconds between LHM REST calls / hardware sensor reads
 _WEATHER_INTERVAL = 300   # seconds between weather refreshes
 _MEDIA_INTERVAL   = 1.0   # seconds between media polls
 
@@ -129,7 +129,7 @@ def _run(cfg, state: AppState, status_cb, preview_cb):
     # ── Page rotation state ───────────────────────────────────────────────────
     page_index       = 0
     page_start_time  = time.time()
-    lhm_tick         = 0
+    media_pos_state: dict = {}
 
     status_cb("Running")
 
@@ -146,28 +146,25 @@ def _run(cfg, state: AppState, status_cb, preview_cb):
                 sleep = 1.0
             state.sleep_delay = sleep
 
-            # ── LHM (throttled) ───────────────────────────────────────────────
-            lhm_tick += 1
-            if lhm_tick >= 3:
-                with lhm_cache["lock"]:
-                    lhm_data = lhm_cache["data"]
-                if lhm_data:
-                    state.update_hardware(
-                        cpu_temp  = get_cpu_temp(lhm_data),
-                        cpu_power = get_cpu_power(lhm_data),
-                        cpu_load  = get_cpu_load(lhm_data),
-                        gpu_temp  = get_gpu_temp(lhm_data),
-                        gpu_power = get_gpu_power(lhm_data),
-                        gpu_load  = get_gpu_load(lhm_data),
-                        dram_used = get_dram_used(lhm_data),
-                        vram_used = get_vram_used(lhm_data),
-                    )
-                    # Retry totals if they came up as "?"
-                    if state.vram_total == "?":
-                        state.vram_total = get_vram_total(lhm_data)
-                    if state.dram_total == "?":
-                        state.dram_total = get_dram_total(lhm_data)
-                lhm_tick = 0
+            # ── Hardware sensors (read from LHM cache, refreshed every ~1s) ────
+            with lhm_cache["lock"]:
+                lhm_data = lhm_cache["data"]
+            if lhm_data:
+                state.update_hardware(
+                    cpu_temp  = get_cpu_temp(lhm_data),
+                    cpu_power = get_cpu_power(lhm_data),
+                    cpu_load  = get_cpu_load(lhm_data),
+                    gpu_temp  = get_gpu_temp(lhm_data),
+                    gpu_power = get_gpu_power(lhm_data),
+                    gpu_load  = get_gpu_load(lhm_data),
+                    dram_used = get_dram_used(lhm_data),
+                    vram_used = get_vram_used(lhm_data),
+                )
+                # Retry totals if they came up as "?"
+                if state.vram_total == "?":
+                    state.vram_total = get_vram_total(lhm_data)
+                if state.dram_total == "?":
+                    state.dram_total = get_dram_total(lhm_data)
 
             # ── Network ───────────────────────────────────────────────────────
             prev_net, up, down, prev_time = net_sample(prev_net, prev_time, interface)
@@ -181,6 +178,11 @@ def _run(cfg, state: AppState, status_cb, preview_cb):
             # ── Media snapshot ────────────────────────────────────────────────
             with media_cache["lock"]:
                 media_info = dict(media_cache["info"])
+
+            # Smooth the playback position so the progress bar advances
+            # continuously between media polls instead of stepping.
+            estimate_position(media_info, media_pos_state, now)
+
             state.update_media(media_info)
 
             # ── Build snap dict for module renderers ──────────────────────────

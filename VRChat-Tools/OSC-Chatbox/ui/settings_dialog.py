@@ -1,7 +1,7 @@
 """
 ui/settings_dialog.py
 ─────────────────────
-Settings modal: Progress bar chars and feature flags.
+Settings modal: theme, progress bar chars, feature flags.
 """
 
 import tkinter as tk
@@ -10,10 +10,10 @@ from tkinter import messagebox
 from config import normalize_char
 from state import AppState, DEFAULT_SLEEP, SLOW_SLEEP, SPEED_SLEEP
 from state import DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, RED, YELLOW, FONT
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, THEMES, THEME_LABELS, colour_mode
+from ui.circle_toggle import CircleToggle
 
-
-def open_settings(root, state: AppState, save_cb, reset_cb):
+def open_settings(root, state: AppState, cfg: dict, save_cb, reset_cb, theme_cb):
     win = tk.Toplevel(root)
     win.title("Settings")
     win.configure(bg=BG)
@@ -21,100 +21,142 @@ def open_settings(root, state: AppState, save_cb, reset_cb):
     root.update_idletasks()
     win.geometry(f"{root.winfo_width()}x{root.winfo_height()}+{root.winfo_x()}+{root.winfo_y()}")
 
-    # Header section
+    # Header
     hdr = tk.Frame(win, bg=PANEL, pady=10)
     hdr.pack(fill="x")
     tk.Label(hdr, text="Settings", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")).pack(side="left", padx=16)
     tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
 
-    # Scrollable container frames
+    # Scrollable content
     canvas = tk.Canvas(win, bg=PANEL, highlightthickness=0)
     vsb    = tk.Scrollbar(win, orient="vertical", command=canvas.yview)
     canvas.configure(yscrollcommand=vsb.set)
-
     vsb.pack(side="right", fill="y")
-    canvas.pack(side="left", fill="both", expand=True)
+    canvas.pack(fill="both", expand=True, padx=20, pady=14)
 
     inner = tk.Frame(canvas, bg=PANEL)
-    canvas_win = canvas.create_window((0, 0), window=inner, anchor="nw")
+    inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.create_window((0, 0), window=inner, anchor="nw")
 
-    def _on_canvas_configure(e):
-        canvas.itemconfigure(canvas_win, width=e.width)
+    # The helper function now only takes care of creating the section heading
+    def section(label):
+        tk.Label(inner, text=label, bg=PANEL, fg=ACCENT2, font=(FONT, 10, "bold")).pack(pady=(16, 6))
 
-    def _on_inner_configure(_):
-        canvas.configure(scrollregion=canvas.bbox("all"))
+    # ── Theme ─────────────────────────────────────────────────────────────────
+    # This is now properly placed outside of the def section block
+    section("Theme")
+    tk.Label(inner, text="Restart required to apply", bg=PANEL, fg=SUBTEXT,
+             font=(FONT, 8)).pack()
 
-    canvas.bind("<Configure>", _on_canvas_configure)
-    inner.bind("<Configure>", _on_inner_configure)
+    current_theme = cfg.get("theme_mode", colour_mode)
+    theme_state = {"selected": current_theme}
+    theme_rows: list[dict] = []
 
-    # Mousewheel scrolling hook
-    def _on_mousewheel(e):
-        canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
-    win.bind("<MouseWheel>", _on_mousewheel)
+    def _refresh_theme_rows():
+        for row_data in theme_rows:
+            is_selected = row_data["mode"] == theme_state["selected"]
+            row_data["toggle"].set(is_selected)
+            row_data["label"].config(fg=ACCENT2 if is_selected else TEXT)
 
-    # Section generator helper
-    def section(title: str):
-        f = tk.Frame(inner, bg=PANEL, pady=8)
-        f.pack(fill="x", padx=16, pady=(16, 0))
-        tk.Label(f, text=title.upper(), bg=PANEL, fg=ACCENT2, font=(FONT, 9, "bold")).pack(side="left")
-        div = tk.Frame(inner, bg=BORDER, height=1)
-        div.pack(fill="x", padx=16, pady=(0, 12))
+    def _select_theme(mode):
+        theme_state["selected"] = mode
+        _refresh_theme_rows()
+        theme_cb(mode)
 
-    # ── Custom Characters ─────────────────────────────────────────────────────
-    section("Custom Characters")
+    theme_list_frame = tk.Frame(inner, bg=PANEL)
+    theme_list_frame.pack(anchor="w", padx=20, pady=(6, 0))
 
-    char_frame = tk.Frame(inner, bg=PANEL)
-    char_frame.pack(fill="x", padx=16)
-    char_frame.columnconfigure(1, weight=1)
+    for mode, label_text in THEME_LABELS.items():
+        row = tk.Frame(theme_list_frame, bg=PANEL, cursor="hand2")
+        row.pack(anchor="w", pady=3, fill="x")
 
-    fields = [
-        ("Progress Bar Filled", "progress_filled", state.progress_filled),
-        ("Progress Bar Border", "progress_border", state.progress_border),
-        ("Progress Bar Empty",  "progress_empty",  state.progress_empty),
-    ]
+        toggle = CircleToggle(
+            row,
+            enabled=(mode == current_theme),
+            bg=PANEL,
+            color=ACCENT,
+        )
+        toggle.pack(side="left", padx=(0, 4))
+
+        lbl = tk.Label(row, text=label_text, bg=PANEL, font=(FONT, 9), cursor="hand2")
+        lbl.pack(side="left", padx=(4, 8))
+
+        # Swatch preview of the palette's accent colours
+        swatch = tk.Frame(row, bg=PANEL, cursor="hand2")
+        swatch.pack(side="left")
+        for colour_key in ("BG", "PANEL", "ACCENT", "ACCENT2"):
+            tk.Frame(swatch, bg=THEMES[mode][colour_key], width=14, height=14,
+                     highlightthickness=1, highlightbackground=BORDER).pack(side="left", padx=1)
+
+        row_data = {"mode": mode, "toggle": toggle, "label": lbl}
+        theme_rows.append(row_data)
+
+        for widget in (row, lbl, swatch):
+            widget.bind("<Button-1>", lambda e, m=mode: _select_theme(m))
+        toggle.command = lambda _state, m=mode: _select_theme(m)
+
+    _refresh_theme_rows()
+
+    # ── Config reset ──────────────────────────────────────────────────────────
+    section("Config")
+    tk.Button(
+        inner, text="Reset to Defaults",
+        bg=PANEL, fg=SUBTEXT, relief="flat",
+        activebackground=BORDER, activeforeground=TEXT,
+        cursor="hand2", font=(FONT, 9, "bold"),
+        command=lambda: messagebox.askyesno("Reset", "Reset all settings to defaults?") and reset_cb(),
+    ).pack(pady=6)
+
+    # ── Progress bar chars ────────────────────────────────────────────────────
+    section("Progress Bar Characters")
+    chars_frame = tk.Frame(inner, bg=PANEL)
+    chars_frame.pack()
 
     entries = []
-    for i, (label, attr, current_val) in enumerate(fields):
-        tk.Label(char_frame, text=label, bg=PANEL, fg=TEXT, font=(FONT, 9)).grid(row=i, column=0, sticky="w", pady=6)
-
-        var = tk.StringVar(value=current_val)
+    for col, (lbl, val) in enumerate((
+        ("Filled", state.progress_filled),
+        ("Border", state.progress_border),
+        ("Empty",  state.progress_empty),
+    )):
+        tk.Label(chars_frame, text=lbl, bg=PANEL, fg=SUBTEXT, font=(FONT, 8)).grid(row=0, column=col, padx=6)
         e = tk.Entry(
-            char_frame, textvariable=var, width=6, bg=BG, fg=TEXT,
-            insertbackground=ACCENT, font=(FONT, 9, "bold"), relief="flat",
-            highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT, justify="center"
+            chars_frame, width=4, justify="center",
+            bg=PANEL, fg=TEXT, insertbackground=ACCENT, relief="flat",
+            font=(FONT, 9), highlightthickness=1,
+            highlightbackground=BORDER, highlightcolor=ACCENT,
         )
-        e.grid(row=i, column=1, sticky="w", padx=12, pady=6)
-        entries.append((var, attr))
+        e.insert(0, val)
+        e.grid(row=1, column=col, padx=6, pady=2)
+        entries.append(e)
 
-    # Live preview layout for configuration characters
-    prev_frame = tk.Frame(inner, bg=PANEL, pady=8)
-    prev_frame.pack(fill="x", padx=16)
-    tk.Label(prev_frame, text="Live Preview:", bg=PANEL, fg=SUBTEXT, font=(FONT, 8)).pack(side="left")
+    preview_frame = tk.Frame(inner, bg=PANEL)
+    preview_frame.pack(pady=(4, 8))
+    tk.Label(preview_frame, text="Preview", bg=PANEL, fg=SUBTEXT, font=(FONT, 8)).pack()
 
-    b_l = state.progress_border if state.progress_border else ""
-    b_r = state.progress_border if state.progress_border else ""
-    init_str = f"{b_l}{state.progress_filled * 5}{state.progress_empty * 3}{b_r}"
+    previews = []
+    for ch, color in ((state.progress_filled, TEXT), (state.progress_border, TEXT), (state.progress_empty, ACCENT2)):
+        lbl = tk.Label(preview_frame, text=ch * 8, bg=BORDER, fg=color,
+                       font=(FONT, 10), padx=4, pady=2)
+        lbl.pack(side="left", padx=4)
+        previews.append(lbl)
 
-    prev = tk.Label(prev_frame, text=init_str, bg=PANEL, fg=TEXT, font=(FONT, 9, "bold"))
-    prev.pack(side="left", padx=8)
-
-    def _apply_chars(*_):
-        for var, attr in entries:
-            raw = var.get()
-            val = normalize_char(raw) if attr != "progress_border" else raw
-            setattr(state, attr, val)
-
-        ch = state.progress_filled if state.progress_filled else "■"
-        border = state.progress_border if state.progress_border else ""
-        empty = state.progress_empty if state.progress_empty else " "
-
-        prev.config(text=f"{border}{ch * 5}{empty * 3}{border}")
+    def _apply_chars(_=None):
+        state.progress_filled = normalize_char(entries[0].get(), DEFAULT_PROGRESS_FILLED)
+        state.progress_border = normalize_char(entries[1].get(), DEFAULT_PROGRESS_BORDER)
+        state.progress_empty  = normalize_char(entries[2].get(), DEFAULT_PROGRESS_EMPTY)
+        for entry, ch in zip(entries, (state.progress_filled, state.progress_border, state.progress_empty)):
+            if entry.get() != ch:
+                entry.delete(0, tk.END)
+                entry.insert(0, ch)
+        for prev, ch in zip(previews, (state.progress_filled, state.progress_border, state.progress_empty)):
+            prev.config(text=ch * 8)
         save_cb()
 
-    for var, _ in entries:
-        var.trace_add("write", _apply_chars)
+    for e in entries:
+        e.bind("<KeyRelease>", _apply_chars)
+        e.bind("<FocusOut>",   _apply_chars)
 
-    # ── Feature Flags ─────────────────────────────────────────────────────────
+    # ── Feature flags ─────────────────────────────────────────────────────────
     section("Features")
 
     flags = [
@@ -130,31 +172,13 @@ def open_settings(root, state: AppState, save_cb, reset_cb):
             setattr(state, a, v.get())
             save_cb()
 
-        chk = tk.Checkbutton(
+        tk.Checkbutton(
             inner, text=label, bg=PANEL, fg=TEXT,
             variable=var, onvalue=True, offvalue=False,
-            selectcolor=BG, activebackground=PANEL, activeforeground=TEXT,
-            font=(FONT, 9), command=_changed, relief="flat", bd=0, highlightthickness=0
-        )
-        chk.pack(anchor="w", padx=20, pady=(8, 0))
+            selectcolor=PANEL, activebackground=PANEL,
+            font=(FONT, 9), command=_changed,
+        ).pack(anchor="w", padx=20, pady=(8, 0))
         tk.Label(inner, text=hint, bg=PANEL, fg=SUBTEXT, font=(FONT, 8)).pack(anchor="w", padx=40)
-    # ── Config reset ──────────────────────────────────────────────────────────
-    section("Config")
-    tk.Button(
-        inner, text="Reset to Defaults",
-        bg=RED, fg=BG, relief="flat",
-        activebackground=BORDER, activeforeground=TEXT,
-        cursor="hand2", font=(FONT, 9, "bold"),
-        command=lambda: messagebox.askyesno("Config Reset", "Are you sure?") and reset_cb(),
-    ).pack(pady=6)
-
-    tk.Button(
-        win, text="Close", bg=ACCENT, fg=BG, relief="flat",
-        cursor="hand2", font=(FONT, 10, "bold"),
-        activebackground=ACCENT2, activeforeground=BG,
-        command=win.destroy,
-    ).pack(pady=12)
-
 
     # ── Action Buttons ────────────────────────────────────────────────────────
     section("Actions")
