@@ -9,10 +9,7 @@ import subprocess
 import sys
 import os
 
-VERSION = "2.0.2"
-
-
-# ── Dependency bootstrap ──────────────────────────────────────────────────────
+VERSION = "2.1.0"
 
 REQUIRED = [
     ("python-osc==1.9.3", "pythonosc"),
@@ -48,6 +45,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 if __name__ == "__main__":
     _ensure_deps()
+
+    from config import load_config
+    from ui import theme
+    theme.set_theme(load_config().get("theme_mode", "new"))
 
     from ui.app import App
     App().run()

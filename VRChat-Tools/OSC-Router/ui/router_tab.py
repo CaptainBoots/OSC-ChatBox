@@ -48,8 +48,8 @@ class RouterTab(tk.Frame):
         bf = tk.Frame(self, bg=BG)
         bf.grid(row=1, column=0, sticky="ew", padx=8, pady=4)
         for text, cmd, fg in (
-            ("▶  Start",   self._start_cb,   ACCENT2),
-            ("■  Stop",    self._stop_cb,    ACCENT2),
+            ("▶  Start",   self._start_cb,   GREEN),
+            ("■  Stop",    self._stop_cb,    RED),
             ("↺  Restart", self._restart_cb, ACCENT2),
         ):
             tk.Button(bf, text=text, bg=PANEL, fg=fg, relief="flat", cursor="hand2",
@@ -79,12 +79,27 @@ class RouterTab(tk.Frame):
 
         # Inner notebook (Sources / Outputs)
         style = ttk.Style()
-        style.configure("Inner.TNotebook", background=BG, borderwidth=0, tabmargins=0)
-        style.configure("Inner.TNotebook.Tab", background=PANEL, foreground=SUBTEXT,
-                        font=(FONT, 9), padding=(12, 4), borderwidth=0)
-        style.map("Inner.TNotebook.Tab",
-                  background=[("selected", BORDER)],
-                  foreground=[("selected", ACCENT2)])
+        style.configure(
+            "Inner.TNotebook",
+            background=BG, borderwidth=0, tabmargins=(0, 0, 0, 0),
+            bordercolor=BG, lightcolor=BG, darkcolor=BG,
+        )
+        style.layout("Inner.TNotebook", [
+            ("Notebook.client", {"sticky": "nswe"})
+        ])
+        style.configure(
+            "Inner.TNotebook.Tab",
+            background=PANEL, foreground=SUBTEXT,
+            font=(FONT, 9), padding=(12, 4), borderwidth=0,
+            bordercolor=BG, lightcolor=PANEL, darkcolor=PANEL,
+        )
+        style.map(
+            "Inner.TNotebook.Tab",
+            background=[("selected", BORDER)],
+            foreground=[("selected", ACCENT2)],
+            lightcolor=[("selected", BORDER)],
+            darkcolor=[("selected", BORDER)],
+        )
 
         nb = ttk.Notebook(self, style="Inner.TNotebook")
         nb.grid(row=3, column=0, sticky="nsew", padx=8, pady=(4, 8))
@@ -408,8 +423,17 @@ class RouterTab(tk.Frame):
         outer.rowconfigure(0, weight=1)
         parent.rowconfigure(row, weight=1)
 
+        style = ttk.Style()
+        style.configure(
+            "Dark.Vertical.TScrollbar",
+            background=PANEL, troughcolor=BG,
+            arrowcolor=SUBTEXT, bordercolor=BG,
+            lightcolor=PANEL, darkcolor=PANEL,
+        )
+
         canvas = tk.Canvas(outer, bg=BG, highlightthickness=0)
-        vsb    = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        vsb    = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview,
+                              style="Dark.Vertical.TScrollbar")
         canvas.configure(yscrollcommand=vsb.set)
         vsb.grid(row=0, column=1, sticky="ns")
         canvas.grid(row=0, column=0, sticky="nsew")
