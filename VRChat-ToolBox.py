@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.3.5"
+VERSION = "9.3.6"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -303,7 +303,7 @@ SCRIPT_FOLDER_MAP = {
     "OSC-ScriptMaker.py": "OSC-ScriptMaker",
     "OSC-ParameterBrowser.py": "OSC-ParameterBrowser",
     "VRChat-Launcher.py": "VRChat-Launcher",
-    "VRChat-LocalFavorites.py": "LocalFavorites",
+    "VRChat-LocalFavorites.py": "VRChat-LocalFavorites",
     "VRChat-SocialLogger.py": "VRChat-SocialLogger",
 }
 
