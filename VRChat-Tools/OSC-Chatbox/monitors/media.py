@@ -82,6 +82,73 @@ def fmt_time(pos_ms, dur_ms) -> str:
     return f"{clk(ps)} / {clk(ds)}"
 
 
+def _ms(value, fallback: float = 0.0) -> float:
+    try:
+        return max(0.0, float(value))
+    except (TypeError, ValueError):
+        return fallback
+
+
+def estimate_position(info: dict, pos_state: dict, now: float) -> float:
+    """
+    Smooth the reported playback position using elapsed wall-clock time,
+    so the progress bar advances continuously between media polls instead
+    of jumping in steps. Mutates info["position_ms"] in-place and returns
+    the estimated position in ms.
+
+    pos_state is a small dict the caller keeps between calls (per media
+    source) holding: signature, position_ms, raw_position_ms, seen_at.
+    """
+    raw_pos   = _ms(info.get("position_ms"))
+    duration  = _ms(info.get("duration_ms"))
+    is_paused = bool(info.get("is_paused", False))
+
+    signature = (
+        clean_value(info.get("title")),
+        clean_value(info.get("artist")),
+        clean_value(info.get("album")),
+        clean_value(info.get("track_number")),
+        duration,
+    )
+
+    if not signature[0]:
+        pos_state.clear()
+        info["position_ms"] = 0
+        return 0
+
+    prev_sig  = pos_state.get("signature")
+    prev_pos  = _ms(pos_state.get("position_ms"))
+    prev_raw  = pos_state.get("raw_position_ms")
+    prev_seen = pos_state.get("seen_at", now)
+
+    if signature != prev_sig:
+        # New track — trust the reported position immediately
+        estimated = raw_pos
+    else:
+        elapsed_ms = max(0.0, (now - prev_seen) * 1000.0)
+        raw_delta  = raw_pos - _ms(prev_raw) if prev_raw is not None else None
+        raw_stale  = raw_delta is not None and abs(raw_delta) <= 250.0
+
+        if is_paused:
+            # While paused, keep our smoothed value unless the source jumped
+            estimated = prev_pos if raw_stale else raw_pos
+        elif raw_stale:
+            # Source hasn't updated position yet — extrapolate from elapsed time
+            estimated = prev_pos + elapsed_ms
+        else:
+            estimated = raw_pos
+
+    if duration > 0:
+        estimated = min(estimated, duration)
+
+    pos_state["signature"]       = signature
+    pos_state["position_ms"]     = estimated
+    pos_state["raw_position_ms"] = raw_pos
+    pos_state["seen_at"]         = now
+    info["position_ms"] = estimated
+    return estimated
+
+
 def detail_line(info: dict) -> str:
     parts = []
     album = clean_value(info.get("album"))

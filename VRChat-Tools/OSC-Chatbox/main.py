@@ -10,7 +10,7 @@ import subprocess
 import sys
 import os
 
-VERSION = "8.0.5"
+VERSION = "8.1.0"
 
 # ── Dependency bootstrap ──────────────────────────────────────────────────────
 
@@ -21,6 +21,7 @@ REQUIRED = [
     "Pillow",
 ]
 
+# Windows-only
 if sys.platform == "win32":
     REQUIRED.append("winrt-runtime")
     REQUIRED.append("winrt-Windows.Media.Control")
@@ -62,6 +63,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 if __name__ == "__main__":
     _ensure_deps()
+
+    # Apply the saved theme BEFORE any ui module is imported, since
+    # ui.theme colours are read at import time by every ui module.
+    from config import load_config
+    from ui import theme
+    theme.set_theme(load_config().get("theme_mode", "new"))
 
     from ui.app import App
 

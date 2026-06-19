@@ -1,81 +1,8 @@
-
-
 import tkinter as tk
-from PIL import Image, ImageTk
 
 from modules.registry import CATEGORIES, MODULE_BY_ID
 from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, RED
-
-
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# CIRCLE TOGGLE WIDGET
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
-class CircleToggle(tk.Canvas):
-    SIZE = 20
-    PAD = 3
-    COLOR = "#a78bfa"
-
-    def __init__(self, parent, enabled=True, command=None, **kwargs):
-        super().__init__(
-            parent,
-            width=self.SIZE, height=self.SIZE,
-            bg=PANEL, highlightthickness=0,  # Uses PANEL background to blend perfectly into the page card
-            cursor="hand2",
-            **kwargs
-        )
-        self._enabled = enabled
-        self._command = command
-        self._image_cache = {}
-        self._draw()
-        self.bind("<Button-1>", self._on_click)
-
-    def _get_smooth_circle(self, filled):
-        cache_key = "filled" if filled else "outline"
-        if cache_key in self._image_cache:
-            return self._image_cache[cache_key]
-
-        # 1. Draw at 4x size for high-res details
-        scale = 4
-        big_size = self.SIZE * scale
-        big_pad = self.PAD * scale
-
-        from PIL import ImageDraw
-        # Create a transparent canvas image
-        img = Image.new("RGBA", (big_size, big_size), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
-
-        cords = [big_pad, big_pad, big_size - big_pad, big_size - big_pad]
-
-        if filled:
-            draw.ellipse(cords, fill=self.COLOR)
-        else:
-            draw.ellipse(cords, outline=self.COLOR, width=2 * scale)
-
-        smooth_img = img.resize((self.SIZE, self.SIZE), Image.Resampling.LANCZOS)
-
-        tk_img = ImageTk.PhotoImage(smooth_img)
-        self._image_cache[cache_key] = tk_img
-        return tk_img
-
-    def _draw(self):
-        self.delete("all")
-        center = self.SIZE // 2
-        circle_image = self._get_smooth_circle(self._enabled)
-        self.create_image(center, center, image=circle_image, anchor="center")
-
-    def _on_click(self, _event=None):
-        self._enabled = not self._enabled
-        self._draw()
-        if self._command:
-            self._command(self._enabled)
-
-    def get(self) -> bool:
-        return self._enabled
-
-    def set(self, value: bool):
-        self._enabled = bool(value)
-        self._draw()
+from ui.circle_toggle import CircleToggle
 
 
 class BuilderTab(tk.Frame):
@@ -228,7 +155,8 @@ class BuilderTab(tk.Frame):
         chk_toggle = CircleToggle(
             header,
             enabled=page.get("enabled", True),
-            command=_toggle_enabled
+            command=_toggle_enabled,
+            bg=PANEL,
         )
         chk_toggle.grid(row=0, column=0, sticky="w", padx=(2, 4))
         self._bind_mouse_wheel(chk_toggle)

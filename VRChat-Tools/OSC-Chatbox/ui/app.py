@@ -7,12 +7,13 @@ Root window. Creates the two-tab notebook and wires together:
   - OSC loop start/stop/restart
   - Config load/save
   - Settings dialog
+  - Theme selection
 """
 
 import sys
 import threading
 import tkinter as tk
-from tkinter import ttk, font as tkfont
+from tkinter import ttk, messagebox
 
 from config import load_config, save_config, get_defaults
 from state  import AppState
@@ -138,7 +139,7 @@ class App:
     def _on_preview(self, text: str):
         self.root.after(0, lambda: self._chatbox_tab.set_preview(text))
 
-    # ── Config Sync ───────────────────────────────────────────────────────────
+    # ── Config sync ───────────────────────────────────────────────────────────
 
     def _sync_state_from_cfg(self):
         self._state.slow_mode        = self._cfg.get("slow_mode", False)
@@ -160,14 +161,16 @@ class App:
         self._cfg["progress_empty"]   = self._state.progress_empty
         save_config(self._cfg)
 
-    # ── Settings Dialog ───────────────────────────────────────────────────────
+    # ── Settings dialog ───────────────────────────────────────────────────────
 
     def _open_settings(self):
         open_settings(
-            root    = self.root,
-            state   = self._state,
-            save_cb = self._save,
-            reset_cb= self._reset_to_defaults,
+            root          = self.root,
+            state         = self._state,
+            cfg           = self._cfg,
+            save_cb       = self._save,
+            reset_cb      = self._reset_to_defaults,
+            theme_cb      = self._set_theme,
         )
 
     def _open_help(self):
@@ -176,13 +179,23 @@ class App:
     def _reset_to_defaults(self):
         defaults = get_defaults()
         # Preserve pages and connection settings
-        keep = {k: self._cfg[k] for k in ("pages", "osc_ip", "osc_port", "interface", "location") if k in self._cfg}
+        keep = {k: self._cfg[k] for k in ("pages", "osc_ip", "osc_port", "interface", "location", "theme_mode") if k in self._cfg}
         self._cfg.clear()
         self._cfg.update(defaults)
         self._cfg.update(keep)
         self._sync_state_from_cfg()
         self._save()
         self._builder_tab.refresh()
+
+    # ── Theme ─────────────────────────────────────────────────────────────────
+
+    def _set_theme(self, mode: str):
+        self._cfg["theme_mode"] = mode
+        self._save()
+        messagebox.showinfo(
+            "Theme Changed",
+            "Theme will apply after restarting OSC-Chatbox."
+        )
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
