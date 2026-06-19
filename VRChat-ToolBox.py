@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.3.4"
+VERSION = "9.3.5"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -103,7 +103,7 @@ DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "VRChat-Launcher/main.py", "label": "VRChat Launcher(Beta)"},
     {"filename": "OSC-Router/main.py", "label": "Router"},
     {"filename": "OSC-Chatbox/main.py", "label": "ChatBox"},
-    {"filename": "OSC-Gamepad/main.py", "label": "Gamepad(Beta)"},
+    {"filename": "OSC-Gamepad/main.py", "label": "Gamepad"},
     {"filename": "OSC-FaceTrackingController/main.py", "label": "Face Tracking Controller(Beta)"},
     {"filename": "OSC-ParameterBrowser/main.py", "label": "Parameter Browser(Beta)"},
     {"filename": "OSC-ScriptMaker/main.py", "label": "Script Maker(Placeholder)"},
@@ -214,6 +214,7 @@ TOOL_DEPENDENCIES_MAP = {
         # UI module
         "OSC-Router/ui/__init__.py",
         "OSC-Router/ui/app.py",
+        "OSC-Router/ui/circle_toggle.py",
         "OSC-Router/ui/router_tab.py",
         "OSC-Router/ui/help_dialog.py",
         "OSC-Router/ui/settings_dialog.py",
@@ -247,6 +248,7 @@ TOOL_DEPENDENCIES_MAP = {
         # UI module
         "OSC-Chatbox/ui/__init__.py",
         "OSC-Chatbox/ui/app.py",
+        "OSC-Chatbox/ui/circle_toggle.py",
         "OSC-Chatbox/ui/builder.py",
         "OSC-Chatbox/ui/chatbox_tab.py",
         "OSC-Chatbox/ui/help_dialog.py",
@@ -265,6 +267,7 @@ TOOL_DEPENDENCIES_MAP = {
         # UI module
         "OSC-Gamepad/ui/__init__.py",
         "OSC-Gamepad/ui/app.py",
+        "OSC-Gamepad/ui/circle_toggle.py",
         "OSC-Gamepad/ui/gamepad_tab.py",
         "OSC-Gamepad/ui/pad_card.py",
         "OSC-Gamepad/ui/help_dialog.py",
