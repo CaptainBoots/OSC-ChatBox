@@ -1,15 +1,15 @@
 """
 ui/settings_dialog.py
 ─────────────────────
-Settings modal: Progress bar chars and feature flags.
+Settings modal for OSC-Router: theme and config reset.
 """
 
 import tkinter as tk
 from tkinter import messagebox
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, RED, YELLOW, FONT
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, THEMES, THEME_LABELS, colour_mode
+from ui.circle_toggle import CircleToggle
 
-
-def open_settings(root, save_cb, reset_cb, apply_scale_fn=None, get_scale_fn=None):
+def open_settings(root, cfg: dict, save_cb, reset_cb, theme_cb):
     win = tk.Toplevel(root)
     win.title("Settings")
     win.configure(bg=BG)
@@ -17,62 +17,81 @@ def open_settings(root, save_cb, reset_cb, apply_scale_fn=None, get_scale_fn=Non
     root.update_idletasks()
     win.geometry(f"{root.winfo_width()}x{root.winfo_height()}+{root.winfo_x()}+{root.winfo_y()}")
 
-    # Header section
     hdr = tk.Frame(win, bg=PANEL, pady=10)
     hdr.pack(fill="x")
     tk.Label(hdr, text="Settings", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")).pack(side="left", padx=16)
     tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
 
-    # Scrollable container frames
-    canvas = tk.Canvas(win, bg=PANEL, highlightthickness=0)
-    vsb    = tk.Scrollbar(win, orient="vertical", command=canvas.yview)
-    canvas.configure(yscrollcommand=vsb.set)
+    inner = tk.Frame(win, bg=PANEL)
+    inner.pack(fill="both", expand=True, padx=20, pady=14)
 
-    vsb.pack(side="right", fill="y")
-    canvas.pack(side="left", fill="both", expand=True)
+    def section(label):
+        tk.Label(inner, text=label, bg=PANEL, fg=ACCENT2, font=(FONT, 10, "bold")).pack(pady=(16, 6))
 
-    inner = tk.Frame(canvas, bg=PANEL)
-    canvas_win = canvas.create_window((0, 0), window=inner, anchor="nw")
+    # ── Theme ─────────────────────────────────────────────────────────────────
+    # This is now properly placed outside of the def section block
+    section("Theme")
+    tk.Label(inner, text="Restart required to apply", bg=PANEL, fg=SUBTEXT,
+             font=(FONT, 8)).pack()
 
-    def _on_canvas_configure(e):
-        canvas.itemconfigure(canvas_win, width=e.width)
+    current_theme = cfg.get("theme_mode", colour_mode)
+    theme_state = {"selected": current_theme}
+    theme_rows: list[dict] = []
 
-    def _on_inner_configure(_):
-        canvas.configure(scrollregion=canvas.bbox("all"))
+    def _refresh_theme_rows():
+        for row_data in theme_rows:
+            is_selected = row_data["mode"] == theme_state["selected"]
+            row_data["toggle"].set(is_selected)
+            row_data["label"].config(fg=ACCENT2 if is_selected else TEXT)
 
-    canvas.bind("<Configure>", _on_canvas_configure)
-    inner.bind("<Configure>", _on_inner_configure)
+    def _select_theme(mode):
+        theme_state["selected"] = mode
+        _refresh_theme_rows()
+        theme_cb(mode)
 
-    # Mousewheel scrolling hook
-    def _on_mousewheel(e):
-        canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
-    win.bind("<MouseWheel>", _on_mousewheel)
+    theme_list_frame = tk.Frame(inner, bg=PANEL)
+    theme_list_frame.pack(anchor="w", padx=20, pady=(6, 0))
 
-    # Section generator helper
-    def section(title: str):
-        f = tk.Frame(inner, bg=PANEL, pady=8)
-        f.pack(fill="x", padx=16, pady=(16, 0))
-        tk.Label(f, text=title.upper(), bg=PANEL, fg=ACCENT2, font=(FONT, 9, "bold")).pack(side="left")
-        div = tk.Frame(inner, bg=BORDER, height=1)
-        div.pack(fill="x", padx=16, pady=(0, 12))
+    for mode, label_text in THEME_LABELS.items():
+        row = tk.Frame(theme_list_frame, bg=PANEL, cursor="hand2")
+        row.pack(anchor="w", pady=3, fill="x")
+
+        toggle = CircleToggle(
+            row,
+            enabled=(mode == current_theme),
+            bg=PANEL,
+            color=ACCENT,
+        )
+        toggle.pack(side="left", padx=(0, 4))
+
+        lbl = tk.Label(row, text=label_text, bg=PANEL, font=(FONT, 9), cursor="hand2")
+        lbl.pack(side="left", padx=(4, 8))
+
+        # Swatch preview of the palette's accent colours
+        swatch = tk.Frame(row, bg=PANEL, cursor="hand2")
+        swatch.pack(side="left")
+        for colour_key in ("BG", "PANEL", "ACCENT", "ACCENT2"):
+            tk.Frame(swatch, bg=THEMES[mode][colour_key], width=14, height=14,
+                     highlightthickness=1, highlightbackground=BORDER).pack(side="left", padx=1)
+
+        row_data = {"mode": mode, "toggle": toggle, "label": lbl}
+        theme_rows.append(row_data)
+
+        for widget in (row, lbl, swatch):
+            widget.bind("<Button-1>", lambda e, m=mode: _select_theme(m))
+        toggle.command = lambda _state, m=mode: _select_theme(m)
+
+    _refresh_theme_rows()
 
     # ── Config reset ──────────────────────────────────────────────────────────
     section("Config")
     tk.Button(
         inner, text="Reset to Defaults",
-        bg=RED, fg=BG, relief="flat",
+        bg=PANEL, fg=SUBTEXT, relief="flat",
         activebackground=BORDER, activeforeground=TEXT,
         cursor="hand2", font=(FONT, 9, "bold"),
-        command=lambda: messagebox.askyesno("Config Reset", "Are you sure?") and reset_cb(),
+        command=lambda: messagebox.askyesno("Reset", "Reset all settings to defaults?") and reset_cb(),
     ).pack(pady=6)
-
-    tk.Button(
-        win, text="Close", bg=ACCENT, fg=BG, relief="flat",
-        cursor="hand2", font=(FONT, 10, "bold"),
-        activebackground=ACCENT2, activeforeground=BG,
-        command=win.destroy,
-    ).pack(pady=12)
-
 
     # ── Action Buttons ────────────────────────────────────────────────────────
     section("Actions")

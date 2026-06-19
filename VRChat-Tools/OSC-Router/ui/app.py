@@ -6,7 +6,7 @@ Same structure and theme as OSC-Chatbox.
 """
 
 import tkinter as tk
-from tkinter import ttk, font as tkfont, messagebox
+from tkinter import ttk, messagebox
 
 from config  import load_config, save_config, get_defaults
 from core.router import OscRouter, OutputTarget
@@ -27,11 +27,9 @@ class App:
     def __init__(self):
         self._cfg      = load_config()
         self._router   = OscRouter()
-        self._ui_scale = float(self._cfg.get("ui_scale", 1.0))
 
         self._build_root()
         self._build_tabs()
-        self._apply_scale(self._ui_scale)
         self._tick()
 
     # ── Root window ───────────────────────────────────────────────────────────
@@ -44,13 +42,28 @@ class App:
         self.root.minsize(500, 460)
 
         style = ttk.Style()
-        style.theme_use("default")
-        style.configure("Dark.TNotebook", background=BG, borderwidth=0, tabmargins=0)
-        style.configure("Dark.TNotebook.Tab", background=PANEL, foreground=SUBTEXT,
-                        font=(FONT, 10), padding=(16, 6), borderwidth=0)
-        style.map("Dark.TNotebook.Tab",
-                  background=[("selected", BG)],
-                  foreground=[("selected", ACCENT2)])
+        style.theme_use("clam")
+        style.configure(
+            "Dark.TNotebook",
+            background=BG, borderwidth=0, tabmargins=(0, 0, 0, 0),
+            bordercolor=BG, lightcolor=BG, darkcolor=BG,
+        )
+        style.layout("Dark.TNotebook", [
+            ("Notebook.client", {"sticky": "nswe"})
+        ])
+        style.configure(
+            "Dark.TNotebook.Tab",
+            background=PANEL, foreground=SUBTEXT,
+            font=(FONT, 10), padding=(16, 6), borderwidth=0,
+            bordercolor=BG, lightcolor=PANEL, darkcolor=PANEL,
+        )
+        style.map(
+            "Dark.TNotebook.Tab",
+            background=[("selected", BG)],
+            foreground=[("selected", ACCENT2)],
+            lightcolor=[("selected", BG)],
+            darkcolor=[("selected", BG)],
+        )
 
         header = tk.Frame(self.root, bg=PANEL, pady=8)
         header.pack(fill="x")
@@ -140,39 +153,39 @@ class App:
     # ── Config ────────────────────────────────────────────────────────────────
 
     def _save(self):
-        self._cfg["ui_scale"] = self._ui_scale
         save_config(self._cfg)
 
     def _reset_to_defaults(self):
         defaults = get_defaults()
+        keep = {k: self._cfg[k] for k in ("theme_mode",) if k in self._cfg}
         self._cfg.clear()
         self._cfg.update(defaults)
+        self._cfg.update(keep)
         self._save()
 
     # ── Dialogs ───────────────────────────────────────────────────────────────
 
     def _open_settings(self):
         open_settings(
-            root           = self.root,
-            save_cb        = self._save,
-            reset_cb       = self._reset_to_defaults,
-            apply_scale_fn = self._apply_scale,
-            get_scale_fn   = lambda: self._ui_scale,
+            root      = self.root,
+            cfg       = self._cfg,
+            save_cb   = self._save,
+            reset_cb  = self._reset_to_defaults,
+            theme_cb  = self._set_theme,
         )
 
     def _open_help(self):
         open_help(self.root)
 
-    # ── UI scaling ────────────────────────────────────────────────────────────
+    # ── Theme ─────────────────────────────────────────────────────────────────
 
-    def _apply_scale(self, scale: float):
-        self._ui_scale = scale
-        new = max(7, int(9 * scale))
-        for name in ("TkDefaultFont", "TkTextFont", "TkFixedFont"):
-            try:
-                tkfont.nametofont(name).configure(size=new)
-            except Exception:
-                pass
+    def _set_theme(self, mode: str):
+        self._cfg["theme_mode"] = mode
+        self._save()
+        messagebox.showinfo(
+            "Theme Changed",
+            "Theme will apply after restarting OSC-Router."
+        )
 
     # ── Stats tick ────────────────────────────────────────────────────────────
 
