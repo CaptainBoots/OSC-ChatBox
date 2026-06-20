@@ -1,16 +1,8 @@
-"""
-main.py
-───────
-Entry point for OSC-Chatbox.
-
-Auto-installs any missing pip packages on first run, then launches the UI.
-"""
-
 import os
 import subprocess
 import sys
 
-VERSION = "8.2.0"
+VERSION = "8.2.1"
 
 # ── Dependency bootstrap ──────────────────────────────────────────────────────
 
@@ -19,6 +11,7 @@ REQUIRED = [
     "psutil",
     "requests",
     "Pillow",
+    "openvr",
 ]
 
 # Windows-only
@@ -42,6 +35,7 @@ def _ensure_deps():
         "psutil":                             "psutil",
         "requests":                           "requests",
         "Pillow":                             "PIL",
+        "openvr":                             "openvr",
         "winrt-runtime":                      "winrt",
         "winrt-Windows.Media.Control":        "winrt.windows.media.control",
     }
