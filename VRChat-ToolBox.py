@@ -8,17 +8,17 @@
 # Imports
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+import importlib
+import json
+import os
+import re
+import site
 import subprocess
 import sys
-import importlib
-import re
 import time
 import tkinter as tk
-from tkinter import messagebox, ttk
 import tkinter.font as font
-import os
-import site
-import json
+from tkinter import messagebox
 
 
 def install_if_missing(package, import_name=None):
@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.3.6"
+VERSION = "9.3.7"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -801,7 +801,26 @@ def check_for_updates(silent=False):
 # GUI
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-# UI Color Palette Configurations
+FONT = "Consolas"
+TITLE_PREFIX = "◈"
+"""
+# old (uncomment to use)
+BG = "#0f0f13"
+PANEL = "#17171f"
+BORDER = "#2a2a38"
+ACCENT = "#7c5cfc"
+ACCENT2 = "#a78bfa"
+TEXT = "#e2e0f0"
+TEXT2 = "#E0E0E0"
+SUBTEXT = "#7e7b9a"
+GREEN = "#4ade80"
+RED = "#f87171"
+YELLOW = "#facc15"
+CYAN = "#67e8f9"
+ORANGE = "#fb923c"
+"""
+
+# new (default)
 BG = "#0f0f13"
 PANEL = "#1f102a"
 BORDER = "#2a2a38"
@@ -812,11 +831,27 @@ TEXT2 = "#E0E0E0"
 SUBTEXT = "#7e7b9a"
 GREEN = "#4ade80"
 RED = "#f87171"
-FG = TEXT
-ENTRY_BG = PANEL
-BTN_BG = PANEL
-BTN_FG = TEXT
-UI_FONT = "Consolas"
+YELLOW = "#facc15"
+CYAN = "#67e8f9"
+ORANGE = "#fb923c"
+
+"""
+# light (uncomment to use)
+BG = "#F6E6FA",
+PANEL = "#ffffff",
+BORDER = "#DDCAE3",
+ACCENT = "#9D00FF",
+ACCENT2 = "#b44bff",
+TAB = "#000000",
+TEXT = "#1a1829",
+TEXT2 = "#1a1829",
+SUBTEXT = "#1a1829",
+GREEN = "#4ade80",
+RED = "#f87171",
+YELLOW = "#facc15",
+CYAN = "#67e8f9",
+ORANGE = "#fb923c",
+"""
 
 # Dynamic Scaling Variables
 ui_scale = 1.0
@@ -900,7 +935,7 @@ def dark_label(text, r, **kwargs):
 def dark_entry(r, default=""):
     e = tk.Entry(
         main_frame,
-        bg=ENTRY_BG,
+        bg=PANEL,
         fg=TEXT,
         insertbackground=ACCENT,
         relief="flat",
@@ -1086,7 +1121,7 @@ def open_help():
 
     # Help Window Previous Page Pagination Control Button
     prev_btn = tk.Button(
-        nav_frame, text="← Back", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        nav_frame, text="← Back", bg=BTN_BG, fg=TEXT, relief="flat", width=10,
         command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
                          show_page(current_page[0]))
     )
@@ -1106,7 +1141,7 @@ def open_help():
 
     # Help Window Next Page/Finish Progression Action Button
     next_btn = tk.Button(
-        nav_frame, text="Next →", bg=BTN_BG, fg=BTN_FG, relief="flat", width=10,
+        nav_frame, text="Next →", bg=BTN_BG, fg=TEXT, relief="flat", width=10,
         command=next_or_finish
     )
     next_btn.grid(row=0, column=2, sticky="e")
