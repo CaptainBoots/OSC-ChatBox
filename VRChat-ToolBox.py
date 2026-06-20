@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.3.7"
+VERSION = "9.3.8"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -91,7 +91,7 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
-if VERSION == "9.3.4":
+if VERSION == "9.4.0":
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             os.remove(TOOLBOX_CONFIG_FILE)
@@ -878,7 +878,7 @@ header_title_label = tk.Label(
     text="◈  Boot's TOOLBOX",
     bg=PANEL,
     fg=ACCENT2,
-    font=(UI_FONT, 16, "bold")
+    font=(FONT, 16, "bold")
 )
 header_title_label.pack(side="left", anchor="w")
 
@@ -888,7 +888,7 @@ version_label = tk.Label(
     text=f"v{VERSION}",
     bg=PANEL,
     fg=SUBTEXT,
-    font=(UI_FONT, 9)
+    font=(FONT, 9)
 )
 version_label.pack(side="right", anchor="e", padx=(32, 0))
 
@@ -914,19 +914,19 @@ def apply_scale(scale):
 
     for widget, base_size, extras in scalable_widgets:
         try:
-            widget.configure(font=(UI_FONT, max(6, int(base_size * scale))) + extras)
+            widget.configure(font=(FONT, max(6, int(base_size * scale))) + extras)
         except tk.TclError:
             pass
 
     for container, base_size, btn_widget in square_widgets:
         size = int(base_size * scale)
         container.config(width=size, height=size)
-        btn_widget.config(font=(UI_FONT, max(8, int(12 * scale))))
+        btn_widget.config(font=(FONT, max(8, int(12 * scale))))
 
 
 # Factory Function: Standard UI Subtext Label
 def dark_label(text, r, **kwargs):
-    lbl = tk.Label(main_frame, text=text, bg=BG, fg=SUBTEXT, anchor="w", font=(UI_FONT, 9))
+    lbl = tk.Label(main_frame, text=text, bg=BG, fg=SUBTEXT, anchor="w", font=(FONT, 9))
     lbl.grid(row=r, column=0, sticky="w", pady=6, **kwargs)
     return lbl
 
@@ -939,7 +939,7 @@ def dark_entry(r, default=""):
         fg=TEXT,
         insertbackground=ACCENT,
         relief="flat",
-        font=(UI_FONT, 9),
+        font=(FONT, 9),
         highlightthickness=1,
         highlightbackground=BORDER,
         highlightcolor=ACCENT,
@@ -951,18 +951,18 @@ def dark_entry(r, default=""):
 
 # Factory Function: Fixed Aspect-Ratio Square Button
 def square_button(parent, text, command, base_size=32):
-    container = tk.Frame(parent, bg=BTN_BG, highlightthickness=1, highlightbackground=BORDER)
+    container = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
     container.pack_propagate(False)
 
     button_widget = tk.Button(
         container,
         text=text,
         command=command,
-        bg=BTN_BG,
+        bg=PANEL,
         fg=SUBTEXT,
         relief="flat",
         borderwidth=0,
-        font=(UI_FONT, 12),
+        font=(FONT, 12),
         activebackground=BORDER,
         activeforeground=TEXT,
         cursor="hand2",
@@ -1075,13 +1075,13 @@ def open_help():
 
     # Help Window Section Title Label
     title_label = tk.Label(
-        header, text="", bg=PANEL, fg=ACCENT2, font=(UI_FONT, 12, "bold")
+        header, text="", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")
     )
     title_label.pack(side="left", padx=16)
 
     # Help Window Pagination Tracker Label
     page_indicator = tk.Label(
-        header, text="", bg=PANEL, fg=SUBTEXT, font=(UI_FONT, 8)
+        header, text="", bg=PANEL, fg=SUBTEXT, font=(FONT, 8)
     )
     page_indicator.pack(side="right", padx=16)
 
@@ -1100,7 +1100,7 @@ def open_help():
         justify="left",
         wraplength=460,
         anchor="nw",
-        font=(UI_FONT, 10)
+        font=(FONT, 10)
     )
     content_label.pack(padx=14, pady=14, fill="both", expand=True)
 
@@ -1121,14 +1121,14 @@ def open_help():
 
     # Help Window Previous Page Pagination Control Button
     prev_btn = tk.Button(
-        nav_frame, text="← Back", bg=BTN_BG, fg=TEXT, relief="flat", width=10,
+        nav_frame, text="← Back", bg=PANEL, fg=TEXT, relief="flat", width=10,
         command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
                          show_page(current_page[0]))
     )
     prev_btn.grid(row=0, column=0, sticky="w")
     prev_btn.configure(
         fg=SUBTEXT, activebackground=BORDER, activeforeground=TEXT,
-        cursor="hand2", font=(UI_FONT, 9, "bold"),
+        cursor="hand2", font=(FONT, 9, "bold"),
     )
 
     # Execution Link Logic Block for Next/Finish Routines
@@ -1141,13 +1141,13 @@ def open_help():
 
     # Help Window Next Page/Finish Progression Action Button
     next_btn = tk.Button(
-        nav_frame, text="Next →", bg=BTN_BG, fg=TEXT, relief="flat", width=10,
+        nav_frame, text="Next →", bg=PANEL, fg=TEXT, relief="flat", width=10,
         command=next_or_finish
     )
     next_btn.grid(row=0, column=2, sticky="e")
     next_btn.configure(
         bg=ACCENT, fg=TEXT2, activebackground=ACCENT2, activeforeground=TEXT2,
-        cursor="hand2", font=(UI_FONT, 9, "bold"),
+        cursor="hand2", font=(FONT, 9, "bold"),
     )
 
     show_page(0)
@@ -1175,7 +1175,7 @@ def open_settings():
 
     # Settings Window Structural Header Text Label
     title_label = tk.Label(
-        header, text="Manage Scripts", bg=PANEL, fg=ACCENT2, font=(UI_FONT, 12, "bold")
+        header, text="Manage Scripts", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")
     )
     title_label.pack(side="left", padx=16)
 
@@ -1217,11 +1217,11 @@ def open_settings():
             script_row.pack(fill="x", padx=10, pady=6)
 
             # Row Entry Display Label Description Header
-            tk.Label(script_row, text=f"{script['label']}", bg=BG, fg=TEXT, font=(UI_FONT, 9, "bold")).pack(side="left",
+            tk.Label(script_row, text=f"{script['label']}", bg=BG, fg=TEXT, font=(FONT, 9, "bold")).pack(side="left",
                                                                                                             fill="x",
                                                                                                             expand=True)
             # Row Entry Meta-Info Technical String Subtext Label
-            tk.Label(script_row, text=f"({script['filename']})", bg=BG, fg=SUBTEXT, font=(UI_FONT, 8)).pack(side="left",
+            tk.Label(script_row, text=f"({script['filename']})", bg=BG, fg=SUBTEXT, font=(FONT, 8)).pack(side="left",
                                                                                                             padx=(10,
                                                                                                                   0))
 
@@ -1232,7 +1232,7 @@ def open_settings():
                 bg=PANEL,
                 fg=RED,
                 relief="flat",
-                font=(UI_FONT, 8, "bold"),
+                font=(FONT, 8, "bold"),
                 cursor="hand2",
                 command=lambda i=idx: remove_script(i)
             )
@@ -1255,18 +1255,18 @@ def open_settings():
         add_win.resizable(False, False)
 
         # Form Display Script Label Section Title Header
-        tk.Label(add_win, text="Script Label:", bg=BG, fg=TEXT, font=(UI_FONT, 9)).pack(pady=(10, 0), padx=10,
+        tk.Label(add_win, text="Script Label:", bg=BG, fg=TEXT, font=(FONT, 9)).pack(pady=(10, 0), padx=10,
                                                                                         anchor="w")
         # Form Form-Field Value Entry Interface Text Box
-        label_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(UI_FONT, 9), relief="flat", insertbackground=ACCENT,
+        label_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(FONT, 9), relief="flat", insertbackground=ACCENT,
                                highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
         label_entry.pack(pady=(0, 10), padx=10, fill="x")
 
         # Form System Storage Path / Resource Filename Title Label
-        tk.Label(add_win, text="Filename/Path:", bg=BG, fg=TEXT, font=(UI_FONT, 9)).pack(pady=(10, 0), padx=10,
+        tk.Label(add_win, text="Filename/Path:", bg=BG, fg=TEXT, font=(FONT, 9)).pack(pady=(10, 0), padx=10,
                                                                                          anchor="w")
         # Form System Target Parameter String Input Data Box
-        file_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(UI_FONT, 9), relief="flat", insertbackground=ACCENT,
+        file_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(FONT, 9), relief="flat", insertbackground=ACCENT,
                               highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
         file_entry.pack(pady=(0, 20), padx=10, fill="x")
 
@@ -1288,7 +1288,7 @@ def open_settings():
         # Form Operations Commitment Target Dispatch Execution Button
         tk.Button(
             btn_frame, text="Add", bg=ACCENT, fg=TEXT2, relief="flat",
-            font=(UI_FONT, 9, "bold"), cursor="hand2",
+            font=(FONT, 9, "bold"), cursor="hand2",
             activebackground=ACCENT2, activeforeground=TEXT2,
             command=save_new_script
         ).pack(side="left", padx=5)
@@ -1296,7 +1296,7 @@ def open_settings():
         # Form Operations Termination Abort View Modal Close Button
         tk.Button(
             btn_frame, text="Cancel", bg=PANEL, fg=SUBTEXT, relief="flat",
-            font=(UI_FONT, 9, "bold"), cursor="hand2",
+            font=(FONT, 9, "bold"), cursor="hand2",
             activebackground=BORDER, activeforeground=TEXT,
             command=add_win.destroy
         ).pack(side="left", padx=5)
@@ -1316,7 +1316,7 @@ def open_settings():
     add_btn.pack(side="left")
     add_btn.configure(
         activebackground=ACCENT2, activeforeground=TEXT2,
-        cursor="hand2", font=(UI_FONT, 9, "bold"),
+        cursor="hand2", font=(FONT, 9, "bold"),
     )
 
     # Settings Panel Termination UI Dismiss Command Execution Button
@@ -1327,7 +1327,7 @@ def open_settings():
     close_btn.pack(side="right")
     close_btn.configure(
         activebackground=BORDER, activeforeground=TEXT,
-        cursor="hand2", font=(UI_FONT, 9, "bold"),
+        cursor="hand2", font=(FONT, 9, "bold"),
     )
 
 
@@ -1340,7 +1340,7 @@ tools_label = tk.Label(
     text="MANAGED SCRIPTS",
     bg=BG,
     fg=ACCENT,
-    font=(UI_FONT, 10, "bold")
+    font=(FONT, 10, "bold")
 )
 tools_label.grid(row=14, column=0, columnspan=2, sticky="w", pady=(16, 8))
 
@@ -1374,7 +1374,7 @@ def refresh_main_buttons():
             activebackground=ACCENT2,
             activeforeground=TEXT2,
             cursor="hand2",
-            font=(UI_FONT, 10, "bold"),
+            font=(FONT, 10, "bold"),
             padx=20,
             pady=8,
         )
@@ -1409,7 +1409,7 @@ footer_label = tk.Label(
     text="Checking for updates on startup...",
     bg=PANEL,
     fg=SUBTEXT,
-    font=(UI_FONT, 8)
+    font=(FONT, 8)
 )
 footer_label.pack(side="left", padx=16)
 
