@@ -9,7 +9,7 @@ import os
 import subprocess
 import sys
 
-VERSION = "1.1.2"
+VERSION = "1.1.3"
 
 REQUIRED = [
     ("python-osc==1.9.3", "pythonosc"),
@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
     from config import load_config
     from ui import theme
-    theme.set_theme(load_config().get("theme_mode", "new"))
+    theme.set_theme(load_config().get("theme_mode", "rich_purple"))
 
     from ui.app import App
     App().run()
