@@ -8,14 +8,13 @@ Same structure and theme as OSC-Chatbox.
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from config  import load_config, save_config, get_defaults
+from config import load_config, save_config, get_defaults
 from core.router import OscRouter, OutputTarget
 from core.source import OscSource
-
-from ui.theme           import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, TITLE_PREFIX
-from ui.router_tab      import RouterTab
-from ui.help_dialog     import open_help
+from ui.help_dialog import open_help
+from ui.router_tab import RouterTab
 from ui.settings_dialog import open_settings
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, TITLE_PREFIX
 
 try:
     from main import VERSION
