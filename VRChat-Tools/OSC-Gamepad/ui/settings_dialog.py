@@ -6,8 +6,9 @@ Settings modal for OSC-Gamepad: theme and config reset.
 
 import tkinter as tk
 from tkinter import messagebox
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, THEMES, THEME_LABELS, colour_mode
+
 from ui.circle_toggle import CircleToggle
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, THEMES, THEME_LABELS, colour_mode
 
 
 def open_settings(root, cfg: dict, save_cb, reset_cb, theme_cb):
