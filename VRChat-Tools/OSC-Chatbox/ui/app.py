@@ -10,20 +10,17 @@ Root window. Creates the two-tab notebook and wires together:
   - Theme selection
 """
 
-import sys
-import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 
 from config import load_config, save_config, get_defaults
-from state  import AppState
 from osc_loop import start_loop, stop_loop
-
-from ui.theme           import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, TITLE_PREFIX
-from ui.builder         import BuilderTab
-from ui.chatbox_tab     import ChatboxTab
+from state import AppState
+from ui.builder import BuilderTab
+from ui.chatbox_tab import ChatboxTab
+from ui.help_dialog import open_help
 from ui.settings_dialog import open_settings
-from ui.help_dialog     import open_help
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, TITLE_PREFIX, TAB
 
 try:
     from main import VERSION
@@ -73,7 +70,7 @@ class App:
         style.map(
             "Dark.TNotebook.Tab",
             background=[("selected", BG)],
-            foreground=[("selected", ACCENT2)],
+            foreground=[("selected", TAB)],
         )
 
         # Header bar

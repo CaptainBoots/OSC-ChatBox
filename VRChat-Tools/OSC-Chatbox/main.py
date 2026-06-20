@@ -6,11 +6,11 @@ Entry point for OSC-Chatbox.
 Auto-installs any missing pip packages on first run, then launches the UI.
 """
 
+import os
 import subprocess
 import sys
-import os
 
-VERSION = "8.1.0"
+VERSION = "8.1.1"
 
 # ── Dependency bootstrap ──────────────────────────────────────────────────────
 

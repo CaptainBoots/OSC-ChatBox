@@ -13,7 +13,6 @@ import sys
 
 from state import (
     DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY,
-    DEFAULT_SLEEP,
 )
 
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))

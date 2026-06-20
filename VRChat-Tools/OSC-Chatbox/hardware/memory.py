@@ -6,7 +6,6 @@ DRAM and VRAM individual stat readers.
 
 import subprocess
 import sys
-from typing import Optional
 
 from hardware.lhm import hw_nodes, is_cpu, is_gpu, numeric
 

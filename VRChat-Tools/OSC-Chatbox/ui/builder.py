@@ -1,8 +1,8 @@
 import tkinter as tk
 
 from modules.registry import CATEGORIES, MODULE_BY_ID
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, RED
 from ui.circle_toggle import CircleToggle
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, RED
 
 
 class BuilderTab(tk.Frame):

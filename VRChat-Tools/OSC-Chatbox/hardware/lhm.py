@@ -4,9 +4,10 @@ hardware/lhm.py
 LibreHardwareMonitor REST API fetch + shared sensor-tree walking helpers.
 """
 
-import sys
 import re
+import sys
 from typing import Generator, Optional
+
 import requests
 
 LHM_URL: str = "http://localhost:8085/data.json"

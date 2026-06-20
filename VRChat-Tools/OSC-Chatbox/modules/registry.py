@@ -24,8 +24,8 @@ snap is the dict returned by AppState.snapshot() plus:
   snap["media_icon"]        — "⏸" or "🎵"
 """
 
-from monitors.network import fmt_net
 from monitors.media import progress_bar, fmt_time, clean_value, detail_line
+from monitors.network import fmt_net
 
 
 # ── Render helpers ────────────────────────────────────────────────────────────

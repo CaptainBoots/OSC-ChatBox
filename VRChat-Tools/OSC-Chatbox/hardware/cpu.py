@@ -10,7 +10,6 @@ can call them independently.
 import re
 import subprocess
 import sys
-from typing import Optional
 
 from hardware.lhm import hw_nodes, is_cpu, numeric, get_lhm_data
 
@@ -114,7 +113,7 @@ def get_cpu_load(data) -> int:
 # ── Linux fallbacks ───────────────────────────────────────────────────────────
 
 def _linux_cpu_temp() -> int:
-    import glob, json
+    import glob
     for hwmon in glob.glob("/sys/class/hwmon/hwmon*"):
         try:
             name = open(f"{hwmon}/name").read().strip().lower()
