@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.3.8"
+VERSION = "9.3.9"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -244,6 +244,8 @@ TOOL_DEPENDENCIES_MAP = {
         "OSC-Chatbox/monitors/media.py",
         "OSC-Chatbox/monitors/network.py",
         "OSC-Chatbox/monitors/weather.py",
+        "OSC-Chatbox/monitors/steamvr.py",
+        "OSC-Chatbox/monitors/vrchat.py",
 
         # UI module
         "OSC-Chatbox/ui/__init__.py",
