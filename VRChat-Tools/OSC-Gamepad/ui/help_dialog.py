@@ -5,8 +5,8 @@ Paginated help window for OSC-Gamepad.
 """
 
 import tkinter as tk
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT
 
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT
 
 HELP_PAGES = [
     {

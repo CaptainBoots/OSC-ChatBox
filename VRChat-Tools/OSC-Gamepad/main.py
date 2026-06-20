@@ -5,11 +5,11 @@ Entry point for OSC-Gamepad.
 Auto-installs missing packages then launches the UI.
 """
 
+import os
 import subprocess
 import sys
-import os
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 REQUIRED = [
     ("python-osc==1.9.3", "pythonosc"),

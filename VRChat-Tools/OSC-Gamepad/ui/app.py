@@ -10,10 +10,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from config import load_config, save_config, get_defaults
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, TITLE_PREFIX
 from ui.gamepad_tab import GamepadTab
 from ui.help_dialog import open_help
 from ui.settings_dialog import open_settings
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, TITLE_PREFIX
 
 try:
     from main import VERSION

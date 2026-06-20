@@ -9,8 +9,8 @@ RouterTab / ChatboxTab (status-row + button-row + scrollable body).
 import tkinter as tk
 from tkinter import ttk
 
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, FONT
 from ui.pad_card import PadCard
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, FONT
 
 
 class GamepadTab(tk.Frame):
