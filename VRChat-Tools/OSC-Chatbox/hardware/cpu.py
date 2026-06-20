@@ -11,33 +11,39 @@ import re
 import subprocess
 import sys
 
-from hardware.lhm import hw_nodes, is_cpu, numeric, get_lhm_data
+from hardware.lhm import hw_nodes, is_cpu, numeric, get_lhm_data #ignore
 
+testing = "true"
 
 def detect_cpu() -> str:
-    if sys.platform == "win32":
-        try:
-            out = subprocess.check_output(
-                ["powershell", "-NoProfile", "-Command",
-                 "(Get-CimInstance Win32_Processor | Select-Object -First 1).Name"],
-                encoding="utf-8", stderr=subprocess.DEVNULL, timeout=5,
-            ).strip()
-            return _clean(out)
-        except Exception:
-            return "CPU Unknown"
-    try:
-        with open("/proc/cpuinfo") as f:
-            for line in f:
-                if line.startswith("model name"):
-                    return _clean(line.split(":", 1)[1].strip())
-    except OSError:
-        pass
-    return "CPU Unknown"
+    if testing == "true":
+        return _clean("Ryzen 5 5600X 6-Core Processor")
+    else:
+      if sys.platform == "win32":
+          try:
+              out = subprocess.check_output(
+                  ["powershell", "-NoProfile", "-Command",
+                   "(Get-CimInstance Win32_Processor | Select-Object -First 1).Name"],
+                  encoding="utf-8", stderr=subprocess.DEVNULL, timeout=5,
+              ).strip()
+              return _clean(out)
+          except Exception:
+              return "CPU Unknown"
+      try:
+          with open("/proc/cpuinfo") as f:
+              for line in f:
+                  if line.startswith("model name"):
+                      return _clean(line.split(":", 1)[1].strip())
+      except OSError:
+          pass
+      return "CPU Unknown"
 
 
 def _clean(text: str) -> str:
     text = text.split("@")[0]
     text = re.sub(r"\(.*?\)|\{.*?}", "", text)
+    text = re.sub(r"\d+[-\s](?:core|thread|cpu)s?", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:cpu|processor)\b", "", text, flags=re.IGNORECASE)
     return re.sub(r"\s+", " ", text).strip()
 
 
