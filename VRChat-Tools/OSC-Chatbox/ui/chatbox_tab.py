@@ -161,7 +161,7 @@ class ChatboxTab(tk.Frame):
             ("OSC IP",       "osc_ip",         0, 0, 1),
             ("OSC Port",     "osc_port",        0, 2, 3),
             ("Interface",    "interface",       1, 0, 1),
-            ("Interval (s)", "switch_interval", 1, 2, 3),
+            ("useless block","temp_var1", 1, 2, 3),
             ("LHM URL",      "lhm_api",         2, 0, 1),
             ("Location",     "location",        2, 2, 3),
         ]
