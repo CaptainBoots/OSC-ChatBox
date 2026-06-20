@@ -10,8 +10,9 @@ from tkinter import messagebox
 from config import normalize_char
 from state import AppState, DEFAULT_SLEEP, SLOW_SLEEP, SPEED_SLEEP
 from state import DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, THEMES, THEME_LABELS, colour_mode
 from ui.circle_toggle import CircleToggle
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, THEMES, THEME_LABELS, colour_mode
+
 
 def open_settings(root, state: AppState, cfg: dict, save_cb, reset_cb, theme_cb):
     win = tk.Toplevel(root)
@@ -91,9 +92,8 @@ def open_settings(root, state: AppState, cfg: dict, save_cb, reset_cb, theme_cb)
         row_data = {"mode": mode, "toggle": toggle, "label": lbl}
         theme_rows.append(row_data)
 
-        for widget in (row, lbl, swatch):
+        for widget in (row, lbl, swatch, toggle):
             widget.bind("<Button-1>", lambda e, m=mode: _select_theme(m))
-        toggle.command = lambda _state, m=mode: _select_theme(m)
 
     _refresh_theme_rows()
 

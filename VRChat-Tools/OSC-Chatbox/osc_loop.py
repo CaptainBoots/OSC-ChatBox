@@ -19,18 +19,18 @@ import psutil
 from pythonosc.udp_client import SimpleUDPClient
 
 import hardware.lhm as lhm_mod
-from hardware.lhm    import get_lhm_data
-from hardware.cpu    import detect_cpu, get_cpu_temp, get_cpu_power, get_cpu_load
-from hardware.gpu    import detect_gpu, detect_vram_type, get_gpu_temp, get_gpu_power, get_gpu_load
+from hardware.cpu import detect_cpu, get_cpu_temp, get_cpu_power, get_cpu_load
+from hardware.gpu import detect_gpu, detect_vram_type, get_gpu_temp, get_gpu_power, get_gpu_load
+from hardware.lhm import get_lhm_data
 from hardware.memory import (
     detect_dram_type, get_dram_used, get_dram_total,
     get_vram_used, get_vram_total,
 )
+from modules.registry import render_page
+from monitors import media as media_mod
+from monitors.media import clean_title, clean_value, estimate_position
 from monitors.network import sample as net_sample
 from monitors.weather import fetch as weather_fetch
-from monitors import media as media_mod
-from monitors.media  import clean_title, clean_value, estimate_position
-from modules.registry import render_page
 from state import AppState, CHATBOX_MAX_CHARS
 
 # Polling intervals

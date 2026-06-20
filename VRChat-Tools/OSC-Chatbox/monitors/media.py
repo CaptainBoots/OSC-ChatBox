@@ -1,6 +1,5 @@
 """monitors/media.py — Media session info fetch + helpers."""
 
-import asyncio
 import re
 import subprocess
 import sys

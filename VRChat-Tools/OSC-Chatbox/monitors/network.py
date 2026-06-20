@@ -1,6 +1,7 @@
 """monitors/network.py — network throughput sampling."""
 
 import time
+
 import psutil
 
 
