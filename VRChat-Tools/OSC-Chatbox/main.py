@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-VERSION = "8.2.1"
+VERSION = "8.2.2"
 
 # ── Dependency bootstrap ──────────────────────────────────────────────────────
 
@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
     from config import load_config
     from ui import theme
-    theme.set_theme(load_config().get("theme_mode", "new"))
+    theme.set_theme(load_config().get("theme_mode", "rich_purple"))
 
     from monitors import steamvr, vrchat
     steamvr.start()
