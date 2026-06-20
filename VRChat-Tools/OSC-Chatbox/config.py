@@ -96,7 +96,7 @@ def get_defaults() -> dict:
         "osc_ip":          "127.0.0.1",
         "osc_port":        9000,
         "interface":       _default_interface(),
-        "switch_interval": 20,
+        "temp_var1": "space block",
         "lhm_api":         "http://localhost:8085/data.json",
         "location":        "0,0",
         "slow_mode":       False,
@@ -141,7 +141,7 @@ def load_config() -> dict:
         else:
             for page in merged["pages"]:
                 if "duration" not in page:
-                    page["duration"] = merged.get("switch_interval", 20)
+                    page["duration"] = 20
                 if "slots" not in page:
                     page["slots"] = []
                 if "enabled" not in page:
