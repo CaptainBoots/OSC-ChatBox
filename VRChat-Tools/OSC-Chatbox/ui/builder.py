@@ -2,27 +2,35 @@ import tkinter as tk
 
 from modules.registry import CATEGORIES, MODULE_BY_ID
 from ui.circle_toggle import CircleToggle
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, RED
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, RED, STRIPE_COLOURS
+from ui.chatbox_tab import draw_stripes
 
 
 class BuilderTab(tk.Frame):
     def __init__(self, parent, cfg: dict, save_cb):
         super().__init__(parent, bg=BG)
-        self._cfg        = cfg
-        self._save_cb    = save_cb
-        self._sel_page   = 0
-        self._drag       = {}
-        self._canvas_win = None
+        self._cfg         = cfg
+        self._save_cb     = save_cb
+        self._sel_page    = 0
+        self._drag        = {}
+        self._canvas_win  = None
         self._cards_frame = None
 
+        if STRIPE_COLOURS:
+            self._stripe_canvas = tk.Canvas(self, bg=BG, highlightthickness=0, bd=0)
+            self._stripe_canvas.place(x=0, y=0, relwidth=1, relheight=1)
+            self.bind("<Configure>", self._on_resize)
+
         self._build_ui()
-        self._refresh_pages()
+
+    def _on_resize(self, event):
+        draw_stripes(self._stripe_canvas, event.width, event.height, STRIPE_COLOURS)
+        self._stripe_canvas.tk.call("lower", self._stripe_canvas._w)
 
     # ── Label-button helper ───────────────────────────────────────────────────
 
     def _label_btn(self, parent, text, fg, command, *,
                    bg=PANEL, font_size=9, bold=True, padx=6, pady=2, width=None):
-
         kw = dict(
             bg=bg, fg=fg, cursor="hand2", padx=padx, pady=pady, relief="flat",
             font=(FONT, font_size, "bold" if bold else "normal"),
@@ -75,6 +83,7 @@ class BuilderTab(tk.Frame):
                 self._canvas.itemconfigure(self._canvas_win, width=e.width)
 
         self._canvas.bind("<Configure>", _on_canvas_configure)
+        self._refresh_pages()
 
     # ── Mouse wheel ───────────────────────────────────────────────────────────
 
@@ -95,7 +104,6 @@ class BuilderTab(tk.Frame):
 
     def _refresh_pages(self):
         old_frame = self._cards_frame
-
         new_frame = tk.Frame(self._canvas, bg=BG)
 
         pages = self._cfg.get("pages", [])
@@ -106,8 +114,6 @@ class BuilderTab(tk.Frame):
             self._canvas.configure(scrollregion=self._canvas.bbox("all"))
         new_frame.bind("<Configure>", _on_frame_configure)
 
-        # Swap in-place: reuse the existing canvas window item so there is
-        # never a moment where the canvas background is exposed.
         if self._canvas_win is not None:
             self._canvas.itemconfigure(self._canvas_win, window=new_frame)
         else:
@@ -115,7 +121,6 @@ class BuilderTab(tk.Frame):
 
         self._canvas.itemconfigure(self._canvas_win, width=self._canvas.winfo_width())
         self._cards_frame = new_frame
-
         self._bind_mouse_wheel(new_frame)
 
         if old_frame:
@@ -147,7 +152,6 @@ class BuilderTab(tk.Frame):
         header.columnconfigure(1, weight=1)
         self._bind_mouse_wheel(header)
 
-        # Flash-free Circle Toggle Widget replaces old text label checkbox
         def _toggle_enabled(is_enabled):
             page["enabled"] = is_enabled
             self._save()
@@ -161,7 +165,6 @@ class BuilderTab(tk.Frame):
         chk_toggle.grid(row=0, column=0, sticky="w", padx=(2, 4))
         self._bind_mouse_wheel(chk_toggle)
 
-        # Page title
         lbl_title = tk.Label(
             header, text=f"Page {page_idx + 1}",
             bg=PANEL, fg=TEXT, font=(FONT, 10, "bold"),
@@ -169,12 +172,10 @@ class BuilderTab(tk.Frame):
         lbl_title.grid(row=0, column=1, sticky="w", padx=4)
         self._bind_mouse_wheel(lbl_title)
 
-        # Duration label
         dur_lbl = tk.Label(header, text="Duration:", bg=PANEL, fg=SUBTEXT, font=(FONT, 8))
         dur_lbl.grid(row=0, column=2, padx=(8, 2))
         self._bind_mouse_wheel(dur_lbl)
 
-        # Duration stepper
         counter_frame = tk.Frame(header, bg=BORDER, padx=1, pady=1)
         counter_frame.grid(row=0, column=3, padx=2)
         self._bind_mouse_wheel(counter_frame)
@@ -226,7 +227,6 @@ class BuilderTab(tk.Frame):
 
         dur_var.trace_add("write", _dur_changed)
 
-        # Delete page button
         self._label_btn(
             header, "✕", RED, lambda: self._delete_page(page_idx),
             bg=PANEL, font_size=9, padx=6, pady=2,
@@ -247,7 +247,6 @@ class BuilderTab(tk.Frame):
         for slot_idx, slot in enumerate(slots):
             self._build_slot_row(slots_frame, page_idx, slot_idx, slot, slots)
 
-        # Empty state label
         if not slots:
             lbl_none = tk.Label(
                 slots_frame, text="No modules on this page yet.",
@@ -256,7 +255,6 @@ class BuilderTab(tk.Frame):
             lbl_none.grid(row=0, column=0, columnspan=6, pady=4, sticky="w")
             self._bind_mouse_wheel(lbl_none)
 
-        # Add new line button
         add_row_idx = len(slots) if slots else 1
         bottom_action_frame = tk.Frame(slots_frame, bg=PANEL)
         bottom_action_frame.grid(row=add_row_idx, column=0, columnspan=6, sticky="ew", pady=(6, 2))
@@ -268,14 +266,12 @@ class BuilderTab(tk.Frame):
             bg=BG, font_size=9, padx=10, pady=3,
         ).pack(anchor="w", padx=2)
 
-        # Propagate page-select click to background areas
         for w in [header, lbl_title, slots_frame, bottom_action_frame]:
             w.bind("<Button-1>", _select)
 
     # ── Slot row ──────────────────────────────────────────────────────────────
 
     def _build_slot_row(self, parent, page_idx, slot_idx, slot, slots):
-        # Normalise legacy single-module format
         if "modules" not in slot:
             slot["modules"] = [{"module": slot.get("module", ""), "text": slot.get("text", "")}]
 
@@ -283,15 +279,14 @@ class BuilderTab(tk.Frame):
         row_frame.grid(row=slot_idx, column=0, columnspan=6, sticky="ew", pady=2)
         self._bind_mouse_wheel(row_frame)
 
-        # Drag handle
         handle = tk.Label(row_frame, text="⠿", bg=PANEL, fg=SUBTEXT, font=(FONT, 10), cursor="fleur")
         handle.pack(side="left", padx=(0, 2))
+
         handle.bind("<ButtonPress-1>",   lambda e, pi=page_idx, si=slot_idx: self._drag_start(e, pi, si))
         handle.bind("<B1-Motion>",       lambda e, pi=page_idx: self._drag_motion(e, pi))
         handle.bind("<ButtonRelease-1>", lambda e, pi=page_idx: self._drag_end(e, pi))
         self._bind_mouse_wheel(handle)
 
-        # Move up / down
         self._label_btn(
             row_frame, "▲", SUBTEXT,
             lambda pi=page_idx, si=slot_idx: self._move_slot(pi, si, -1),
@@ -304,7 +299,6 @@ class BuilderTab(tk.Frame):
             font_size=7, padx=3, pady=1, width=2,
         ).pack(side="left", padx=(1, 6))
 
-        # Module capsule(s)
         capsule = tk.Frame(row_frame, bg=PANEL)
         capsule.pack(side="left", fill="x", expand=True)
         self._bind_mouse_wheel(capsule)
@@ -345,7 +339,6 @@ class BuilderTab(tk.Frame):
                     bg=BORDER, font_size=8, padx=3, pady=1,
                 ).pack(side="left", padx=(2, 2))
 
-        # Right-side controls
         right_controls = tk.Frame(row_frame, bg=PANEL)
         right_controls.pack(side="right", padx=(2, 4))
         self._bind_mouse_wheel(right_controls)
@@ -405,15 +398,10 @@ class BuilderTab(tk.Frame):
     # ── Drag-and-drop ─────────────────────────────────────────────────────────
 
     def _drag_start(self, event, page_idx: int, slot_idx: int):
-        self._drag = {
-            "page":    page_idx,
-            "src":     slot_idx,
-            "y_start": event.y_root,
-        }
+        self._drag = {"page": page_idx, "src": slot_idx, "y_start": event.y_root}
 
     def _drag_motion(self, event, page_idx: int):
-        if not self._drag:
-            return
+        pass
 
     def _drag_end(self, event, page_idx: int):
         if not self._drag:
@@ -442,7 +430,7 @@ class BuilderTab(tk.Frame):
                 sub.add_command(
                     label=m["label"],
                     command=lambda m_id=m["id"], pi=page_idx, si=slot_idx:
-                        self._append_module_to_slot(pi, si, m_id),
+                    self._append_module_to_slot(pi, si, m_id),
                 )
             menu.add_cascade(label=cat, menu=sub)
         menu.post(self.winfo_pointerx(), self.winfo_pointery())
