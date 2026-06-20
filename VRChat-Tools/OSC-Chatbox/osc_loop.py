@@ -31,6 +31,7 @@ from monitors import media as media_mod
 from monitors.media import clean_title, clean_value, estimate_position
 from monitors.network import sample as net_sample
 from monitors.weather import fetch as weather_fetch
+from monitors import steamvr, vrchat
 from state import AppState, CHATBOX_MAX_CHARS
 
 # Polling intervals
@@ -83,6 +84,10 @@ def _run(cfg, state: AppState, status_cb, preview_cb):
 
     print(f"CPU: {state.cpu_name}  GPU: {state.gpu_name}")
     print(f"RAM: {state.dram_total}GB  VRAM: {state.vram_total}GB")
+
+    # ── Start VR / VRChat background monitors ─────────────────────────────────
+    steamvr.start()
+    vrchat.start()
 
     # ── LHM background poller ─────────────────────────────────────────────────
     lhm_cache = {"data": init_lhm, "lock": threading.Lock()}
@@ -188,6 +193,10 @@ def _run(cfg, state: AppState, status_cb, preview_cb):
             # ── Build snap dict for module renderers ──────────────────────────
             snap = state.snapshot()
             snap["media_info"] = media_info
+
+            # Merge SteamVR and VRChat monitor data into snap
+            snap.update(steamvr.snapshot())
+            snap.update(vrchat.snapshot())
 
             # Pre-build media title clean so all media modules share same result
             raw_title = clean_value(media_info.get("title"))

@@ -10,7 +10,7 @@ import os
 import subprocess
 import sys
 
-VERSION = "8.1.2"
+VERSION = "8.2.0"
 
 # ── Dependency bootstrap ──────────────────────────────────────────────────────
 
@@ -64,13 +64,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 if __name__ == "__main__":
     _ensure_deps()
 
-    # Apply the saved theme BEFORE any ui module is imported, since
-    # ui.theme colours are read at import time by every ui module.
     from config import load_config
     from ui import theme
     theme.set_theme(load_config().get("theme_mode", "new"))
 
-    from ui.app import App
+    from monitors import steamvr, vrchat
+    steamvr.start()
+    vrchat.start()
 
+    from ui.app import App
     app = App()
     app.run()

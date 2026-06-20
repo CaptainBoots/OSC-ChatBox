@@ -10,6 +10,10 @@ Format:  "vendor_id:device_id" : "Display Name"
 All IDs lowercase.
 """
 
+AMBIGUOUS_IDS: set[str] = {
+    "1002:7550",  # Radeon RX 9070 / 9070 XT
+}
+
 GPU_ID_MAP: dict[str, str] = {
 
     # ══════════════════════════════════════════════════════════════

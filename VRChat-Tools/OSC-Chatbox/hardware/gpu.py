@@ -9,58 +9,123 @@ import subprocess
 import sys
 from typing import Optional
 
-from gpu_ids import GPU_ID_MAP
+from gpu_ids import GPU_ID_MAP, AMBIGUOUS_IDS
 from hardware.lhm import hw_nodes, is_gpu, numeric
 
 
 # ── Detection ─────────────────────────────────────────────────────────────────
+
+_AMD_IGPU_KEYWORDS = ("radeon graphics", "vega", "raphael", "rembrandt", "phoenix", "hawk point")
+_AMD_DGPU_KEYWORDS = ("radeon rx", "rx ")
+
+
+# Priority tiers (lower = better):
+#   0 = discrete NVIDIA or AMD discrete
+#   1 = unknown AMD (no name match, assume discrete)
+#   2 = AMD iGPU (APU)
+#   3 = Intel iGPU or unknown
+def _vendor_priority(vid: str, name: str = "") -> int:
+    n = name.lower()
+    if vid == "10de":
+        return 0
+    if vid == "1002":
+        if any(k in n for k in _AMD_DGPU_KEYWORDS):
+            return 0
+        if any(k in n for k in _AMD_IGPU_KEYWORDS):
+            return 2
+        return 1
+    return 3
+
 
 def _pci_id() -> Optional[str]:
     if sys.platform == "win32":
         try:
             out = subprocess.check_output(
                 ["powershell", "-NoProfile", "-Command",
-                 "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty PNPDeviceID"],
+                 "Get-CimInstance Win32_VideoController | Select-Object -First 100 PNPDeviceID,Name"
+                 " | Format-List"],
                 encoding="utf-8", stderr=subprocess.DEVNULL, timeout=5,
             )
-            intel = None
-            for line in out.splitlines():
-                m = re.search(r"VEN_([0-9A-Fa-f]{4}).*DEV_([0-9A-Fa-f]{4})", line)
-                if not m:
+            # Parse blocks of "PNPDeviceID : ...\nName         : ..."
+            best_pid, best_pri = None, 99
+            blocks = re.split(r"\n\s*\n", out.strip())
+            for block in blocks:
+                id_m = re.search(r"VEN_([0-9A-Fa-f]{4}).*DEV_([0-9A-Fa-f]{4})", block)
+                name_m = re.search(r"Name\s*:\s*(.+)", block)
+                if not id_m:
                     continue
-                vid, did = m.group(1).lower(), m.group(2).lower()
-                pid = f"{vid}:{did}"
-                if vid == "8086":
-                    intel = pid
-                else:
-                    return pid
-            return intel
+                vid, did = id_m.group(1).lower(), id_m.group(2).lower()
+                name = name_m.group(1).strip() if name_m else ""
+                pri = _vendor_priority(vid, name)
+                if pri < best_pri:
+                    best_pri, best_pid = pri, f"{vid}:{did}"
+            return best_pid
         except Exception:
             return None
     try:
         out = subprocess.check_output(
             ["lspci", "-nn"], encoding="utf-8", stderr=subprocess.DEVNULL
         )
-        intel = None
+        best_pid, best_pri = None, 99
         for line in out.splitlines():
-            if "VGA" in line or "3D controller" in line:
-                m = re.search(r"\[(\w{4}:\w{4})]", line)
-                if m:
-                    pid = m.group(1).lower()
-                    if pid.startswith("8086"):
-                        intel = pid
-                    else:
-                        return pid
-        return intel
+            if "VGA" not in line and "3D controller" not in line:
+                continue
+            m = re.search(r"\[(\w{4}):(\w{4})\]", line)
+            if not m:
+                continue
+            vid, did = m.group(1).lower(), m.group(2).lower()
+            pri = _vendor_priority(vid, line)
+            if pri < best_pri:
+                best_pri, best_pid = pri, f"{vid}:{did}"
+        return best_pid
     except Exception:
         return None
 
 
+def _gpu_name_from_os(pid: str) -> Optional[str]:
+    """Ask the OS for the display name of the GPU with the given PCI ID."""
+    vid, did = pid.split(":")
+    if sys.platform == "win32":
+        try:
+            out = subprocess.check_output(
+                ["powershell", "-NoProfile", "-Command",
+                 f"Get-CimInstance Win32_VideoController | Where-Object {{"
+                 f" $_.PNPDeviceID -match 'VEN_{vid.upper()}.*DEV_{did.upper()}' }}"
+                 f" | Select-Object -ExpandProperty Name"],
+                encoding="utf-8", stderr=subprocess.DEVNULL, timeout=5,
+            ).strip()
+            return out or None
+        except Exception:
+            return None
+    # Linux: name is already in the lspci line, extract the human-readable part
+    try:
+        out = subprocess.check_output(
+            ["lspci", "-nn"], encoding="utf-8", stderr=subprocess.DEVNULL
+        )
+        for line in out.splitlines():
+            if f"[{vid}:{did}]" in line.lower():
+                # Strip the address and class prefix, keep everything before the [id] tag
+                m = re.match(r"[^:]+:\s+[^:]+:\s+(.+?)\s+\[[\w:]+\]", line)
+                if m:
+                    return m.group(1).strip()
+    except Exception:
+        pass
+    return None
+
+
 def detect_gpu() -> str:
     pid = _pci_id()
-    if pid and pid in GPU_ID_MAP:
+    if not pid:
+        name = _gpu_name_from_os(pid)
+        if name:
+            return name
+    if pid in AMBIGUOUS_IDS:
+        name = _gpu_name_from_os(pid)
+        if name:
+            return name
+    if pid in GPU_ID_MAP:
         return GPU_ID_MAP[pid]
-    return f"Unknown GPU ({pid})" if pid else "GPU Unknown"
+    return f"Unknown GPU ({pid})"
 
 
 def detect_vram_type(gpu_name: str) -> str:
