@@ -5,11 +5,11 @@ Entry point for OSC-Router.
 Auto-installs missing packages then launches the UI.
 """
 
+import os
 import subprocess
 import sys
-import os
 
-VERSION = "2.1.0"
+VERSION = "2.1.1"
 
 REQUIRED = [
     ("python-osc==1.9.3", "pythonosc"),

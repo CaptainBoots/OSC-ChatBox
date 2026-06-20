@@ -5,8 +5,9 @@ OscSource: listens on a UDP port, caches latest value per OSC address.
 """
 
 import threading
-from pythonosc.osc_server import ThreadingOSCUDPServer
+
 from pythonosc.dispatcher import Dispatcher
+from pythonosc.osc_server import ThreadingOSCUDPServer
 
 
 class OscSource:

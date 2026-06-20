@@ -10,6 +10,7 @@ Plus status bar, Start/Stop/Restart, and live stats at the top.
 
 import tkinter as tk
 from tkinter import ttk
+
 from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, RED, YELLOW, FONT
 
 

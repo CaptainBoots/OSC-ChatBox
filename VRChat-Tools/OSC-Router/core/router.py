@@ -22,8 +22,8 @@ import threading
 import time
 from dataclasses import dataclass, field
 
-from pythonosc.udp_client import SimpleUDPClient
 from core.source import OscSource
+from pythonosc.udp_client import SimpleUDPClient
 
 
 @dataclass
