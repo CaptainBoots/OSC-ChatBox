@@ -52,7 +52,7 @@ class App:
         self.root.title(f"{TITLE_PREFIX} OSC-Chatbox")
         self.root.configure(bg=BG)
         self.root.geometry("900x680")
-        self.root.minsize(700, 500)
+        self.root.minsize(150, 30)
 
         # Style notebook tabs
         style = ttk.Style()
