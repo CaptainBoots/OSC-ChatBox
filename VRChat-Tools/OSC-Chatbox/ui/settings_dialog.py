@@ -10,7 +10,6 @@ from tkinter import messagebox
 from config import normalize_char
 from state import AppState, DEFAULT_SLEEP, SLOW_SLEEP, SPEED_SLEEP
 from state import DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY
-from sympy import true
 from ui.circle_toggle import CircleToggle
 from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, THEMES, THEME_LABELS, colour_mode
 
