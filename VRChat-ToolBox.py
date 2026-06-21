@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.3.9"
+VERSION = "9.4.0"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -91,7 +91,7 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
-if VERSION == "9.4.0":
+if VERSION == "9.4.0": #upate when adding tools or dependencys
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             os.remove(TOOLBOX_CONFIG_FILE)
@@ -227,6 +227,11 @@ TOOL_DEPENDENCIES_MAP = {
         "OSC-Chatbox/gpu_ids.py",
         "OSC-Chatbox/osc_loop.py",
         "OSC-Chatbox/state.py",
+
+        # Assets
+        "OSC-Chatbox/assets/__init__.py",
+        "OSC-Chatbox/assets/discord.png",
+        "OSC-Chatbox/assets/github.png",
 
         # Hardware module
         "OSC-Chatbox/hardware/__init__.py",
