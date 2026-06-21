@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.4.0"
+VERSION = "9.4.1"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -200,7 +200,7 @@ SUBFOLDER_SCRIPT_MAP = {
 
 TOOL_DEPENDENCIES_MAP = {
     "VRChat-Launcher/main.py": [
-   ],
+    ],
     "OSC-Router/main.py": [
         # Sibling files in the main folder
         "OSC-Router/__init__.py",
@@ -219,7 +219,7 @@ TOOL_DEPENDENCIES_MAP = {
         "OSC-Router/ui/help_dialog.py",
         "OSC-Router/ui/settings_dialog.py",
         "OSC-Router/ui/theme.py",
-   ],
+    ],
     "OSC-Chatbox/main.py": [
         # Sibling files in the main folder
         "OSC-Chatbox/__init__.py",
@@ -281,17 +281,17 @@ TOOL_DEPENDENCIES_MAP = {
         "OSC-Gamepad/ui/settings_dialog.py",
         "OSC-Gamepad/ui/theme.py",
         "OSC-Gamepad/ui/widgets.py",
-   ],
+    ],
     "OSC-FaceTrackingController/main.py": [
-   ],
+    ],
     "OSC-ParameterBrowser/main.py": [
-   ],
+    ],
     "OSC-ScriptMaker/main.py": [
-   ],
+    ],
     "VRChat-LocalFavorites/main.py": [
-   ],
+    ],
     "VRChat-SocialLogger/main.py": [
-   ],
+    ],
 
 }
 
@@ -508,8 +508,13 @@ def ensure_script(filename: str, show_errors: bool = False) -> bool:
                         headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
                     )
                     dep_resp.raise_for_status()
-                    with open(dep_dest, "w", encoding="utf-8") as df:
-                        df.write(dep_resp.text)
+                    _binary_exts = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".bmp", ".webp"}
+                    if os.path.splitext(dep_dest)[1].lower() in _binary_exts:
+                        with open(dep_dest, "wb") as df:
+                            df.write(dep_resp.content)
+                    else:
+                        with open(dep_dest, "w", encoding="utf-8") as df:
+                            df.write(dep_resp.text)
                     print(f"[{filename}] Downloaded dependency: {dep_dest}")
                 except requests.RequestException as dep_err:
                     print(f"[{filename}] Failed to download dependency {dep_url}: {dep_err}")
@@ -1225,12 +1230,12 @@ def open_settings():
 
             # Row Entry Display Label Description Header
             tk.Label(script_row, text=f"{script['label']}", bg=BG, fg=TEXT, font=(FONT, 9, "bold")).pack(side="left",
-                                                                                                            fill="x",
-                                                                                                            expand=True)
+                                                                                                         fill="x",
+                                                                                                         expand=True)
             # Row Entry Meta-Info Technical String Subtext Label
             tk.Label(script_row, text=f"({script['filename']})", bg=BG, fg=SUBTEXT, font=(FONT, 8)).pack(side="left",
-                                                                                                            padx=(10,
-                                                                                                                  0))
+                                                                                                         padx=(10,
+                                                                                                               0))
 
             # Entry Item Deletion/Removal Management Interceptor Button
             remove_btn = tk.Button(
@@ -1263,7 +1268,7 @@ def open_settings():
 
         # Form Display Script Label Section Title Header
         tk.Label(add_win, text="Script Label:", bg=BG, fg=TEXT, font=(FONT, 9)).pack(pady=(10, 0), padx=10,
-                                                                                        anchor="w")
+                                                                                     anchor="w")
         # Form Form-Field Value Entry Interface Text Box
         label_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(FONT, 9), relief="flat", insertbackground=ACCENT,
                                highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
@@ -1271,7 +1276,7 @@ def open_settings():
 
         # Form System Storage Path / Resource Filename Title Label
         tk.Label(add_win, text="Filename/Path:", bg=BG, fg=TEXT, font=(FONT, 9)).pack(pady=(10, 0), padx=10,
-                                                                                         anchor="w")
+                                                                                      anchor="w")
         # Form System Target Parameter String Input Data Box
         file_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(FONT, 9), relief="flat", insertbackground=ACCENT,
                               highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
