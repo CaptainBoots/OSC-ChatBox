@@ -242,7 +242,7 @@ class ChatboxTab(tk.Frame):
 
         def _draw_pride(canvas, w, h):
             canvas.delete("all")
-            cols = ["#FF0018", "#FFA52C", "#FFFF41", "#008018", "#0000F9", "#86007D"]
+            cols = ["#FF0000", "#FF1E00", "#FF3D00", "#FF5B00", "#FF7A00", "#FF9900", "#FFB700", "#FFD600", "#FFF400", "#EAFF00", "#CCFF00", "#ADFF00", "#8EFF00", "#70FF00", "#51FF00", "#33FF00", "#14FF00", "#00FF0A", "#00FF28", "#00FF47", "#00FF66", "#00FF84", "#00FFA3", "#00FFC1", "#00FFE0", "#00FFFF", "#00E0FF", "#00C1FF", "#00A3FF", "#0084FF", "#0066FF", "#0047FF", "#0028FF", "#000AFF", "#1400FF", "#3300FF", "#5100FF", "#7000FF", "#8E00FF", "#AD00FF", "#CC00FF", "#EA00FF", "#FF00F4", "#FF00D6", "#FF00B7", "#FF0099", "#FF007A", "#FF005B", "#FF003D", "#FF001E"]
             seg = max(1, w // len(cols))
             for i, col in enumerate(cols):
                 canvas.create_rectangle(i * seg, 0, (i + 1) * seg + 2, h, fill=col, outline="")
