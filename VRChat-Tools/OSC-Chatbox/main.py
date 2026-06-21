@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-VERSION = "8.2.4"
+VERSION = "8.2.5"
 
 # ── Dependency bootstrap ──────────────────────────────────────────────────────
 

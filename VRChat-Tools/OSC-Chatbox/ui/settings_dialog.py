@@ -10,6 +10,7 @@ from tkinter import messagebox
 from config import normalize_char
 from state import AppState, DEFAULT_SLEEP, SLOW_SLEEP, SPEED_SLEEP
 from state import DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY
+from sympy import true
 from ui.circle_toggle import CircleToggle
 from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, THEMES, THEME_LABELS, colour_mode
 
@@ -163,6 +164,7 @@ def open_settings(root, state: AppState, cfg: dict, save_cb, reset_cb, theme_cb)
         ("Trim Media Titles", "media_title_trim", "Removes words like official, lyrics, video"),
         ("Slow Mode",         "slow_mode",        f"Sets update interval to {SLOW_SLEEP:.0f}s"),
         ("Speed Mode",        "speed_mode",       f"Sets update interval to {SPEED_SLEEP:.1f}s"),
+        ("Testing Mode",        "testing",       "Enables dev testing"),
     ]
 
     for label, attr, hint in flags:
