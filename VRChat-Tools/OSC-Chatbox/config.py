@@ -96,7 +96,7 @@ def get_defaults() -> dict:
         "osc_ip":          "127.0.0.1",
         "osc_port":        9000,
         "interface":       _default_interface(),
-        "temp_var1": "space block",
+        "temp_var1":       "space block",
         "lhm_api":         "http://localhost:8085/data.json",
         "location":        "0,0",
         "slow_mode":       False,
