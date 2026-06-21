@@ -73,8 +73,8 @@ def _run(cfg, state: AppState, status_cb, preview_cb):
     lhm_mod.LHM_URL = cfg.get("lhm_api", "http://localhost:8085/data.json")
 
     # ── One-time hardware detection ───────────────────────────────────────────
-    state.cpu_name  = detect_cpu()
-    state.gpu_name  = detect_gpu()
+    state.cpu_name = detect_cpu(testing=getattr(state, "testing", False))
+    state.gpu_name = detect_gpu()
     state.dram_type = detect_dram_type()
     state.vram_type = detect_vram_type(state.gpu_name)
 

@@ -13,11 +13,11 @@ import sys
 
 from hardware.lhm import hw_nodes, is_cpu, numeric, get_lhm_data #ignore
 
-testing = "true"
 
-def detect_cpu() -> str:
-    if testing == "true":
-        return _clean("Ryzen 5 5600X 6-Core Processor")
+
+def detect_cpu(testing: bool = False) -> str:
+    if testing:
+        return _clean("testing_cpu")
     else:
       if sys.platform == "win32":
           try:
