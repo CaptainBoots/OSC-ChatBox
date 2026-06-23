@@ -64,7 +64,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.4.1"
+VERSION = "9.4.2"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -595,8 +595,13 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
                     headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
                 )
                 dep_resp.raise_for_status()
-                with open(dep_dest, "w", encoding="utf-8") as df:
-                    df.write(dep_resp.text)
+                _binary_exts = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".bmp", ".webp"}
+                if os.path.splitext(dep_dest)[1].lower() in _binary_exts:
+                    with open(dep_dest, "wb") as df:
+                        df.write(dep_resp.content)
+                else:
+                    with open(dep_dest, "w", encoding="utf-8") as df:
+                        df.write(dep_resp.text)
                 print(f"[{filename}] Updated dependency: {dep_dest}")
             except requests.RequestException as dep_err:
                 print(f"[{filename}] Failed to update dependency {dep_url}: {dep_err}")
