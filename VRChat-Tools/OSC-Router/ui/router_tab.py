@@ -11,7 +11,7 @@ Plus status bar, Start/Stop/Restart, and live stats at the top.
 import tkinter as tk
 from tkinter import ttk
 
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, RED, YELLOW, FONT
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, RED, YELLOW, FONT, STRIPE_COLOURS, draw_stripes
 
 
 class RouterTab(tk.Frame):
@@ -32,7 +32,17 @@ class RouterTab(tk.Frame):
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(3, weight=1)
+
+        if STRIPE_COLOURS:
+            self._stripe_canvas = tk.Canvas(self, bg=BG, highlightthickness=0, bd=0)
+            self._stripe_canvas.place(x=0, y=0, relwidth=1, relheight=1)
+            self.bind("<Configure>", self._on_resize)
+
         self._build()
+
+    def _on_resize(self, event):
+        draw_stripes(self._stripe_canvas, event.width, event.height, STRIPE_COLOURS)
+        self._stripe_canvas.tk.call("lower", self._stripe_canvas._w)
 
     # ── Top section (always visible) ──────────────────────────────────────────
 
@@ -49,9 +59,9 @@ class RouterTab(tk.Frame):
         bf = tk.Frame(self, bg=BG)
         bf.grid(row=1, column=0, sticky="ew", padx=8, pady=4)
         for text, cmd, fg in (
-            ("▶  Start",   self._start_cb,   GREEN),
-            ("■  Stop",    self._stop_cb,    RED),
-            ("↺  Restart", self._restart_cb, ACCENT2),
+                ("▶  Start",   self._start_cb,   GREEN),
+                ("■  Stop",    self._stop_cb,    RED),
+                ("↺  Restart", self._restart_cb, ACCENT2),
         ):
             tk.Button(bf, text=text, bg=PANEL, fg=fg, relief="flat", cursor="hand2",
                       font=(FONT, 10, "bold"), activebackground=BORDER, activeforeground=TEXT,
@@ -96,10 +106,10 @@ class RouterTab(tk.Frame):
         )
         style.map(
             "Inner.TNotebook.Tab",
-            background=[("selected", BORDER)],
+            background=[("selected", PANEL)],
             foreground=[("selected", ACCENT2)],
-            lightcolor=[("selected", BORDER)],
-            darkcolor=[("selected", BORDER)],
+            lightcolor=[("selected", PANEL)],
+            darkcolor=[("selected", PANEL)],
         )
 
         nb = ttk.Notebook(self, style="Inner.TNotebook")
@@ -117,9 +127,9 @@ class RouterTab(tk.Frame):
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(1, weight=1)
 
-        toolbar = tk.Frame(frame, bg=BG)
+        toolbar = tk.Frame(frame, bg=PANEL)
         toolbar.grid(row=0, column=0, sticky="ew", padx=4, pady=(6, 2))
-        tk.Label(toolbar, text="Input Sources", bg=BG, fg=ACCENT2,
+        tk.Label(toolbar, text="Input Sources", bg=PANEL, fg=ACCENT2,
                  font=(FONT, 9, "bold")).pack(side="left", padx=4)
         tk.Button(toolbar, text="+ Add Source", bg=PANEL, fg=ACCENT2, relief="flat",
                   cursor="hand2", font=(FONT, 9), activebackground=BORDER, activeforeground=TEXT,
@@ -135,9 +145,9 @@ class RouterTab(tk.Frame):
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(1, weight=1)
 
-        toolbar = tk.Frame(frame, bg=BG)
+        toolbar = tk.Frame(frame, bg=PANEL)
         toolbar.grid(row=0, column=0, sticky="ew", padx=4, pady=(6, 2))
-        tk.Label(toolbar, text="Output Targets", bg=BG, fg=ACCENT2,
+        tk.Label(toolbar, text="Output Targets", bg=PANEL, fg=ACCENT2,
                  font=(FONT, 9, "bold")).pack(side="left", padx=4)
         tk.Button(toolbar, text="+ Add Output", bg=PANEL, fg=ACCENT2, relief="flat",
                   cursor="hand2", font=(FONT, 9), activebackground=BORDER, activeforeground=TEXT,
@@ -434,7 +444,7 @@ class RouterTab(tk.Frame):
 
         canvas = tk.Canvas(outer, bg=BG, highlightthickness=0)
         vsb    = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview,
-                              style="Dark.Vertical.TScrollbar")
+                               style="Dark.Vertical.TScrollbar")
         canvas.configure(yscrollcommand=vsb.set)
         vsb.grid(row=0, column=1, sticky="ns")
         canvas.grid(row=0, column=0, sticky="nsew")
