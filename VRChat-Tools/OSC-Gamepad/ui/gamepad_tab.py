@@ -10,15 +10,15 @@ import tkinter as tk
 from tkinter import ttk
 
 from ui.pad_card import PadCard
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, FONT
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, FONT, STRIPE_COLOURS, draw_stripes
 
 
 class GamepadTab(tk.Frame):
     def __init__(self, parent, cfg: dict, save_cb, help_cb, settings_cb):
         super().__init__(parent, bg=BG)
-        self._cfg        = cfg
-        self._save_cb    = save_cb
-        self._help_cb    = help_cb
+        self._cfg         = cfg
+        self._save_cb     = save_cb
+        self._help_cb     = help_cb
         self._settings_cb = settings_cb
 
         self.cards: list[PadCard] = []
@@ -26,7 +26,17 @@ class GamepadTab(tk.Frame):
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(2, weight=1)
+
+        if STRIPE_COLOURS:
+            self._stripe_canvas = tk.Canvas(self, bg=BG, highlightthickness=0, bd=0)
+            self._stripe_canvas.place(x=0, y=0, relwidth=1, relheight=1)
+            self.bind("<Configure>", self._on_resize)
+
         self._build()
+
+    def _on_resize(self, event):
+        draw_stripes(self._stripe_canvas, event.width, event.height, STRIPE_COLOURS)
+        self._stripe_canvas.tk.call("lower", self._stripe_canvas._w)
 
     # ── Layout ────────────────────────────────────────────────────────────────
 
