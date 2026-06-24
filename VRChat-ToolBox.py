@@ -66,7 +66,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.4.3"
+VERSION = "9.4.4"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -262,6 +262,7 @@ TOOL_DEPENDENCIES_MAP = {
         "OSC-Chatbox/ui/builder.py",
         "OSC-Chatbox/ui/chatbox_tab.py",
         "OSC-Chatbox/ui/help_dialog.py",
+        "OSC-Chatbox/ui/dev_menu.py",
         "OSC-Chatbox/ui/settings_dialog.py",
         "OSC-Chatbox/ui/theme.py",
     ],
