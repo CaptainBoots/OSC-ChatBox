@@ -16,6 +16,7 @@ from config import normalize_char
 from state import AppState, DEFAULT_SLEEP, SLOW_SLEEP, SPEED_SLEEP
 from state import DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY
 from ui.circle_toggle import CircleToggle
+from ui.dev_menu import open_dev_menu
 from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, THEMES, THEME_LABELS, colour_mode
 
 
@@ -250,6 +251,7 @@ def open_settings(root, state: AppState, cfg: dict, save_cb, reset_cb, theme_cb)
         def _changed(*_, a=attr, v=var):
             setattr(state, a, v.get())
             save_cb()
+            _refresh_dev_btn()
 
         tk.Checkbutton(
             inner, text=label, bg=PANEL, fg=TEXT,
@@ -312,6 +314,22 @@ def open_settings(root, state: AppState, cfg: dict, save_cb, reset_cb, theme_cb)
         font=(FONT, 9), activebackground=BORDER, activeforeground=TEXT,
         padx=12, pady=4, cursor="hand2", command=_trigger_reset,
     ).pack(side="left")
+
+    # Dev Menu button — shown only when Testing Mode is on
+    dev_btn = tk.Button(
+        btn_frame, text="Dev Menu", bg=PANEL, fg=ACCENT2, relief="flat",
+        font=(FONT, 9, "bold"), activebackground=BORDER, activeforeground=ACCENT2,
+        padx=12, pady=4, cursor="hand2",
+        command=lambda: open_dev_menu(win, state, cfg, save_cb),
+    )
+
+    def _refresh_dev_btn():
+        if getattr(state, "testing", False):
+            dev_btn.pack(side="left", padx=(8, 0))
+        else:
+            dev_btn.pack_forget()
+
+    _refresh_dev_btn()  # set initial visibility
 
     tk.Button(
         btn_frame, text="Close Settings", bg=ACCENT, fg=BG, relief="flat",
