@@ -101,6 +101,7 @@ GPU_ID_MAP: dict[str, str] = {
     "10de:2860": "GeForce RTX 4070 Super",
     "10de:2786": "GeForce RTX 4070",
     "10de:28a0": "GeForce RTX 4060 Ti",
+    "10de:2803": "GeForce RTX 4060 Ti",
     "10de:2882": "GeForce RTX 4060",
 
     # ══════════════════════════════════════════════════════════════

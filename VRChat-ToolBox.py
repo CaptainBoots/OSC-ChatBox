@@ -373,7 +373,6 @@ def ensure_lhm(show_errors: bool = False) -> bool:
 
 
 def launch_lhm() -> None:
-    """Ensure LHM is downloaded then launch the exe with admin elevation."""
     footer_label.config(text="Starting up Libre Hardware Monitor...")
     root.update_idletasks()
     if not ensure_lhm(show_errors=True):
