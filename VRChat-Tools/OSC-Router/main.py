@@ -9,7 +9,7 @@ import os
 import subprocess
 import sys
 
-VERSION = "2.1.4"
+VERSION = "2.1.5"
 
 REQUIRED = [
     ("python-osc==1.9.3", "pythonosc"),
