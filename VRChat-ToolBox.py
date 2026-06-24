@@ -9,6 +9,7 @@
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 import importlib
+import io
 import json
 import os
 import re
@@ -18,6 +19,7 @@ import sys
 import time
 import tkinter as tk
 import tkinter.font as font
+import zipfile
 from tkinter import messagebox
 
 
@@ -64,7 +66,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.4.2"
+VERSION = "9.4.3"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -91,7 +93,7 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
-if VERSION == "9.4.0": #upate when adding tools or dependencys
+if VERSION == "9.4.0": # Update when adding tools or dependencies and the config is not getting wiped
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             os.remove(TOOLBOX_CONFIG_FILE)
@@ -101,6 +103,7 @@ if VERSION == "9.4.0": #upate when adding tools or dependencys
 
 DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "VRChat-Launcher/main.py", "label": "VRChat Launcher(Beta)"},
+    {"filename": "LibreHardwareMonitor/LibreHardwareMonitor.exe", "label": "Libre Hardware Monitor"},
     {"filename": "OSC-Router/main.py", "label": "Router"},
     {"filename": "OSC-Chatbox/main.py", "label": "ChatBox"},
     {"filename": "OSC-Gamepad/main.py", "label": "Gamepad"},
@@ -303,6 +306,101 @@ TOOL_CONFIG_WIPE_MAP: dict[str, list[str]] = {
     ],
 }
 
+# ─── Libre Hardware Monitor (EXE tool, downloaded from GitHub Releases) ───────
+LHM_FOLDER      = "LibreHardwareMonitor"
+LHM_EXE_NAME    = "LibreHardwareMonitor.exe"
+LHM_FILENAME    = f"{LHM_FOLDER}/{LHM_EXE_NAME}"
+LHM_RELEASE_URL = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest/download/LibreHardwareMonitor.zip"
+
+
+def _lhm_exe_path() -> str:
+    return os.path.join(TOOLS_ROOT_DIR, LHM_FOLDER, LHM_EXE_NAME)
+
+
+def ensure_lhm(show_errors: bool = False) -> bool:
+    """Download and extract the full LibreHardwareMonitor package if not already present."""
+    dest = _lhm_exe_path()
+    lhm_dir = os.path.dirname(dest)
+    if os.path.isfile(dest):
+        return True
+
+    os.makedirs(lhm_dir, exist_ok=True)
+    print(f"[LHM] Downloading from {LHM_RELEASE_URL} ...")
+    try:
+        resp = requests.get(LHM_RELEASE_URL, timeout=60)
+        resp.raise_for_status()
+        zdata = io.BytesIO(resp.content)
+        with zipfile.ZipFile(zdata) as zf:
+            members = zf.namelist()
+
+            # Detect whether the ZIP has a single top-level subfolder (common GitHub pattern)
+            # e.g. all entries start with "LibreHardwareMonitor/" — strip that prefix when extracting
+            top_dirs = {m.split("/")[0] for m in members if "/" in m}
+            single_root = (
+                    len(top_dirs) == 1 and
+                    all(m.startswith(next(iter(top_dirs)) + "/") or m == next(iter(top_dirs)) + "/"
+                        for m in members)
+            )
+            strip_prefix = (next(iter(top_dirs)) + "/") if single_root else ""
+
+            # Verify the exe is present somewhere in the archive
+            exe_members = [m for m in members if m.endswith(LHM_EXE_NAME)]
+            if not exe_members:
+                raise FileNotFoundError(f"{LHM_EXE_NAME} not found in release ZIP")
+
+            # Extract everything (exe + all DLLs and supporting files) into lhm_dir
+            for member in members:
+                if member.endswith("/"):
+                    continue  # skip directory entries
+                rel_path = member[len(strip_prefix):] if strip_prefix and member.startswith(strip_prefix) else member
+                out_path = os.path.join(lhm_dir, rel_path.replace("/", os.sep))
+                os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                with zf.open(member) as src, open(out_path, "wb") as dst:
+                    dst.write(src.read())
+                print(f"[LHM] Extracted: {rel_path}")
+
+        print(f"[LHM] All files extracted to {lhm_dir}")
+        return True
+    except Exception as e:
+        print(f"[LHM] Download failed: {e}")
+        if show_errors:
+            messagebox.showerror(
+                "Libre Hardware Monitor",
+                f"Could not download LibreHardwareMonitor.\n\nCheck your internet connection and try again.\n\nDetails:\n{e}"
+            )
+        return False
+
+
+def launch_lhm() -> None:
+    """Ensure LHM is downloaded then launch the exe with admin elevation."""
+    footer_label.config(text="Starting up Libre Hardware Monitor...")
+    root.update_idletasks()
+    if not ensure_lhm(show_errors=True):
+        footer_label.config(text="Error preparing Libre Hardware Monitor")
+        return
+    dest = _lhm_exe_path()
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            # ShellExecute with 'runas' triggers UAC prompt for admin elevation
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", dest, None, os.path.dirname(dest), 1
+            )
+            if ret <= 32:
+                raise OSError(f"ShellExecuteW returned {ret} (elevation may have been denied)")
+            print(f"[LHM] Launched with admin elevation via ShellExecuteW")
+        else:
+            p = subprocess.Popen([dest], cwd=os.path.dirname(dest))
+            _processes.append(p)
+            print(f"[LHM] Launched (PID: {p.pid})")
+        footer_label.config(text="Ready")
+    except Exception as e:
+        print(f"[LHM] Launch failed: {e}")
+        footer_label.config(text="Error launching Libre Hardware Monitor")
+        messagebox.showerror("Launch Error", f"Failed to start LibreHardwareMonitor.\n\nDetails:\n{e}")
+
+# ──────────────────────────────────────────────────────────────────────────────
+
 SCRIPT_FOLDER_MAP = {
     "OSC-Router.py": "OSC-Router",
     "OSC-FaceTrackingController.py": "OSC-FaceTrackingController",
@@ -396,6 +494,11 @@ def _script_bundle_candidates(filename: str) -> list[str]:
 
 def launch_script(filename: str) -> None:
     """Ensures the target script exists/is updated, then launches it in a separate process."""
+    # Route LHM to its dedicated launcher
+    if filename == LHM_FILENAME:
+        launch_lhm()
+        return
+
     footer_label.config(text=f"Starting up {filename}...")
     root.update_idletasks()
 
@@ -455,6 +558,10 @@ _migrate_legacy_layout()
 
 
 def ensure_script(filename: str, show_errors: bool = False) -> bool:
+    # LHM is an exe tool — handled by ensure_lhm, not this function
+    if filename == LHM_FILENAME:
+        return ensure_lhm(show_errors=show_errors)
+
     bundled_path, dest_path = _script_paths(filename)
     dependencies = TOOL_DEPENDENCIES_MAP.get(filename, [])
 
@@ -542,6 +649,11 @@ def ensure_script(filename: str, show_errors: bool = False) -> bool:
 
 
 def check_for_script_updates(filename: str, silent: bool = False) -> bool:
+    # LHM is an exe tool — no update check, just ensure it's present
+    if filename == LHM_FILENAME:
+        ensure_lhm(show_errors=not silent)
+        return False
+
     if not ensure_script(filename, show_errors=not silent):
         return False
 
