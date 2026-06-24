@@ -5,13 +5,14 @@ ui/help_dialog.py
 
 import tkinter as tk
 
+from main import VERSION
 from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT
 
 HELP_PAGES = [
     {
         "title": "Getting Started",
         "content": (
-            "Welcome to OSC-Chatbox v2!\n\n"
+            f"Welcome to OSC-Chatbox Version: {VERSION}!\n\n"
             "OSC-Chatbox sends live system stats, weather, and media\n"
             "info to your VRChat chatbox via OSC.\n\n"
             "Quick start:\n"
@@ -33,7 +34,8 @@ HELP_PAGES = [
             "  Each page is a card. Slots inside it are the lines\n"
             "  sent to VRChat in order.\n\n"
             "  ▲ ▼  — reorder slots\n"
-            "  ✕    — remove a slot\n"
+            "  x    — remove a slot\n"
+            "  +    — adds onto line\n"
             "  ⠿    — drag to reorder (grab and move up/down)\n\n"
             "  Custom Text slots have an inline text box so you\n"
             "  can type a fixed line directly in the slot.\n\n"
@@ -77,7 +79,8 @@ HELP_PAGES = [
         "content": (
             "CPU/GPU temperature, wattage, and load modules\n"
             "require LibreHardwareMonitor (LHM) to be running.\n\n"
-            "Setup:\n"
+            "If you want to run the included one you can run it from the toolbox.\n\n"
+            "If you want to get it from github — Setup:\n"
             "  1. Download LHM from GitHub:\n"
             "     github.com/LibreHardwareMonitor/LibreHardwareMonitor\n"
             "  2. Run LibreHardwareMonitor.exe as Administrator\n"
@@ -148,8 +151,8 @@ HELP_PAGES = [
         "title": "Settings",
         "content": (
             "Open Settings with the ⚙ Settings button.\n\n"
-            "UI Scale — Resize the entire app window.\n"
-            "  Drag the slider; changes apply live.\n\n"
+            "Themes — changes the colours of everything.\n\n"
+            "Config reset — Resets everything to Defaults including the config.\n\n"
             "Progress Bar Characters:\n"
             "  Filled / Border / Empty — the three characters\n"
             "  used to draw the Media Progress bar module.\n"
@@ -157,9 +160,9 @@ HELP_PAGES = [
             "  Type any character; preview updates live.\n\n"
             "Trim Media Titles — strips words like 'official',\n"
             "  'lyrics', 'video' from song titles.\n\n"
-            "Slow Mode — updates every 5 seconds.\n"
-            "Speed Mode — updates every 0.1 seconds.\n"
-            "  (Both off = 1 second update interval)\n\n"
+            "Slow Mode — updates pages every 5 seconds.\n"
+            "Speed Mode — updates pages every 0.1 seconds.\n"
+            "  (Both off = 1 second page update interval)\n\n"
             "Reset to Defaults restores all settings but\n"
             "keeps your pages and connection config."
         ),
