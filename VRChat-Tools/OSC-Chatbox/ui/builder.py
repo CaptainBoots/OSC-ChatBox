@@ -2,8 +2,7 @@ import tkinter as tk
 
 from modules.registry import CATEGORIES, MODULE_BY_ID
 from ui.circle_toggle import CircleToggle
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, RED, STRIPE_COLOURS
-from ui.chatbox_tab import draw_stripes
+from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, RED, STRIPE_COLOURS, draw_stripes
 
 
 class BuilderTab(tk.Frame):
