@@ -48,6 +48,21 @@ std::wstring GetAppStateDirString()
     return stateDir.wstring();
 }
 
+std::wstring GetLocalLowToolboxDirString()
+{
+    // %USERPROFILE%\AppData\LocalLow has no dedicated env var,
+    // so derive it from LOCALAPPDATA (...\AppData\Local) by going up one level.
+    std::wstring localAppData = GetEnvironmentVariableString(L"LOCALAPPDATA");
+    if (localAppData.empty()) return L"";
+
+    fs::path localLow = fs::path(localAppData).parent_path() / L"LocalLow" / std::wstring(APP_STATE_DIR_NAME);
+    std::error_code ec;
+    fs::create_directories(localLow, ec);
+    if (ec) return L"";
+
+    return localLow.wstring();
+}
+
 std::wstring GetFirstRunMarkerPath()
 {
     std::wstring stateDir = GetAppStateDirString();
@@ -399,14 +414,15 @@ int wmain(int argc, wchar_t* argv[])
 
     if (!FileExists(toolboxPath))
     {
-        // Try to download the toolbox script to the temp directory.
-        std::wstring tempDir = GetTempPathString();
-        if (tempDir.empty()) {
-            MessageBoxW(nullptr, L"Failed to determine temp directory.", L"Error", MB_ICONERROR);
+        std::wstring localLowDir = GetLocalLowToolboxDirString();
+        if (localLowDir.empty())
+        {
+            MessageBoxW(nullptr, L"Failed to determine LocalLow directory.", L"Error", MB_ICONERROR);
             return 1;
         }
-        std::wstring downloadPath = (fs::path(tempDir) / L"VRChat-ToolBox.py").wstring();
-        if (!DownloadFile(TOOLBOX_SCRIPT_URL, downloadPath)) {
+        std::wstring downloadPath = (fs::path(localLowDir) / L"VRChat-ToolBox.py").wstring();
+        if (!DownloadFile(TOOLBOX_SCRIPT_URL, downloadPath))
+        {
             MessageBoxW(nullptr, L"Failed to download toolbox script.", L"Error", MB_ICONERROR);
             return 1;
         }
