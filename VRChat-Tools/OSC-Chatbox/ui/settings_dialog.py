@@ -1,12 +1,7 @@
 """
 ui/settings_dialog.py
 ─────────────────────
-Settings modal: theme, progress bar chars, feature flags.
-
-Scroll behaviour mirrors BuilderTab: a tk.Canvas + Scrollbar with
-mousewheel bindings on every child widget.
-
-The theme list is collapsible and collapsed by default.
+Settings modal for OSC-Chatbox
 """
 
 import tkinter as tk
