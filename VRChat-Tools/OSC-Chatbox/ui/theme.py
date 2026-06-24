@@ -548,3 +548,29 @@ def set_theme(mode: str):
 
 
 set_theme(colour_mode)
+
+def draw_stripes(canvas, width: int, height: int, colours: list):
+    """
+    Fill *canvas* with repeating ~45° diagonal stripes tiling across
+    the full width × height. Import this wherever stripe backgrounds are needed.
+    """
+    canvas.delete("stripe")
+    if not colours or width <= 0 or height <= 0:
+        return
+
+    stripe_w = 28
+    cycle    = stripe_w * len(colours)
+    extent   = width + height + cycle * 2
+
+    for start in range(-cycle, extent, cycle):
+        for i, colour in enumerate(colours):
+            x0 = start + i * stripe_w
+            points = [
+                x0,                      0,
+                x0 + stripe_w,           0,
+                x0 + stripe_w + height,  height,
+                x0            + height,  height,
+                ]
+            canvas.create_polygon(points, fill=colour, outline="", tags="stripe")
+
+    canvas.tag_lower("stripe")
