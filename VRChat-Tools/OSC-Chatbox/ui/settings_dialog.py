@@ -260,6 +260,42 @@ def open_settings(root, state: AppState, cfg: dict, save_cb, reset_cb, theme_cb)
         tk.Label(inner, text=hint, bg=PANEL, fg=SUBTEXT,
                  font=(FONT, 8)).pack(anchor="w", padx=40)
 
+    # ── LHM startup preference ────────────────────────────────────────────────
+    section("Libre Hardware Monitor")
+
+    lhm_options = [
+        ("always",  "Always start LHM on launch"),
+        ("ask",     "Ask every time"),
+        ("never",   "Never start / don't ask"),
+    ]
+
+    lhm_var = tk.StringVar(value=cfg.get("lhm_prompt", "ask"))
+
+    lhm_frame = tk.Frame(inner, bg=PANEL)
+    lhm_frame.pack(anchor="w", padx=20, pady=(0, 4))
+
+    def _lhm_changed(*_):
+        cfg["lhm_prompt"] = lhm_var.get()
+        save_cb()
+
+    for value, label_text in lhm_options:
+        row = tk.Frame(lhm_frame, bg=PANEL)
+        row.pack(anchor="w", pady=3)
+        rb = tk.Radiobutton(
+            row,
+            text=label_text,
+            variable=lhm_var,
+            value=value,
+            bg=PANEL, fg=TEXT,
+            selectcolor=PANEL,
+            activebackground=PANEL,
+            activeforeground=ACCENT2,
+            font=(FONT, 9),
+            cursor="hand2",
+            command=_lhm_changed,
+        )
+        rb.pack(side="left")
+
     # ── Action buttons ────────────────────────────────────────────────────────
     section("Actions")
 

@@ -107,6 +107,7 @@ def get_defaults() -> dict:
         "progress_border": DEFAULT_PROGRESS_BORDER,
         "progress_empty":  DEFAULT_PROGRESS_EMPTY,
         "theme_mode":      "new",
+        "lhm_prompt":      "ask",   # "ask" | "always" | "never"
         "pages":           DEFAULT_PAGES,
     }
 
