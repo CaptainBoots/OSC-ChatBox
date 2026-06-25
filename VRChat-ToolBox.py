@@ -66,7 +66,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.4.4"
+VERSION = "9.4.5"
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
@@ -93,7 +93,7 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
-if VERSION == "9.4.0": # Update when adding tools or dependencies and the config is not getting wiped
+if VERSION == "9.4.0": #upate when adding tools or dependencies
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             os.remove(TOOLBOX_CONFIG_FILE)
@@ -335,7 +335,6 @@ def ensure_lhm(show_errors: bool = False) -> bool:
             members = zf.namelist()
 
             # Detect whether the ZIP has a single top-level subfolder (common GitHub pattern)
-            # e.g. all entries start with "LibreHardwareMonitor/" — strip that prefix when extracting
             top_dirs = {m.split("/")[0] for m in members if "/" in m}
             single_root = (
                     len(top_dirs) == 1 and
@@ -344,7 +343,6 @@ def ensure_lhm(show_errors: bool = False) -> bool:
             )
             strip_prefix = (next(iter(top_dirs)) + "/") if single_root else ""
 
-            # Verify the exe is present somewhere in the archive
             exe_members = [m for m in members if m.endswith(LHM_EXE_NAME)]
             if not exe_members:
                 raise FileNotFoundError(f"{LHM_EXE_NAME} not found in release ZIP")
@@ -352,7 +350,7 @@ def ensure_lhm(show_errors: bool = False) -> bool:
             # Extract everything (exe + all DLLs and supporting files) into lhm_dir
             for member in members:
                 if member.endswith("/"):
-                    continue  # skip directory entries
+                    continue
                 rel_path = member[len(strip_prefix):] if strip_prefix and member.startswith(strip_prefix) else member
                 out_path = os.path.join(lhm_dir, rel_path.replace("/", os.sep))
                 os.makedirs(os.path.dirname(out_path), exist_ok=True)
@@ -372,17 +370,128 @@ def ensure_lhm(show_errors: bool = False) -> bool:
         return False
 
 
+def _patch_lhm_config() -> None:
+    """
+    Ensure the LHM .config file has the required keys set before launch.
+    Sets:
+      runWebServerMenuItem = true   (enables the web API on port 8085)
+      startMinMenuItem     = true   (starts minimised to tray)
+    Creates the config from scratch if it doesn't exist yet.
+    """
+    import xml.etree.ElementTree as ET
+
+    lhm_dir  = os.path.dirname(_lhm_exe_path())
+    cfg_path = os.path.join(lhm_dir, "LibreHardwareMonitor.config")
+
+    REQUIRED = {
+        "runWebServerMenuItem": "true",
+        "startMinMenuItem":     "true",
+    }
+
+    # ── Build / load the XML tree ─────────────────────────────────────────────
+    if os.path.isfile(cfg_path):
+        try:
+            tree = ET.parse(cfg_path)
+            root = tree.getroot()
+        except ET.ParseError as e:
+            print(f"[LHM] Config parse error ({e}), will recreate.")
+            root = ET.Element("configuration")
+            tree = ET.ElementTree(root)
+    else:
+        print("[LHM] No config found, creating one.")
+        root = ET.Element("configuration")
+        tree = ET.ElementTree(root)
+
+    # ── Find or create <appSettings> ─────────────────────────────────────────
+    app_settings = root.find("appSettings")
+    if app_settings is None:
+        app_settings = ET.SubElement(root, "appSettings")
+
+    # ── Update / insert each required key ────────────────────────────────────
+    for key, value in REQUIRED.items():
+        node = app_settings.find(f"./add[@key='{key}']")
+        if node is not None:
+            if node.get("value") != value:
+                print(f"[LHM] Config: setting {key} = {value} (was {node.get('value')})")
+                node.set("value", value)
+        else:
+            print(f"[LHM] Config: inserting {key} = {value}")
+            ET.SubElement(app_settings, "add", key=key, value=value)
+
+    # ── Write back ────────────────────────────────────────────────────────────
+    try:
+        tree.write(cfg_path, encoding="utf-8", xml_declaration=True)
+        print(f"[LHM] Config written to {cfg_path}")
+    except Exception as e:
+        print(f"[LHM] Could not write config: {e}")
+
+
+def _show_lhm_started_popup() -> None:
+    """Small non-blocking confirmation that LHM launched successfully."""
+    import threading
+
+    def _popup():
+        win = tk.Toplevel(root)
+        win.title("Libre Hardware Monitor")
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.attributes("-topmost", True)
+
+        # Import theme colours (already loaded at this point)
+        try:
+            from ui.theme import PANEL, BORDER, ACCENT2, TEXT, SUBTEXT, FONT as _FONT
+        except Exception:
+            PANEL = "#1f102a"; BORDER = "#2a2a38"
+            ACCENT2 = "#b44bff"; TEXT = "#e2e0f0"; SUBTEXT = "#7e7b9a"; _FONT = "Consolas"
+
+        hdr = tk.Frame(win, bg=PANEL, pady=8)
+        hdr.pack(fill="x")
+        tk.Label(hdr, text="Libre Hardware Monitor", bg=PANEL, fg=ACCENT2,
+                 font=(_FONT, 11, "bold")).pack(side="left", padx=14)
+        tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
+
+        body = tk.Frame(win, bg=BG, padx=20, pady=14)
+        body.pack()
+        tk.Label(body,
+                 text="✓  LHM started successfully.\n\nIt will appear in your system tray shortly.\nThe UAC prompt may have appeared behind this window.",
+                 bg=BG, fg=TEXT, font=(_FONT, 9), justify="left").pack()
+
+        tk.Button(
+            body, text="OK", bg=ACCENT2, fg=BG, relief="flat",
+            font=(_FONT, 9, "bold"), padx=16, pady=4, cursor="hand2",
+            activebackground=ACCENT2, activeforeground=BG,
+            command=win.destroy,
+        ).pack(pady=(10, 0))
+
+        # Centre on screen
+        win.update_idletasks()
+        sw = win.winfo_screenwidth()
+        sh = win.winfo_screenheight()
+        w  = win.winfo_reqwidth()
+        h  = win.winfo_reqheight()
+        win.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
+        win.after(100, lambda: win.attributes("-topmost", False))
+
+    # Schedule on the main tkinter thread
+    root.after(0, _popup)
+
+
 def launch_lhm() -> None:
+    """Patch the LHM config, launch the exe with admin elevation, confirm success."""
     footer_label.config(text="Starting up Libre Hardware Monitor...")
     root.update_idletasks()
+
     if not ensure_lhm(show_errors=True):
         footer_label.config(text="Error preparing Libre Hardware Monitor")
         return
+
+    # Patch config before every launch so the settings are always correct
+    _patch_lhm_config()
+
     dest = _lhm_exe_path()
     try:
         if sys.platform == "win32":
             import ctypes
-            # ShellExecute with 'runas' triggers UAC prompt for admin elevation
             ret = ctypes.windll.shell32.ShellExecuteW(
                 None, "runas", dest, None, os.path.dirname(dest), 1
             )
@@ -393,6 +502,8 @@ def launch_lhm() -> None:
             p = subprocess.Popen([dest], cwd=os.path.dirname(dest))
             _processes.append(p)
             print(f"[LHM] Launched (PID: {p.pid})")
+
+        _show_lhm_started_popup()
         footer_label.config(text="Ready")
     except Exception as e:
         print(f"[LHM] Launch failed: {e}")
