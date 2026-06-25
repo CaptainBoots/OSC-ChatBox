@@ -1,7 +1,7 @@
 ##  Dev Roadmap
 
 ###  Phase 1: Core Features & Last OSC tools Releases 
-* [x] **Finish Chatbox VR Modules** — Finishing of the VR modules for the chatbox tool.
+* [ ] **Finish Chatbox VR Modules** — Finishing of the VR modules for the chatbox tool.
 * [ ] **Chatbox Dev Menu** — Implementing the developer menu for configuration and testing.
 * [ ] **Parameter Browser `[Full Release]`** — Updating the parameter browser's UI and functionality for stable release.
 * [ ] **Facetracking Controller `[Full Release]`** — Updating the face tracking's UI and functionality for stable release.
