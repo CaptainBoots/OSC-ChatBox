@@ -16,6 +16,43 @@ else:
     wmc = None
 
 
+# ── Global State Tracking ──────────────────────────────────────────────────────
+# Keeps track of the last source ID that was actively playing across function calls
+_LAST_PLAYING_SOURCE: Optional[str] = None
+
+
+# ── Priority Configuration ────────────────────────────────────────────────────
+# Apps ordered by strict preference. If multiple items are playing simultaneously,
+# items appearing earlier in this list will take precedence.
+PRIORITY_ORDER = [
+    # 1. Dedicated Music Apps
+    "spotify", "itunes", "applemusic", "tidal", "deezer", "foobar2000", "winamp", "musicbee", "aimp",
+
+    # 2. Web Browsers
+    "firefox", "308046b0", "chrome", "googlechrome", "msedge", "edge", "brave", "opera", "vivaldi", "waterfox", "librewolf",
+
+    # 3. Video & Media Players
+    "vlc", "mpc-hc", "mpchc", "mpv", "potplayer", "plex", "netflix", "primevideo",
+
+    # 4. Communication Utilities
+    "discord", "telegram", "whatsapp",
+
+    # 5. Native OS Players
+    "zune", "microsoft.windows.music", "microsoft.zunevideo",
+]
+
+
+def _get_priority_score(raw_id: str) -> int:
+    """Returns an integer representing priority. Lower numbers = Higher priority."""
+    if not raw_id:
+        return len(PRIORITY_ORDER) + 1
+    raw_lower = raw_id.lower()
+    for index, key in enumerate(PRIORITY_ORDER):
+        if key in raw_lower:
+            return index
+    return len(PRIORITY_ORDER)  # Default fallback priority
+
+
 def empty() -> dict:
     return {
         "title": "", "artist": "", "album": "", "album_artist": "",
@@ -46,14 +83,34 @@ def clean_title(raw: str) -> str:
 def source_name(raw: str) -> str:
     if not raw:
         return ""
-    for key, label in (
-        ("spotify", "Spotify"), ("chrome", "Chrome"), ("firefox", "Firefox"),
-        ("msedge", "Edge"), ("vlc", "VLC"),
-    ):
-        if key in raw.lower():
+
+    raw_lower = raw.lower()
+
+    # Explicit human-readable conversions
+    mappings = {
+        "firefox": "Firefox", "308046b0": "Firefox",
+        "chrome": "Chrome", "googlechrome": "Chrome",
+        "msedge": "Edge", "edge": "Edge", "brave": "Brave", "opera": "Opera", "vivaldi": "Vivaldi", "waterfox": "Waterfox", "librewolf": "LibreWolf",
+        "spotify": "Spotify", "itunes": "iTunes", "applemusic": "Apple Music", "tidal": "Tidal", "deezer": "Deezer", "foobar2000": "foobar2000", "winamp": "Winamp", "musicbee": "MusicBee", "aimp": "AIMP",
+        "vlc": "VLC", "mpc-hc": "MPC-HC", "mpchc": "MPC-HC", "mpv": "mpv", "potplayer": "PotPlayer", "plex": "Plex", "netflix": "Netflix", "primevideo": "Prime Video",
+        "discord": "Discord", "telegram": "Telegram", "whatsapp": "WhatsApp",
+        "zune": "Windows Media Player", "microsoft.windows.music": "Media Player", "microsoft.zunevideo": "Movies & TV",
+    }
+
+    for key, label in mappings.items():
+        if key in raw_lower:
             return label
-    name = raw.split("!")[-1].replace(".exe", "").split(".")[-1].strip()
-    return re.sub(r"[_-]+", " ", name).strip().title()
+
+    # Advanced Regex Cleanup Fallback
+    name = raw.split("!")[-1]
+    name = name.split("/")[-1].split("\\")[-1]
+    name = name.replace(".exe", "")
+    name = name.split(".")[0] if "." in name and "_" in name else name
+    name = re.sub(r"_[a-z0-9]{13}$", "", name, flags=re.IGNORECASE)
+    name = re.sub(r"[0-9a-f]{8,}", "", name, flags=re.IGNORECASE)
+
+    cleaned = re.sub(r"[._-]+", " ", name).strip()
+    return cleaned.title() if cleaned else "System Media"
 
 
 def progress_bar(pos_ms: float, dur_ms: float, filled: str, border: str, empty: str, length: int = 15) -> str:
@@ -89,15 +146,6 @@ def _ms(value, fallback: float = 0.0) -> float:
 
 
 def estimate_position(info: dict, pos_state: dict, now: float) -> float:
-    """
-    Smooth the reported playback position using elapsed wall-clock time,
-    so the progress bar advances continuously between media polls instead
-    of jumping in steps. Mutates info["position_ms"] in-place and returns
-    the estimated position in ms.
-
-    pos_state is a small dict the caller keeps between calls (per media
-    source) holding: signature, position_ms, raw_position_ms, seen_at.
-    """
     raw_pos   = _ms(info.get("position_ms"))
     duration  = _ms(info.get("duration_ms"))
     is_paused = bool(info.get("is_paused", False))
@@ -121,7 +169,6 @@ def estimate_position(info: dict, pos_state: dict, now: float) -> float:
     prev_seen = pos_state.get("seen_at", now)
 
     if signature != prev_sig:
-        # New track — trust the reported position immediately
         estimated = raw_pos
     else:
         elapsed_ms = max(0.0, (now - prev_seen) * 1000.0)
@@ -129,10 +176,8 @@ def estimate_position(info: dict, pos_state: dict, now: float) -> float:
         raw_stale  = raw_delta is not None and abs(raw_delta) <= 250.0
 
         if is_paused:
-            # While paused, keep our smoothed value unless the source jumped
             estimated = prev_pos if raw_stale else raw_pos
         elif raw_stale:
-            # Source hasn't updated position yet — extrapolate from elapsed time
             estimated = prev_pos + elapsed_ms
         else:
             estimated = raw_pos
@@ -166,50 +211,125 @@ def detail_line(info: dict) -> str:
 
 
 async def fetch() -> dict:
+    global _LAST_PLAYING_SOURCE
     info = empty()
 
+    # ── Windows Platform ──────────────────────────────────────────────────────
     if sys.platform == "win32" and wmc is not None:
         try:
-            mgr     = await wmc.GlobalSystemMediaTransportControlsSessionManager.request_async()
-            session = mgr.get_current_session()
-            if session:
-                props    = await session.try_get_media_properties_async()
-                timeline = session.get_timeline_properties()
-                playback = session.get_playback_info()
+            mgr = await wmc.GlobalSystemMediaTransportControlsSessionManager.request_async()
+            sessions = mgr.get_sessions()
+            if not sessions:
+                return info
 
-                info["position_ms"] = timeline.position.total_seconds() * 1000
-                info["duration_ms"] = timeline.end_time.total_seconds() * 1000
-                info["is_paused"]   = (
+            playing_sessions = []
+            paused_sessions = []
+
+            for s in sessions:
+                raw_id = getattr(s, "source_app_user_model_id", "") or ""
+                playback = s.get_playback_info()
+                status = playback.playback_status if playback else None
+
+                if status == wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PLAYING:
+                    playing_sessions.append((s, raw_id))
+                else:
+                    paused_sessions.append((s, raw_id))
+
+            target_session = None
+
+            # 1. If multiple are playing: Pick the highest priority matching the dictionary list
+            if playing_sessions:
+                playing_sessions.sort(key=lambda item: _get_priority_score(item[1]))
+                target_session = playing_sessions[0][0]
+                # Keep historical record of what was just active
+                _LAST_PLAYING_SOURCE = playing_sessions[0][1]
+
+            # 2. If all are paused: Try to find the one that matches our historical record
+            elif paused_sessions:
+                if _LAST_PLAYING_SOURCE:
+                    for s, raw_id in paused_sessions:
+                        if raw_id == _LAST_PLAYING_SOURCE:
+                            target_session = s
+                            break
+
+                # If history doesn't exist or app was closed, fall back to dictionary priority ranking
+                if not target_session:
+                    paused_sessions.sort(key=lambda item: _get_priority_score(item[1]))
+                    target_session = paused_sessions[0][0]
+
+            if not target_session:
+                return info
+
+            props    = await target_session.try_get_media_properties_async()
+            timeline = target_session.get_timeline_properties()
+            playback = target_session.get_playback_info()
+
+            info["position_ms"] = timeline.position.total_seconds() * 1000
+            info["duration_ms"] = timeline.end_time.total_seconds() * 1000
+            info["is_paused"]   = (
                     playback.playback_status ==
                     wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PAUSED
-                )
-                info["source"] = source_name(
-                    getattr(session, "source_app_user_model_id", "") or ""
-                )
-                if props:
-                    info["title"]        = clean_value(getattr(props, "title", ""))
-                    info["artist"]       = clean_value(getattr(props, "artist", ""))
-                    info["album"]        = clean_value(getattr(props, "album_title", ""))
-                    info["album_artist"] = clean_value(getattr(props, "album_artist", ""))
-                    info["track_number"] = _safe_int(getattr(props, "track_number", None))
-                    info["track_count"]  = _safe_int(getattr(props, "album_track_count", None))
-                return info
+            )
+            info["source"] = source_name(getattr(target_session, "source_app_user_model_id", "") or "")
+
+            if props:
+                info["title"]        = clean_value(getattr(props, "title", ""))
+                info["artist"]       = clean_value(getattr(props, "artist", ""))
+                info["album"]        = clean_value(getattr(props, "album_title", ""))
+                info["album_artist"] = clean_value(getattr(props, "album_artist", ""))
+                info["track_number"] = _safe_int(getattr(props, "track_number", None))
+                info["track_count"]  = _safe_int(getattr(props, "album_track_count", None))
+            return info
         except Exception:
             pass
 
-    # Linux: playerctl
+    # ── Linux Platform ────────────────────────────────────────────────────────
     try:
         players = subprocess.check_output(
             ["playerctl", "-l"], encoding="utf-8", stderr=subprocess.DEVNULL, timeout=2
         ).splitlines()
         if not players:
             return info
-        player = players[0]
+
+        playing_players = []
+        paused_players = []
+
+        for p in players:
+            status = subprocess.check_output(
+                ["playerctl", "-p", p, "status"],
+                encoding="utf-8", stderr=subprocess.DEVNULL, timeout=2,
+            ).strip().lower()
+
+            if status == "playing":
+                playing_players.append(p)
+            else:
+                paused_players.append(p)
+
+        player = None
+
+        # 1. If multiple are playing: Pick the highest priority matching the dictionary list
+        if playing_players:
+            playing_players.sort(key=_get_priority_score)
+            player = playing_players[0]
+            _LAST_PLAYING_SOURCE = player
+
+        # 2. If all are paused: Fall back to our last playing history tracker
+        elif paused_players:
+            if _LAST_PLAYING_SOURCE and _LAST_PLAYING_SOURCE in paused_players:
+                player = _LAST_PLAYING_SOURCE
+            else:
+                paused_players.sort(key=_get_priority_score)
+                player = paused_players[0]
+
+        if not player:
+            return info
+
         out = subprocess.check_output(
             ["playerctl", "-p", player, "metadata", "--format",
              "{{title}}\n{{artist}}\n{{album}}\n{{xesam:trackNumber}}\n{{position}}\n{{mpris:length}}"],
             encoding="utf-8", stderr=subprocess.DEVNULL, timeout=2,
         ).strip().split("\n")
+
         if len(out) >= 6:
             info["title"]       = clean_value(out[0])
             info["artist"]      = clean_value(out[1])
