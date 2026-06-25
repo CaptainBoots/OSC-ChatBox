@@ -11,6 +11,7 @@ as its own background and the stripes show in the gaps between panels.
 """
 
 import tkinter as tk
+import webbrowser
 
 from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, RED, FONT, STRIPE_COLOURS, draw_stripes
 
@@ -136,7 +137,7 @@ class ChatboxTab(tk.Frame):
             ("OSC IP",       "osc_ip",         0, 0, 1),
             ("OSC Port",     "osc_port",        0, 2, 3),
             ("Interface",    "interface",       1, 0, 1),
-            ("Interval (s)", "switch_interval", 1, 2, 3),
+            ("useless block","temp_var1",       1, 2, 3),
             ("LHM URL",      "lhm_api",         2, 0, 1),
             ("Location",     "location",        2, 2, 3),
         ]
@@ -189,6 +190,54 @@ class ChatboxTab(tk.Frame):
             self._state.forced_text = self._forced_var.get()
 
         self._forced_var.trace_add("write", _forced_changed)
+
+        # discord + github images from "https://icons8.com
+
+        # ── Bottom bar: pinned 20 px above window bottom via place ──────────────────
+        bottom_frame = tk.Frame(self, bg=BG)
+        bottom_frame.columnconfigure(1, weight=1)
+
+        # Square Discord logo button
+        _discord_img = tk.PhotoImage(file="assets/discord.png")
+        _discord_btn = tk.Button(
+            bottom_frame, image=_discord_img,
+            bg="#5865F2", activebackground="#4752C4",
+            relief="flat", cursor="hand2", bd=0,
+            padx=6, pady=6,
+            command=lambda: webbrowser.open("https://discord.gg/YDXpQPF6g9"),
+        )
+        _discord_btn.image = _discord_img  # keep reference
+        _discord_btn.grid(row=0, column=0, sticky="w", padx=(0, 8))
+
+        # Rainbow pride canvas
+        pride_canvas = tk.Canvas(bottom_frame, height=44, highlightthickness=0, bd=0, bg=BG)
+        pride_canvas.grid(row=0, column=1, sticky="ew", padx=4)
+
+        def _draw_pride(canvas, w, h):
+            canvas.delete("all")
+            cols = ["#FF0000", "#FF1E00", "#FF3D00", "#FF5B00", "#FF7A00", "#FF9900", "#FFB700", "#FFD600", "#FFF400", "#EAFF00", "#CCFF00", "#ADFF00", "#8EFF00", "#70FF00", "#51FF00", "#33FF00", "#14FF00", "#00FF0A", "#00FF28", "#00FF47", "#00FF66", "#00FF84", "#00FFA3", "#00FFC1", "#00FFE0", "#00FFFF", "#00E0FF", "#00C1FF", "#00A3FF", "#0084FF", "#0066FF", "#0047FF", "#0028FF", "#000AFF", "#1400FF", "#3300FF", "#5100FF", "#7000FF", "#8E00FF", "#AD00FF", "#CC00FF", "#EA00FF", "#FF00F4", "#FF00D6", "#FF00B7", "#FF0099", "#FF007A", "#FF005B", "#FF003D", "#FF001E"]
+            seg = max(1, w // len(cols))
+            for i, col in enumerate(cols):
+                canvas.create_rectangle(i * seg, 0, (i + 1) * seg + 2, h, fill=col, outline="")
+            canvas.create_text(w // 2, h // 2, text="HAPPY PRIDE MONTH",
+                               font=(FONT, 15, "bold"), fill="black", anchor="center")
+
+        pride_canvas.bind("<Configure>", lambda e: _draw_pride(pride_canvas, e.width, e.height))
+
+        # Square GitHub logo button
+        _github_img = tk.PhotoImage(file="assets/github.png")
+        _github_btn = tk.Button(
+            bottom_frame, image=_github_img,
+            bg="#24292e", activebackground="#444d56",
+            relief="flat", cursor="hand2", bd=0,
+            padx=6, pady=6,
+            command=lambda: webbrowser.open("https://github.com/CaptainBoots/VRChat-ToolBox"),
+        )
+        _github_btn.image = _github_img  # keep reference
+        _github_btn.grid(row=0, column=2, sticky="e", padx=(8, 0))
+
+        # Pin bottom_frame 20 px above the bottom edge of the tab
+        bottom_frame.place(relx=0, rely=1.0, anchor="sw", relwidth=1.0, y=-20)
 
     # ── Public update methods ─────────────────────────────────────────────────
 
