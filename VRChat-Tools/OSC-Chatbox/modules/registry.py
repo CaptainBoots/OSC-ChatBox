@@ -219,8 +219,18 @@ def _render_media_detail(snap, slot):
 def _render_ascii_cat(snap, slot):
     return "/|_/|\n(＞.＜)\n|     \\\n      | || |ノ"
 
-def _render_ascii_dog(snap, slot):
+def _render_ascii_dog_1(snap, slot):
     return "  __      _\no''')}____//\n `_/      )\n (_(_/-(_/"
+
+def _render_ascii_dog_2(snap, slot):
+    return (
+        f"""
+        __
+   (___()'`;
+    /,    /`
+   \\"--\\"
+"""
+    )
 
 def _render_ascii_fish(snap, slot):
     return "<`)))><"
@@ -238,13 +248,13 @@ MODULES: list[dict] = [
     # ── CPU ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     {"id": "cpu_name",           "label": "CPU Name",                       "category": "CPU",          "render": _render_cpu_name,             "has_text": False},
     {"id": "cpu_load",           "label": "CPU Load %",                     "category": "CPU",          "render": _render_cpu_load,             "has_text": False},
-    {"id": "cpu_temp",           "label": "CPU Temp ℃",                     "category": "CPU",          "render": _render_cpu_temp,             "has_text": False},
+    {"id": "cpu_temp",           "label": "CPU Temp ℃",                    "category": "CPU",          "render": _render_cpu_temp,             "has_text": False},
     {"id": "cpu_power",          "label": "CPU Power W",                    "category": "CPU",          "render": _render_cpu_power,            "has_text": False},
 
     # ── GPU ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     {"id": "gpu_name",           "label": "GPU Name",                       "category": "GPU",          "render": _render_gpu_name,             "has_text": False},
     {"id": "gpu_load",           "label": "GPU Load %",                     "category": "GPU",          "render": _render_gpu_load,             "has_text": False},
-    {"id": "gpu_temp",           "label": "GPU Temp ℃",                     "category": "GPU",          "render": _render_gpu_temp,             "has_text": False},
+    {"id": "gpu_temp",           "label": "GPU Temp ℃",                    "category": "GPU",          "render": _render_gpu_temp,             "has_text": False},
     {"id": "gpu_power",          "label": "GPU Power W",                    "category": "GPU",          "render": _render_gpu_power,            "has_text": False},
 
     # ── VRAM ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -300,7 +310,8 @@ MODULES: list[dict] = [
 
     # ── Fun ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     {"id": "ascii_cat",         "label": "ASCII Cat",                       "category": "Fun",          "render": _render_ascii_cat,            "has_text": False},
-    {"id": "ascii_dog",         "label": "ASCII Dog",                       "category": "Fun",          "render": _render_ascii_dog,            "has_text": False},
+    {"id": "ascii_dog_1",       "label": "ASCII Dog 1",                     "category": "Fun",          "render": _render_ascii_dog_1,            "has_text": False},
+    {"id": "ascii_dog_2",       "label": "ASCII Dog 2",                     "category": "Fun",          "render": _render_ascii_dog_2,            "has_text": False},
     {"id": "ascii_fish",        "label": "ASCII Fish",                      "category": "Fun",          "render": _render_ascii_fish,           "has_text": False},
 ]
 
