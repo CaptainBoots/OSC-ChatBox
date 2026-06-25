@@ -43,10 +43,10 @@ _loop_thread: Optional[threading.Thread] = None
 
 
 def start_loop(
-    cfg:        dict,
-    state:      AppState,
-    status_cb:  Callable[[str], None],   # called on the main thread via root.after
-    preview_cb: Callable[[str], None],   # called with the latest chatbox text
+        cfg:        dict,
+        state:      AppState,
+        status_cb:  Callable[[str], None],   # called on the main thread via root.after
+        preview_cb: Callable[[str], None],   # called with the latest chatbox text
 ):
     global _loop_thread
     state.running = True
@@ -84,10 +84,6 @@ def _run(cfg, state: AppState, status_cb, preview_cb):
 
     print(f"CPU: {state.cpu_name}  GPU: {state.gpu_name}")
     print(f"RAM: {state.dram_total}GB  VRAM: {state.vram_total}GB")
-
-    # ── Start VR / VRChat background monitors ─────────────────────────────────
-    steamvr.start()
-    vrchat.start()
 
     # ── LHM background poller ─────────────────────────────────────────────────
     lhm_cache = {"data": init_lhm, "lock": threading.Lock()}
