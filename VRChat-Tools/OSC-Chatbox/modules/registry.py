@@ -289,25 +289,25 @@ MODULES: list[dict] = [
     {"id": "ram_used_of_total",  "label": "RAM Used/Total",                 "category": "Memory",       "render": _render_ram_combined,         "has_text": False},
 
     # ── VR Data ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    {"id": "vr_fps",             "label": "SteamVR FPS (Beta)",             "category": "VR",           "render": _render_fps_vr,               "has_text": False},
-    {"id": "vr_frame-time",      "label": "VR Frame Time (Beta)",           "category": "VR",           "render": _render_vr_frametime,         "has_text": False},
-    {"id": "vr_reprojection",    "label": "VR Reprojection % (Beta)",       "category": "VR",           "render": _render_vr_reprojection,      "has_text": False},
-    {"id": "vr_headset",         "label": "VR Headset Name (Beta)",         "category": "VR",           "render": _render_vr_headset,           "has_text": False},
-    {"id": "vr_connected",       "label": "VR Connected Status (Beta)",     "category": "VR",           "render": _render_vr_connected,         "has_text": False},
+    {"id": "vr_fps",             "label": "SteamVR FPS",                    "category": "VR",           "render": _render_fps_vr,               "has_text": False},
+    {"id": "vr_frame-time",      "label": "VR Frame Time",                  "category": "VR",           "render": _render_vr_frametime,         "has_text": False},
+    {"id": "vr_reprojection",    "label": "VR Reprojection %",              "category": "VR",           "render": _render_vr_reprojection,      "has_text": False},
+    {"id": "vr_headset",         "label": "VR Headset Name",                "category": "VR",           "render": _render_vr_headset,           "has_text": False},
+    {"id": "vr_connected",       "label": "VR Connected Status",            "category": "VR",           "render": _render_vr_connected,         "has_text": False},
 
 
     # ── VR Battery ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    {"id": "vr_hmd_battery",     "label": "Headset Battery (Beta)",         "category": "VR",           "render": _render_vr_hmd_battery,       "has_text": False},
-    {"id": "vr_lc_battery",      "label": "Left Controller Batt (Beta)",    "category": "VR",           "render": _render_vr_lc_battery,        "has_text": False},
-    {"id": "vr_rc_battery",      "label": "Right Controller Batt (Beta)",   "category": "VR",           "render": _render_vr_rc_battery,        "has_text": False},
-    {"id": "vr_all_battery",     "label": "All Batteries (1 line) (Beta)",  "category": "VR",           "render": _render_vr_all_battery,       "has_text": False},
+    {"id": "vr_hmd_battery",     "label": "Headset Battery",                "category": "VR",           "render": _render_vr_hmd_battery,       "has_text": False},
+    {"id": "vr_lc_battery",      "label": "Left Controller Batt",           "category": "VR",           "render": _render_vr_lc_battery,        "has_text": False},
+    {"id": "vr_rc_battery",      "label": "Right Controller Batt",          "category": "VR",           "render": _render_vr_rc_battery,        "has_text": False},
+    {"id": "vr_all_battery",     "label": "All Batteries",                  "category": "VR",           "render": _render_vr_all_battery,       "has_text": False},
 
     # ── VRChat ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    {"id": "desktop_fps",       "label": "Desktop FPS (Beta)",              "category": "VRChat",       "render": _render_fps_desktop,          "has_text": False},
+    {"id": "desktop_fps",       "label": "Desktop FPS",                     "category": "VRChat",       "render": _render_fps_desktop,          "has_text": False},
     {"id": "vrc_world",         "label": "World Name",                      "category": "VRChat",       "render": _render_vrc_world,            "has_text": False},
     {"id": "vrc_players",       "label": "Player Count",                    "category": "VRChat",       "render": _render_vrc_players,          "has_text": False},
     {"id": "vrc_avatar",        "label": "Avatar Name (Beta)",              "category": "VRChat",       "render": _render_vrc_avatar,           "has_text": False},
-    {"id": "vrc_ping",          "label": "VRChat Ping (Beta)",              "category": "VRChat",       "render": _render_vrc_ping,             "has_text": False},
+    {"id": "vrc_ping",          "label": "VRChat Ping ",                    "category": "VRChat",       "render": _render_vrc_ping,             "has_text": False},
 
     # ── Network ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     {"id": "net_down",          "label": "Download Speed",                  "category": "Network",      "render": _render_net_down,             "has_text": False},
@@ -330,8 +330,8 @@ MODULES: list[dict] = [
 
     # ── Fun ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     {"id": "ascii_cat",         "label": "ASCII Cat",                       "category": "Fun",          "render": _render_ascii_cat,            "has_text": False},
-    {"id": "ascii_dog_1",       "label": "ASCII Dog 1",                     "category": "Fun",          "render": _render_ascii_dog_1,            "has_text": False},
-    {"id": "ascii_dog_2",       "label": "ASCII Dog 2",                     "category": "Fun",          "render": _render_ascii_dog_2,            "has_text": False},
+    {"id": "ascii_dog_1",       "label": "ASCII Dog 1",                     "category": "Fun",          "render": _render_ascii_dog_1,          "has_text": False},
+    {"id": "ascii_dog_2",       "label": "ASCII Dog 2",                     "category": "Fun",          "render": _render_ascii_dog_2,          "has_text": False},
     {"id": "ascii_fish",        "label": "ASCII Fish",                      "category": "Fun",          "render": _render_ascii_fish,           "has_text": False},
 ]
 
