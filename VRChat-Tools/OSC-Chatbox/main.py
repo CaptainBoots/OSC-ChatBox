@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-VERSION = "8.3.7"
+VERSION = "8.3.8"
 
 # ── Dependency bootstrap ──────────────────────────────────────────────────────
 
@@ -71,11 +71,120 @@ def _lhm_exe_path() -> str:
     return candidates[0]  # return primary path even if missing (will error on launch)
 
 
+def _patch_lhm_config() -> None:
+    """
+    Ensure the LHM .config file has the required keys set before launch.
+    Sets:
+      runWebServerMenuItem = true   (enables the web API on port 8085)
+      startMinMenuItem     = true   (starts minimised to tray)
+    Creates the config from scratch if it doesn't exist yet.
+    """
+    import xml.etree.ElementTree as ET
+
+    lhm_dir  = os.path.dirname(_lhm_exe_path())
+    cfg_path = os.path.join(lhm_dir, "LibreHardwareMonitor.config")
+
+    REQUIRED = {
+        "runWebServerMenuItem": "true",
+        "startMinMenuItem":     "true",
+    }
+
+    if os.path.isfile(cfg_path):
+        try:
+            tree = ET.parse(cfg_path)
+            root = tree.getroot()
+        except ET.ParseError as e:
+            print(f"[LHM] Config parse error ({e}), will recreate.")
+            root = ET.Element("configuration")
+            tree = ET.ElementTree(root)
+    else:
+        print("[LHM] No config found, creating one.")
+        root = ET.Element("configuration")
+        tree = ET.ElementTree(root)
+
+    app_settings = root.find("appSettings")
+    if app_settings is None:
+        app_settings = ET.SubElement(root, "appSettings")
+
+    for key, value in REQUIRED.items():
+        node = app_settings.find(f"./add[@key='{key}']")
+        if node is not None:
+            if node.get("value") != value:
+                print(f"[LHM] Config: setting {key} = {value} (was {node.get('value')})")
+                node.set("value", value)
+        else:
+            print(f"[LHM] Config: inserting {key} = {value}")
+            ET.SubElement(app_settings, "add", key=key, value=value)
+
+    try:
+        tree.write(cfg_path, encoding="utf-8", xml_declaration=True)
+        print(f"[LHM] Config written to {cfg_path}")
+    except Exception as e:
+        print(f"[LHM] Could not write config: {e}")
+
+
+def _show_lhm_started_popup() -> None:
+    """Small confirmation popup shown after LHM launches successfully."""
+    import tkinter as tk
+
+    popup = tk.Tk()
+    popup.withdraw()
+
+    try:
+        from ui.theme import BG, PANEL, BORDER, ACCENT2, TEXT, FONT
+    except Exception:
+        BG = "#0f0f13"; PANEL = "#1f102a"; BORDER = "#2a2a38"
+        ACCENT2 = "#b44bff"; TEXT = "#e2e0f0"; FONT = "Consolas"
+
+    popup.title("Libre Hardware Monitor")
+    popup.configure(bg=BG)
+    popup.resizable(False, False)
+
+    hdr = tk.Frame(popup, bg=PANEL, pady=8)
+    hdr.pack(fill="x")
+    tk.Label(hdr, text="Libre Hardware Monitor", bg=PANEL, fg=ACCENT2,
+             font=(FONT, 11, "bold")).pack(side="left", padx=14)
+    tk.Frame(popup, bg=BORDER, height=1).pack(fill="x")
+
+    body = tk.Frame(popup, bg=BG, padx=20, pady=14)
+    body.pack()
+    tk.Label(
+        body,
+        text="✓  LHM started successfully.\n\n"
+             "It will appear in your system tray shortly.\n"
+             "The UAC prompt may have appeared behind this window.",
+        bg=BG, fg=TEXT, font=(FONT, 9), justify="left",
+    ).pack()
+
+    tk.Button(
+        body, text="OK", bg=ACCENT2, fg=BG, relief="flat",
+        font=(FONT, 9, "bold"), padx=16, pady=4, cursor="hand2",
+        activebackground=ACCENT2, activeforeground=BG,
+        command=popup.destroy,
+    ).pack(pady=(10, 0))
+
+    popup.update_idletasks()
+    sw = popup.winfo_screenwidth()
+    sh = popup.winfo_screenheight()
+    w  = popup.winfo_reqwidth()
+    h  = popup.winfo_reqheight()
+    popup.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
+    popup.deiconify()
+    popup.lift()
+    popup.attributes("-topmost", True)
+    popup.after(100, lambda: popup.attributes("-topmost", False))
+    popup.mainloop()
+
+
 def _launch_lhm():
     exe = _lhm_exe_path()
     if not os.path.isfile(exe):
         print(f"[LHM] exe not found at {exe} — skipping launch")
         return
+
+    # Patch config before every launch so settings are always correct
+    _patch_lhm_config()
+
     try:
         if sys.platform == "win32":
             import ctypes
@@ -84,11 +193,14 @@ def _launch_lhm():
             )
             if ret <= 32:
                 print(f"[LHM] ShellExecuteW returned {ret} (elevation denied or failed)")
+                return
             else:
                 print(f"[LHM] Launched with admin elevation")
         else:
             subprocess.Popen([exe], cwd=os.path.dirname(exe))
             print(f"[LHM] Launched")
+
+        _show_lhm_started_popup()
     except Exception as e:
         print(f"[LHM] Launch failed: {e}")
 
