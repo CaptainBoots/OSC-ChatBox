@@ -66,12 +66,21 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.4.5"
+VERSION = "9.4.6"
 
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
-GITHUB_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-Tools/"
+# Default selected branch tracking variable
+UPDATE_BRANCH = "main"
+
+
+def get_github_raw_url():
+    return f"https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/{UPDATE_BRANCH}/VRChat-ToolBox.py"
+
+
+def get_github_base_url():
+    return f"https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/{UPDATE_BRANCH}/VRChat-Tools/"
+
+
 GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/releases/latest/download/"
-GITHUB_EXE_RAW_BASE_URL = "https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/"
 
 if getattr(sys, 'frozen', False):
     SCRIPT_DIR = os.path.dirname(sys.executable)
@@ -93,7 +102,7 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
-if VERSION == "9.4.0": #upate when adding tools or dependencies
+if VERSION == "9.4.0":  # upate when adding tools or dependencies
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             os.remove(TOOLBOX_CONFIG_FILE)
@@ -116,10 +125,13 @@ DEFAULT_MANAGED_SCRIPTS = [
 
 
 def load_managed_scripts():
+    global UPDATE_BRANCH
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
                 config = json.load(f)
+
+            UPDATE_BRANCH = config.get("update_branch", "main")
 
             # Verify the configuration version matches the current app version
             config_version = config.get("version")
@@ -140,6 +152,7 @@ def save_managed_scripts(scripts):
         os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
         config = {
             "version": VERSION,
+            "update_branch": UPDATE_BRANCH,
             "managed_scripts": scripts
         }
         with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -164,42 +177,41 @@ BACKUP_DIR = os.path.join(TOOLBOX_CONFIG_DIR, "ToolBox Backup")
 SUBFOLDER_SCRIPT_MAP = {
     "VRChat-Launcher/main.py": {
         "remote_path": "VRChat-Launcher/main.py",
-        "local_path":  os.path.join("VRChat-Launcher", "main.py"),
+        "local_path": os.path.join("VRChat-Launcher", "main.py"),
     },
     "OSC-Router/main.py": {
         "remote_path": "OSC-Router/main.py",
-        "local_path":  os.path.join("OSC-Router", "main.py"),
+        "local_path": os.path.join("OSC-Router", "main.py"),
     },
     "OSC-Chatbox/main.py": {
         "remote_path": "OSC-Chatbox/main.py",
-        "local_path":  os.path.join("OSC-Chatbox", "main.py"),
+        "local_path": os.path.join("OSC-Chatbox", "main.py"),
     },
     "OSC-Gamepad/main.py": {
         "remote_path": "OSC-Gamepad/main.py",
-        "local_path":  os.path.join("OSC-Gamepad", "main.py"),
+        "local_path": os.path.join("OSC-Gamepad", "main.py"),
     },
     "OSC-FaceTrackingController/main.py": {
         "remote_path": "OSC-FaceTrackingController/main.py",
-        "local_path":  os.path.join("OSC-FaceTrackingController", "main.py"),
+        "local_path": os.path.join("OSC-FaceTrackingController", "main.py"),
     },
     "OSC-ParameterBrowser/main.py": {
         "remote_path": "OSC-ParameterBrowser/main.py",
-        "local_path":  os.path.join("OSC-ParameterBrowser", "main.py"),
+        "local_path": os.path.join("OSC-ParameterBrowser", "main.py"),
     },
     "OSC-ScriptMaker/main.py": {
         "remote_path": "OSC-ScriptMaker/main.py",
-        "local_path":  os.path.join("OSC-ScriptMaker", "main.py"),
+        "local_path": os.path.join("OSC-ScriptMaker", "main.py"),
     },
     "VRChat-LocalFavorites/main.py": {
         "remote_path": "VRChat-LocalFavorites/main.py",
-        "local_path":  os.path.join("VRChat-LocalFavorites", "main.py"),
+        "local_path": os.path.join("VRChat-LocalFavorites", "main.py"),
     },
     "VRChat-SocialLogger/main.py": {
         "remote_path": "VRChat-SocialLogger/main.py",
-        "local_path":  os.path.join("VRChat-SocialLogger", "main.py"),
+        "local_path": os.path.join("VRChat-SocialLogger", "main.py"),
     },
 }
-
 
 TOOL_DEPENDENCIES_MAP = {
     "VRChat-Launcher/main.py": [
@@ -308,9 +320,9 @@ TOOL_CONFIG_WIPE_MAP: dict[str, list[str]] = {
 }
 
 # ─── Libre Hardware Monitor (EXE tool, downloaded from GitHub Releases) ───────
-LHM_FOLDER      = "LibreHardwareMonitor"
-LHM_EXE_NAME    = "LibreHardwareMonitor.exe"
-LHM_FILENAME    = f"{LHM_FOLDER}/{LHM_EXE_NAME}"
+LHM_FOLDER = "LibreHardwareMonitor"
+LHM_EXE_NAME = "LibreHardwareMonitor.exe"
+LHM_FILENAME = f"{LHM_FOLDER}/{LHM_EXE_NAME}"
 LHM_RELEASE_URL = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest/download/LibreHardwareMonitor.zip"
 
 
@@ -380,12 +392,12 @@ def _patch_lhm_config() -> None:
     """
     import xml.etree.ElementTree as ET
 
-    lhm_dir  = os.path.dirname(_lhm_exe_path())
+    lhm_dir = os.path.dirname(_lhm_exe_path())
     cfg_path = os.path.join(lhm_dir, "LibreHardwareMonitor.config")
 
     REQUIRED = {
         "runWebServerMenuItem": "true",
-        "startMinMenuItem":     "true",
+        "startMinMenuItem": "true",
     }
 
     # ── Build / load the XML tree ─────────────────────────────────────────────
@@ -441,8 +453,12 @@ def _show_lhm_started_popup() -> None:
         try:
             from ui.theme import PANEL, BORDER, ACCENT2, TEXT, SUBTEXT, FONT as _FONT
         except Exception:
-            PANEL = "#1f102a"; BORDER = "#2a2a38"
-            ACCENT2 = "#b44bff"; TEXT = "#e2e0f0"; SUBTEXT = "#7e7b9a"; _FONT = "Consolas"
+            PANEL = "#1f102a";
+            BORDER = "#2a2a38"
+            ACCENT2 = "#b44bff";
+            TEXT = "#e2e0f0";
+            SUBTEXT = "#7e7b9a";
+            _FONT = "Consolas"
 
         hdr = tk.Frame(win, bg=PANEL, pady=8)
         hdr.pack(fill="x")
@@ -467,8 +483,8 @@ def _show_lhm_started_popup() -> None:
         win.update_idletasks()
         sw = win.winfo_screenwidth()
         sh = win.winfo_screenheight()
-        w  = win.winfo_reqwidth()
-        h  = win.winfo_reqheight()
+        w = win.winfo_reqwidth()
+        h = win.winfo_reqheight()
         win.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
         win.after(100, lambda: win.attributes("-topmost", False))
 
@@ -509,6 +525,7 @@ def launch_lhm() -> None:
         print(f"[LHM] Launch failed: {e}")
         footer_label.config(text="Error launching Libre Hardware Monitor")
         messagebox.showerror("Launch Error", f"Failed to start LibreHardwareMonitor.\n\nDetails:\n{e}")
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -574,15 +591,15 @@ def _is_path_like(filename: str) -> bool:
 def _script_remote_urls(filename: str) -> list[str]:
     if filename in SUBFOLDER_SCRIPT_MAP:
         remote_path = SUBFOLDER_SCRIPT_MAP[filename]["remote_path"]
-        return [f"{GITHUB_BASE_URL}{remote_path}"]
+        return [f"{get_github_base_url()}{remote_path}"]
     if _is_path_like(filename):
         return []
     script_name = os.path.basename(filename)
     urls: list[str] = []
     folder = SCRIPT_FOLDER_MAP.get(script_name)
     if folder:
-        urls.append(f"{GITHUB_BASE_URL}{folder}/{script_name}")
-    urls.append(f"{GITHUB_BASE_URL}{script_name}")
+        urls.append(f"{get_github_base_url()}{folder}/{script_name}")
+    urls.append(f"{get_github_base_url()}{script_name}")
     return list(dict.fromkeys(urls))
 
 
@@ -715,7 +732,7 @@ def ensure_script(filename: str, show_errors: bool = False) -> bool:
 
             # Download all associated project dependency files
             for dep in dependencies:
-                dep_url = f"{GITHUB_BASE_URL}{dep}"
+                dep_url = f"{get_github_base_url()}{dep}"
                 dep_dest = os.path.join(TOOLS_ROOT_DIR, dep.replace("/", os.sep))
                 os.makedirs(os.path.dirname(dep_dest), exist_ok=True)
                 try:
@@ -807,7 +824,7 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
         # Update dependency submodules as well
         dependencies = TOOL_DEPENDENCIES_MAP.get(filename, [])
         for dep in dependencies:
-            dep_url = f"{GITHUB_BASE_URL}{dep}"
+            dep_url = f"{get_github_base_url()}{dep}"
             dep_dest = os.path.join(TOOLS_ROOT_DIR, dep.replace("/", os.sep))
             os.makedirs(os.path.dirname(dep_dest), exist_ok=True)
             try:
@@ -848,6 +865,7 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
     except OSError as e:
         print(f"[{filename}] Could not save updated script: {e}")
         return False
+
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # UPDATER
@@ -890,7 +908,7 @@ def _fetch_remote_script(url: str, timeout: int = 10) -> tuple[str | None, str |
 
 
 def get_remote_script_info() -> dict[str, str] | None:
-    urls = [GITHUB_RAW_URL]
+    urls = [get_github_raw_url()]
     errors = []
     best: dict[str, str] | None = None
 
@@ -958,7 +976,7 @@ def perform_update(remote_text=None, source_url=None):
         with open(script_path, "w", encoding="utf-8") as f:
             f.write(remote_text)
 
-        print(f"[Updater] Update downloaded from {source_url or GITHUB_RAW_URL}. Restarting...")
+        print(f"[Updater] Update downloaded from {source_url or get_github_raw_url()}. Restarting...")
         subprocess.Popen([sys.executable, script_path])
         root.destroy()
         sys.exit(0)
@@ -1001,7 +1019,7 @@ def check_for_updates(silent=False):
     content_differs = remote_norm != local_norm
     main_update_available = remote_newer or content_differs
 
-    print(f"[VRChat-Tools] Checking... (local: {VERSION}  remote: {remote_version})")
+    print(f"[VRChat-Tools] Checking... (local: {VERSION}  remote: {remote_version} Branch: {UPDATE_BRANCH})")
 
     if main_update_available:
         if remote_newer:
@@ -1012,13 +1030,13 @@ def check_for_updates(silent=False):
                 except Exception:
                     pass
             prompt = (
-                f"New version {remote_version} is available (you have {VERSION}).\n\n"
+                f"New version {remote_version} is available on branch '{UPDATE_BRANCH}' (you have {VERSION}).\n\n"
                 "Update and restart now?"
             )
         else:
             print(f"[VRChat-Tools] Remote content differs (version string unchanged at {VERSION})")
             prompt = (
-                "A remote script update is available (content changed,\n"
+                f"A remote script update is available on branch '{UPDATE_BRANCH}' (content changed,\n"
                 "but version string may not have been bumped).\n\n"
                 "Update and restart now?"
             )
@@ -1035,7 +1053,8 @@ def check_for_updates(silent=False):
             any_tool_updated = True
 
     if not silent and not main_update_available and not any_tool_updated:
-        messagebox.showinfo("Up to Date", f"You're on the latest version ({VERSION}).")
+        messagebox.showinfo("Up to Date", f"You're on the latest version ({VERSION}) for branch '{UPDATE_BRANCH}'.")
+
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # GUI
@@ -1043,22 +1062,6 @@ def check_for_updates(silent=False):
 
 FONT = "Consolas"
 TITLE_PREFIX = "◈"
-"""
-# old (uncomment to use)
-BG = "#0f0f13"
-PANEL = "#17171f"
-BORDER = "#2a2a38"
-ACCENT = "#7c5cfc"
-ACCENT2 = "#a78bfa"
-TEXT = "#e2e0f0"
-TEXT2 = "#E0E0E0"
-SUBTEXT = "#7e7b9a"
-GREEN = "#4ade80"
-RED = "#f87171"
-YELLOW = "#facc15"
-CYAN = "#67e8f9"
-ORANGE = "#fb923c"
-"""
 
 # new (default)
 BG = "#0f0f13"
@@ -1074,24 +1077,6 @@ RED = "#f87171"
 YELLOW = "#facc15"
 CYAN = "#67e8f9"
 ORANGE = "#fb923c"
-
-"""
-# light (uncomment to use)
-BG = "#F6E6FA",
-PANEL = "#ffffff",
-BORDER = "#DDCAE3",
-ACCENT = "#9D00FF",
-ACCENT2 = "#b44bff",
-TAB = "#000000",
-TEXT = "#1a1829",
-TEXT2 = "#1a1829",
-SUBTEXT = "#1a1829",
-GREEN = "#4ade80",
-RED = "#f87171",
-YELLOW = "#facc15",
-CYAN = "#67e8f9",
-ORANGE = "#fb923c",
-"""
 
 # Dynamic Scaling Variables
 ui_scale = 1.0
@@ -1395,7 +1380,7 @@ def open_help():
 
 # Window View: Core App Preference Management Overlay Window
 def open_settings():
-    global MANAGED_SCRIPTS
+    global MANAGED_SCRIPTS, UPDATE_BRANCH
 
     settings_win = tk.Toplevel(root)
     settings_win.title("Settings")
@@ -1415,16 +1400,38 @@ def open_settings():
 
     # Settings Window Structural Header Text Label
     title_label = tk.Label(
-        header, text="Manage Scripts", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")
+        header, text="Manage Scripts & Settings", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")
     )
     title_label.pack(side="left", padx=16)
 
     # Settings Panel Top Visual Border Partition
     tk.Frame(settings_win, bg=BORDER, height=1).pack(fill="x")
 
+    # Branch Selector Container Frame
+    branch_frame = tk.Frame(settings_win, bg=PANEL, padx=14, pady=10, highlightthickness=1, highlightbackground=BORDER)
+    branch_frame.pack(padx=20, pady=(10, 0), fill="x")
+
+    tk.Label(branch_frame, text="Update Branch Location:", bg=PANEL, fg=TEXT, font=(FONT, 9, "bold")).pack(side="left")
+
+    branch_var = tk.StringVar(value=UPDATE_BRANCH)
+
+    def on_branch_select(*args):
+        global UPDATE_BRANCH
+        UPDATE_BRANCH = branch_var.get()
+        save_managed_scripts(MANAGED_SCRIPTS)
+        footer_label.config(text=f"Target branch altered to: '{UPDATE_BRANCH}'")
+
+    branch_var.trace_add("write", on_branch_select)
+
+    branch_dropdown = tk.OptionMenu(branch_frame, branch_var, "main", "beta")
+    branch_dropdown.config(bg=BG, fg=TEXT2, activebackground=BORDER, activeforeground=TEXT2, relief="flat",
+                           highlightthickness=0, font=(FONT, 9))
+    branch_dropdown["menu"].config(bg=BG, fg=TEXT, activebackground=ACCENT, font=(FONT, 9))
+    branch_dropdown.pack(side="right")
+
     # Settings Scrollable View Core Container Panel
     content_panel = tk.Frame(settings_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-    content_panel.pack(padx=20, pady=(14, 0), fill="both", expand=True)
+    content_panel.pack(padx=20, pady=(10, 0), fill="both", expand=True)
 
     # Settings Dynamic Rendering Scroll Engine Canvas Viewport
     inner_canvas = tk.Canvas(content_panel, bg=PANEL, highlightthickness=0)
@@ -1508,6 +1515,7 @@ def open_settings():
         # Form System Target Parameter String Input Data Box
         file_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(FONT, 9), relief="flat", insertbackground=ACCENT,
                               highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+
         file_entry.pack(pady=(0, 20), padx=10, fill="x")
 
         # Action Execution Validation Sequence Mutator Method
@@ -1545,7 +1553,7 @@ def open_settings():
 
     # Settings Window Footer Navigation Command Panel Frame
     nav_frame = tk.Frame(settings_win, bg=BG)
-    nav_frame.pack(fill="x", padx=20, pady=(0, 14))
+    nav_frame.pack(fill="x", padx=20, pady=(10, 14))
     nav_frame.columnconfigure(0, weight=1)
 
     # Settings Panel Trigger Interface New Entry Creation Action Button
@@ -1622,7 +1630,7 @@ def refresh_main_buttons():
         script_buttons[i] = btn
 
     btn_count = len(MANAGED_SCRIPTS)
-    root.geometry(f"580x{400 + btn_count * 52}")
+    root.geometry(f"580x{440 + btn_count * 52}")
     root.minsize(0, 0)
 
 
@@ -1657,7 +1665,7 @@ footer_label.pack(side="left", padx=16)
 # ── Startup update check ───────────────────────────────────────────────────
 def run_startup_update_check(_unused=None):
     check_for_updates(silent=True)
-    footer_label.config(text="Up to date")
+    footer_label.config(text="Ready")
 
 
 root.after(2000, run_startup_update_check, None)
