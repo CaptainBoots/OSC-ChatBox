@@ -120,9 +120,6 @@ def _render_vr_lc_battery(snap, slot):
 def _render_vr_rc_battery(snap, slot):
     return f"RC {_batt_str(snap.get('vr_rc_battery'), snap.get('vr_rc_charging'))}"
 
-def _render_vr_tracker_battery(snap, slot):
-    return f"Tracker {_batt_str(snap.get('vr_tracker_battery'), snap.get('vr_tracker_charging'))}"
-
 def _render_vr_all_battery(snap, slot):
     parts = [
         f"HMD:{_batt_str(snap.get('vr_hmd_battery'), snap.get('vr_hmd_charging'))}",
@@ -130,6 +127,30 @@ def _render_vr_all_battery(snap, slot):
         f"R:{_batt_str(snap.get('vr_rc_battery'), snap.get('vr_rc_charging'))}",
     ]
     return "  ".join(parts)
+
+# ── Tracker battery — dynamic, one module per tracker index (0-based) ──────────
+_MAX_TRACKERS = 8
+
+def _make_tracker_render(idx):
+    def _render(snap, slot):
+        trackers = snap.get("vr_trackers", [])
+        if idx >= len(trackers):
+            return f"T{idx + 1}: N/A"
+        t = trackers[idx]
+        return f"T{idx + 1}: {_batt_str(t.get('battery'), t.get('charging'))}"
+    return _render
+
+# Pre-build render functions and module entries for all tracker slots
+_TRACKER_MODULES = [
+    {
+        "id":       f"vr_tracker_{i + 1}_battery",
+        "label":    f"Tracker {i + 1} Battery (Beta)",
+        "category": "VR Trackers",
+        "render":   _make_tracker_render(i),
+        "has_text": False,
+    }
+    for i in range(_MAX_TRACKERS)
+]
 
 # ── VRChat ────────────────────────────────────────────────────────────────────
 def _render_fps_desktop(snap, slot):
@@ -268,7 +289,7 @@ MODULES: list[dict] = [
     {"id": "ram_used_of_total",  "label": "RAM Used/Total",                 "category": "Memory",       "render": _render_ram_combined,         "has_text": False},
 
     # ── VR Data ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    {"id": "Vr_fps",             "label": "SteamVR FPS (Beta)",             "category": "VR",           "render": _render_fps_vr,               "has_text": False},
+    {"id": "vr_fps",             "label": "SteamVR FPS (Beta)",             "category": "VR",           "render": _render_fps_vr,               "has_text": False},
     {"id": "vr_frame-time",      "label": "VR Frame Time (Beta)",           "category": "VR",           "render": _render_vr_frametime,         "has_text": False},
     {"id": "vr_reprojection",    "label": "VR Reprojection % (Beta)",       "category": "VR",           "render": _render_vr_reprojection,      "has_text": False},
     {"id": "vr_headset",         "label": "VR Headset Name (Beta)",         "category": "VR",           "render": _render_vr_headset,           "has_text": False},
@@ -279,7 +300,6 @@ MODULES: list[dict] = [
     {"id": "vr_hmd_battery",     "label": "Headset Battery (Beta)",         "category": "VR",           "render": _render_vr_hmd_battery,       "has_text": False},
     {"id": "vr_lc_battery",      "label": "Left Controller Batt (Beta)",    "category": "VR",           "render": _render_vr_lc_battery,        "has_text": False},
     {"id": "vr_rc_battery",      "label": "Right Controller Batt (Beta)",   "category": "VR",           "render": _render_vr_rc_battery,        "has_text": False},
-    {"id": "vr_tracker_battery", "label": "Tracker Battery (Beta)",         "category": "VR",           "render": _render_vr_tracker_battery,   "has_text": False},
     {"id": "vr_all_battery",     "label": "All Batteries (1 line) (Beta)",  "category": "VR",           "render": _render_vr_all_battery,       "has_text": False},
 
     # ── VRChat ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -314,6 +334,9 @@ MODULES: list[dict] = [
     {"id": "ascii_dog_2",       "label": "ASCII Dog 2",                     "category": "Fun",          "render": _render_ascii_dog_2,            "has_text": False},
     {"id": "ascii_fish",        "label": "ASCII Fish",                      "category": "Fun",          "render": _render_ascii_fish,           "has_text": False},
 ]
+
+# Append dynamic tracker modules (T1–T8, "VR Trackers" category)
+MODULES.extend(_TRACKER_MODULES)
 
 # Fast lookup by id
 MODULE_BY_ID: dict[str, dict] = {m["id"]: m for m in MODULES}
