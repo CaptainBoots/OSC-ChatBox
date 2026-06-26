@@ -21,6 +21,7 @@ import tkinter as tk
 import tkinter.font as font
 import zipfile
 import webbrowser
+import threading
 from tkinter import messagebox
 
 
@@ -67,7 +68,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.4.7"
+VERSION = "9.4.9"
 
 # Default selected branch tracking variable
 UPDATE_BRANCH = "main"
@@ -103,7 +104,7 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
-if VERSION == "9.4.0":  # upate when adding tools or dependencies
+if VERSION == "9.4.0":  # update when adding tools or dependencies
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             os.remove(TOOLBOX_CONFIG_FILE)
@@ -441,7 +442,6 @@ def _patch_lhm_config() -> None:
 
 def _show_lhm_started_popup() -> None:
     """Small non-blocking confirmation that LHM launched successfully."""
-    import threading
 
     def _popup():
         win = tk.Toplevel(root)
@@ -454,11 +454,11 @@ def _show_lhm_started_popup() -> None:
         try:
             from ui.theme import PANEL, BORDER, ACCENT2, TEXT, SUBTEXT, FONT as _FONT
         except Exception:
-            PANEL = "#1f102a";
+            PANEL = "#1f102a"
             BORDER = "#2a2a38"
-            ACCENT2 = "#b44bff";
-            TEXT = "#e2e0f0";
-            SUBTEXT = "#7e7b9a";
+            ACCENT2 = "#b44bff"
+            TEXT = "#e2e0f0"
+            SUBTEXT = "#7e7b9a"
             _FONT = "Consolas"
 
         hdr = tk.Frame(win, bg=PANEL, pady=8)
@@ -706,75 +706,69 @@ def ensure_script(filename: str, show_errors: bool = False) -> bool:
     except OSError as e:
         print(f"[{filename}] Could not create destination directory: {e}")
         if show_errors:
-            messagebox.showerror(f"{filename} Error", f"Could not create destination directory:\n{e}")
+            messagebox.showerror(f"{filename} Error", f"Could not create target layout directory:\n{e}")
         return False
 
-    remote_text = None
+    # Try downloading from remote repository first
+    download_success = False
     for url in _script_remote_urls(filename):
+        print(f"[{filename}] Target asset broken or missing. Pulling from Github: {url}")
         try:
-            response = requests.get(
-                url,
-                timeout=10,
-                params={"_": int(time.time())},
-                headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
+            resp = requests.get(
+                url, timeout=15, params={"_": int(time.time())},
+                headers={"Cache-Control": "no-cache", "Pragma": "no-cache"}
             )
-            response.raise_for_status()
-            remote_text = response.text
-            print(f"[{filename}] Download source: {url}")
-            break
-        except requests.RequestException:
-            continue
+            resp.raise_for_status()
 
-    if remote_text:
-        try:
-            with open(dest_path, "w", encoding="utf-8") as f:
-                f.write(remote_text)
-            print(f"[{filename}] Downloaded to {dest_path}")
+            with open(dest_path, "w", encoding="utf-8") as lf:
+                lf.write(resp.text)
 
-            # Download all associated project dependency files
+            # Download sub-dependencies concurrently if any are registered
             for dep in dependencies:
                 dep_url = f"{get_github_base_url()}{dep}"
                 dep_dest = os.path.join(TOOLS_ROOT_DIR, dep.replace("/", os.sep))
                 os.makedirs(os.path.dirname(dep_dest), exist_ok=True)
-                try:
-                    dep_resp = requests.get(
-                        dep_url,
-                        timeout=10,
-                        params={"_": int(time.time())},
-                        headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
-                    )
-                    dep_resp.raise_for_status()
-                    _binary_exts = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".bmp", ".webp"}
-                    if os.path.splitext(dep_dest)[1].lower() in _binary_exts:
-                        with open(dep_dest, "wb") as df:
-                            df.write(dep_resp.content)
-                    else:
-                        with open(dep_dest, "w", encoding="utf-8") as df:
-                            df.write(dep_resp.text)
-                    print(f"[{filename}] Downloaded dependency: {dep_dest}")
-                except requests.RequestException as dep_err:
-                    print(f"[{filename}] Failed to download dependency {dep_url}: {dep_err}")
 
-            return True
-        except OSError as e:
-            print(f"[{filename}] Could not save downloaded script: {e}")
+                dep_resp = requests.get(
+                    dep_url, timeout=15, params={"_": int(time.time())},
+                    headers={"Cache-Control": "no-cache", "Pragma": "no-cache"}
+                )
+                dep_resp.raise_for_status()
+                with open(dep_dest, "wb") as df:
+                    df.write(dep_resp.content)
+                print(f"[{filename}] Dependency added: {dep}")
 
-    if os.path.isfile(bundled_path):
+            download_success = True
+            print(f"[{filename}] Application code stack prepared successfully.")
+            break
+        except Exception as e:
+            print(f"[{filename}] Remote connection vector faulted: {e}")
+
+    if download_success:
+        return True
+
+    # Check for local bundled fallback assets
+    if os.path.isfile(bundled_path) and bundled_path != dest_path:
+        print(f"[{filename}] Defaulting to local bundle mirror fallback asset.")
         try:
-            with open(bundled_path, "r", encoding="utf-8") as src:
-                with open(dest_path, "w", encoding="utf-8") as dst:
-                    dst.write(src.read())
-            print(f"[{filename}] Using bundled fallback copy from {bundled_path}")
+            with open(bundled_path, "r", encoding="utf-8") as sf, open(dest_path, "w", encoding="utf-8") as df:
+                df.write(sf.read())
             return True
         except OSError as e:
             print(f"[{filename}] Could not copy bundled fallback: {e}")
-
-    if show_errors:
-        messagebox.showerror(
-            f"{filename} Error",
-            f"Could not prepare {filename}.\nCheck your internet connection and try again.",
-        )
-    return False
+            if show_errors:
+                messagebox.showerror(
+                    f"{filename} Error",
+                    f"Could not prepare {filename}.\nCheck your internet connection and try again.",
+                )
+            return False
+    else:
+        if show_errors:
+            messagebox.showerror(
+                f"{filename} Error",
+                f"Could not prepare {filename}.\nCheck your internet connection and try again.",
+            )
+        return False
 
 
 def check_for_script_updates(filename: str, silent: bool = False) -> bool:
@@ -789,10 +783,12 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
     _, dest_path = _script_paths(filename)
     remote_text = None
     remote_version = None
+
     for url in _script_remote_urls(filename):
         remote_text, remote_version, _ = _fetch_remote_script(url, timeout=10)
         if remote_text is not None:
             break
+
     if remote_text is None:
         if not silent:
             messagebox.showinfo(
@@ -802,7 +798,6 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
         return False
 
     remote_version = remote_version or "0.0.0"
-
     try:
         with open(dest_path, "r", encoding="utf-8") as lf:
             local_text = lf.read()
@@ -810,8 +805,7 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
         local_text = ""
 
     local_version = _extract_version_from_source(local_text) or "0.0.0"
-
-    print(f"[{filename}] Checking... (local: {local_version}  remote: {remote_version})")
+    print(f"[{filename}] Checking... (local: {local_version} remote: {remote_version})")
 
     if _parse_version(remote_version) <= _parse_version(local_version):
         print(f"[{filename}] Up to date ({local_version})")
@@ -830,59 +824,26 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
             os.makedirs(os.path.dirname(dep_dest), exist_ok=True)
             try:
                 dep_resp = requests.get(
-                    dep_url,
-                    timeout=10,
-                    params={"_": int(time.time())},
+                    dep_url, timeout=10, params={"_": int(time.time())},
                     headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
                 )
                 dep_resp.raise_for_status()
-                _binary_exts = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".bmp", ".webp"}
-                if os.path.splitext(dep_dest)[1].lower() in _binary_exts:
-                    with open(dep_dest, "wb") as df:
-                        df.write(dep_resp.content)
-                else:
-                    with open(dep_dest, "w", encoding="utf-8") as df:
-                        df.write(dep_resp.text)
-                print(f"[{filename}] Updated dependency: {dep_dest}")
-            except requests.RequestException as dep_err:
-                print(f"[{filename}] Failed to update dependency {dep_url}: {dep_err}")
+                with open(dep_dest, "wb") as df:
+                    df.write(dep_resp.content)
+            except Exception as e:
+                print(f"[{filename}] Dependency update error ({dep}): {e}")
 
-        # Wipe any tool-specific config files so stale config doesn't break the new version
-        for relative_cfg in TOOL_CONFIG_WIPE_MAP.get(filename, []):
-            cfg_path = os.path.join(TOOLS_ROOT_DIR, relative_cfg)
-            if os.path.exists(cfg_path):
-                try:
-                    os.remove(cfg_path)
-                    print(f"[{filename}] Wiped stale config: {cfg_path}")
-                except OSError as wipe_err:
-                    print(f"[{filename}] Could not wipe config {cfg_path}: {wipe_err}")
-
-        if not silent:
-            messagebox.showinfo(
-                f"{filename} Updated",
-                f"{filename} updated from {local_version} to {remote_version}."
-            )
         return True
     except OSError as e:
-        print(f"[{filename}] Could not save updated script: {e}")
+        print(f"[{filename}] Failed writing updated local source tree context: {e}")
         return False
 
 
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# UPDATER
-# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
-def _set_footer_ready(_unused=None) -> None:
-    footer_label.config(text="Ready")
-
-
-def _parse_version(v: str):
-    nums = [int(x) for x in re.findall(r"\d+", (v or "").strip())]
-    if not nums:
-        return 0, 0, 0
-    while len(nums) < 3:
-        nums.append(0)
-    return tuple(nums[:3])
+def _parse_version(v_str: str) -> tuple[int, ...]:
+    try:
+        return tuple(map(int, (v_str.split("."))))
+    except ValueError:
+        return (0, 0, 0)
 
 
 def _extract_version_from_source(source_text: str) -> str | None:
@@ -897,9 +858,7 @@ def _extract_version_from_source(source_text: str) -> str | None:
 def _fetch_remote_script(url: str, timeout: int = 10) -> tuple[str | None, str | None, str | None]:
     try:
         resp = requests.get(
-            url,
-            timeout=timeout,
-            params={"_": int(time.time())},
+            url, timeout=timeout, params={"_": int(time.time())},
             headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
         )
         resp.raise_for_status()
@@ -918,14 +877,17 @@ def get_remote_script_info() -> dict[str, str] | None:
         if text is None:
             errors.append(url)
             continue
+
         info: dict[str, str] = {
             "text": text,
             "version": remote_version or "0.0.0",
             "url": used_url or url,
         }
+
         if best is None:
             best = info
             continue
+
         best_version: str = best["version"] if best else "0.0.0"
         if _parse_version(info["version"]) > _parse_version(best_version):
             best = info
@@ -955,72 +917,77 @@ def perform_update(remote_text=None, source_url=None):
 
         script_path = os.path.abspath(__file__)
         os.makedirs(BACKUP_DIR, exist_ok=True)
-
         script_name = os.path.splitext(os.path.basename(script_path))[0]
         backup_path = os.path.join(BACKUP_DIR, f"{script_name} {VERSION}.bak")
 
-        with open(script_path, "r", encoding="utf-8") as f_cur:
-            with open(backup_path, "w", encoding="utf-8") as f_bak:
-                f_bak.write(f_cur.read())
+        with open(script_path, "r", encoding="utf-8") as f_src:
+            current_code = f_src.read()
+        with open(backup_path, "w", encoding="utf-8") as f_dst:
+            f_dst.write(current_code)
+        print(f"[Updater] Created rollback backup pointing at: {backup_path}")
 
-        backup_files = [
-            os.path.join(BACKUP_DIR, fn)
-            for fn in os.listdir(BACKUP_DIR)
-            if fn.lower().endswith(".bak")
-        ]
-        if len(backup_files) > 5:
-            oldest_backup = min(backup_files, key=os.path.getmtime)
-            if os.path.abspath(oldest_backup) != os.path.abspath(backup_path):
-                os.remove(oldest_backup)
-                print(f"[Updater] Removed old backup: {os.path.basename(oldest_backup)}")
+        with open(script_path, "w", encoding="utf-8") as f_upper:
+            f_upper.write(remote_text)
+        print(f"[Updater] Main system assembly updated successfully from {source_url}.")
 
-        with open(script_path, "w", encoding="utf-8") as f:
-            f.write(remote_text)
+        # Wipe targeted configurations on version shift
+        for tool_key, configs_to_wipe in TOOL_CONFIG_WIPE_MAP.items():
+            for relative_cfg in configs_to_wipe:
+                full_cfg_path = os.path.join(TOOLS_ROOT_DIR, relative_cfg)
+                if os.path.exists(full_cfg_path):
+                    try:
+                        os.remove(full_cfg_path)
+                        print(f"[Updater] Wiped breaking config layout targets: {relative_cfg}")
+                    except Exception as ex:
+                        print(f"[Updater] Error cleaning target configuration profile: {ex}")
 
-        print(f"[Updater] Update downloaded from {source_url or get_github_raw_url()}. Restarting...")
-        subprocess.Popen([sys.executable, script_path])
+        messagebox.showinfo(
+            "Update Complete",
+            f"ToolBox updated to the latest available software build on branch '{UPDATE_BRANCH}'.\n\nThe system will now restart automatically."
+        )
+
         root.destroy()
+        subprocess.Popen([sys.executable, script_path], cwd=os.path.dirname(script_path))
         sys.exit(0)
 
     except Exception as e:
+        print(f"[Updater] Self-update failed catastrophically: {e}")
         messagebox.showerror(
             "Update Failed",
-            f"Could not apply update:\n{e}\n\nYour original file is intact."
+            f"An error occurred during updating processing:\n\n{e}"
         )
-        print(f"[Updater] Update failed: {e}")
 
 
-def check_for_updates(silent=False):
+def check_for_main_updates(silent: bool = True):
+    if not silent:
+        footer_label.config(text="Connecting to repository update server nodes...")
+        root.update_idletasks()
+
     info = get_remote_script_info()
     if not info:
         if not silent:
-            messagebox.showinfo(
-                "Update Check",
-                "Could not reach GitHub.\nCheck your internet connection."
-            )
-        for script_entry in MANAGED_SCRIPTS:
-            check_for_script_updates(script_entry["filename"], silent=silent)
+            messagebox.showerror("Update Connection Fault", "Unable to pull validation info records from GitHub.")
+        footer_label.config(text="Ready")
         return
 
-    remote_version = info["version"]
     remote_text = info["text"]
+    remote_version = info["version"]
     remote_url = info["url"]
 
     try:
-        # FIX: Changed to os.path.realpath to follow links, and added errors="ignore"
-        # to prevent crashing on computers with non-English system locales/encodings.
-        with open(os.path.realpath(__file__), "r", encoding="utf-8", errors="ignore") as f:
+        with open(__file__, "r", encoding="utf-8", errors="ignore") as f:
             local_text = f.read()
     except Exception:
         local_text = ""
 
     local_norm = local_text.replace("\r\n", "\n")
     remote_norm = remote_text.replace("\r\n", "\n")
+
     remote_newer = _parse_version(remote_version) > _parse_version(VERSION)
     content_differs = remote_norm != local_norm
     main_update_available = remote_newer or content_differs
 
-    print(f"[VRChat-Tools] Checking... (local: {VERSION}  remote: {remote_version} Branch: {UPDATE_BRANCH})")
+    print(f"[VRChat-Tools] Checking... (local: {VERSION} remote: {remote_version} Branch: {UPDATE_BRANCH})")
 
     if main_update_available:
         if remote_newer:
@@ -1041,6 +1008,7 @@ def check_for_updates(silent=False):
                 "but version string may not have been bumped).\n\n"
                 "Update and restart now?"
             )
+
         if messagebox.askyesno("Update Available", prompt):
             perform_update(remote_text=remote_text, source_url=remote_url)
         else:
@@ -1054,7 +1022,58 @@ def check_for_updates(silent=False):
             any_tool_updated = True
 
     if not silent and not main_update_available and not any_tool_updated:
-        messagebox.showinfo("Up to Date", f"You're on the latest version ({VERSION}) for branch '{UPDATE_BRANCH}'.")
+        messagebox.showinfo(
+            "Up to Date", f"You're on the latest version ({VERSION}) for branch '{UPDATE_BRANCH}'."
+        )
+
+
+def force_update_all_scripts():
+    """Wipes the cached/downloaded files and force-downloads them from the current branch live."""
+
+    def _update_task():
+        footer_label.config(text=f"Switching branch to '{UPDATE_BRANCH}' & updating...")
+        root.update_idletasks()
+
+        success = True
+        # Wiping local script cache and force-downloading afresh from the newly assigned branch context
+        for script in MANAGED_SCRIPTS:
+            filename = script["filename"]
+            if filename == LHM_FILENAME:
+                continue
+
+            bundled_path, dest_path = _script_paths(filename)
+            if os.path.isfile(dest_path):
+                try:
+                    os.remove(dest_path)
+                except Exception:
+                    pass
+
+            dependencies = TOOL_DEPENDENCIES_MAP.get(filename, [])
+            for dep in dependencies:
+                dep_path = os.path.join(TOOLS_ROOT_DIR, dep.replace("/", os.sep))
+                if os.path.isfile(dep_path):
+                    try:
+                        os.remove(dep_path)
+                    except Exception:
+                        pass
+
+            if not ensure_script(filename, show_errors=False):
+                success = False
+
+        if success:
+            footer_label.config(text=f"Successfully switched to branch '{UPDATE_BRANCH}'!")
+            messagebox.showinfo(
+                "Branch Updated",
+                f"All scripts have been successfully updated to match the '{UPDATE_BRANCH}' branch structure.",
+            )
+        else:
+            footer_label.config(text="Error updating branch assets")
+            messagebox.showerror(
+                "Branch Update Error",
+                "Failed to fully re-download some script assets from the chosen branch.",
+            )
+
+    threading.Thread(target=_update_task, daemon=True).start()
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -1062,88 +1081,45 @@ def check_for_updates(silent=False):
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 FONT = "Consolas"
-TITLE_PREFIX = "◈"
-
-# new (default)
+TITLE_PREFIX = "◈"  # new (default)
 BG = "#0f0f13"
 PANEL = "#1f102a"
 BORDER = "#2a2a38"
 ACCENT = "#9D00FF"
 ACCENT2 = "#b44bff"
 TEXT = "#e2e0f0"
-TEXT2 = "#E0E0E0"
+TEXT2 = "#ffffff"
 SUBTEXT = "#7e7b9a"
-GREEN = "#4ade80"
-RED = "#f87171"
-YELLOW = "#facc15"
-CYAN = "#67e8f9"
-ORANGE = "#fb923c"
+GREEN = "#00ffcc"
+RED = "#ff4b72"
 
-# Dynamic Scaling Variables
-ui_scale = 1.0
+root = tk.Tk()
+root.title("VRChat-ToolBox")
+root.configure(bg=BG)
+root.geometry("580x600")
+root.minsize(0, 0)
+
+# Window Setup Core Sizing Constraints
+root.update_idletasks()
+
+# Context DPI Engine Scaling Configurations
+scale = 1.0
 scalable_widgets = []
 square_widgets = []
 
-# Main Application Window Initialization
-root = tk.Tk()
-root.title("Boot's ToolBox")
-root.configure(bg=BG)
-root.resizable(True, True)
 
-# Top Bar Container Frame
-title_bar = tk.Frame(root, bg=PANEL, pady=14)
-title_bar.pack(fill="x")
-
-# Header Padding and Alignment Frame
-header_frame = tk.Frame(title_bar, bg=PANEL)
-header_frame.pack(fill="x", padx=16, expand=True)
-
-# Main Application Brand Title Label
-header_title_label = tk.Label(
-    header_frame,
-    text="◈  Boot's TOOLBOX",
-    bg=PANEL,
-    fg=ACCENT2,
-    font=(FONT, 16, "bold")
-)
-header_title_label.pack(side="left", anchor="w")
-
-# Application Version Display Label
-version_label = tk.Label(
-    header_frame,
-    text=f"v{VERSION}",
-    bg=PANEL,
-    fg=SUBTEXT,
-    font=(FONT, 9)
-)
-version_label.pack(side="right", anchor="e", padx=(32, 0))
-
-# Visual Separator Line (Border)
-tk.Frame(root, bg=BORDER, height=1).pack(fill="x")
-
-# Central Content Wrapper Frame
-main_frame = tk.Frame(root, bg=BG)
-main_frame.pack(fill="both", expand=True, padx=16, pady=14)
+def register_scalable(widget, base_size, extras=()):
+    scalable_widgets.append((widget, base_size, extras))
 
 
-# ── Scaling ────────────────────────────────────────────────────────────────
-def apply_scale(scale):
-    global ui_scale
-    ui_scale = scale
-
-    base_default = 9
-    new_default = max(7, int(base_default * scale))
-
-    font.nametofont("TkDefaultFont").configure(size=new_default)
-    font.nametofont("TkTextFont").configure(size=new_default)
-    font.nametofont("TkFixedFont").configure(size=new_default)
-
+def apply_ui_scaling(new_scale):
+    global scale
+    scale = new_scale
     for widget, base_size, extras in scalable_widgets:
         try:
             widget.configure(font=(FONT, max(6, int(base_size * scale))) + extras)
         except tk.TclError:
             pass
-
     for container, base_size, btn_widget in square_widgets:
         size = int(base_size * scale)
         container.config(width=size, height=size)
@@ -1160,15 +1136,8 @@ def dark_label(text, r, **kwargs):
 # Factory Function: Standard Form Input Field
 def dark_entry(r, default=""):
     e = tk.Entry(
-        main_frame,
-        bg=PANEL,
-        fg=TEXT,
-        insertbackground=ACCENT,
-        relief="flat",
-        font=(FONT, 9),
-        highlightthickness=1,
-        highlightbackground=BORDER,
-        highlightcolor=ACCENT,
+        main_frame, bg=PANEL, fg=TEXT, insertbackground=ACCENT, relief="flat", font=(FONT, 9),
+        highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
     )
     e.insert(0, default)
     e.grid(row=r, column=1, pady=6, sticky="ew", padx=(8, 0))
@@ -1179,116 +1148,104 @@ def dark_entry(r, default=""):
 def square_button(parent, text, command, base_size=32):
     container = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
     container.pack_propagate(False)
-
     button_widget = tk.Button(
-        container,
-        text=text,
-        command=command,
-        bg=PANEL,
-        fg=SUBTEXT,
-        relief="flat",
-        borderwidth=0,
-        font=(FONT, 12),
-        activebackground=BORDER,
-        activeforeground=TEXT,
-        cursor="hand2",
+        container, text=text, command=command, bg=PANEL, fg=SUBTEXT, relief="flat", borderwidth=0, font=(FONT, 12),
+        activebackground=BORDER, activeforeground=TEXT, cursor="hand2",
     )
     button_widget.pack(fill="both", expand=True)
-
     square_widgets.append((container, base_size, button_widget))
     container.config(width=base_size, height=base_size)
-
     return container
 
 
 def _show_beta_popup():
-    """Elegant non-blocking modal modal overlay thanking beta testers and promoting the discord server."""
+    """Elegant non-blocking modal overlay thanking beta testers and promoting the discord server."""
     win = tk.Toplevel(root)
     win.title("Beta Branch Active")
+    win.geometry("420x260")
     win.configure(bg=BG)
     win.resizable(False, False)
-    win.attributes("-topmost", True)
+    win.transient(root)
+    win.grab_set()
 
-    hdr = tk.Frame(win, bg=PANEL, pady=8)
+    hdr = tk.Frame(win, bg=PANEL, pady=10)
     hdr.pack(fill="x")
-    tk.Label(hdr, text="◈ Beta Branch Tester", bg=PANEL, fg=ACCENT2,
-             font=(FONT, 11, "bold")).pack(side="left", padx=14)
+    tk.Label(hdr, text="✨ Beta Testing Active", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")).pack(side="left", padx=16)
     tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
 
-    body = tk.Frame(win, bg=BG, padx=20, pady=14)
-    body.pack()
-    tk.Label(body,
-             text="Thank you for using and testing the Beta Branch!\n\nYour feedback helps make new tools. Join our discord to chat with development and send bug reports.",
-             bg=BG, fg=TEXT, font=(FONT, 9), justify="left", wraplength=360).pack(pady=(0, 14))
+    body = tk.Frame(win, bg=BG, padx=20, pady=16)
+    body.pack(fill="both", expand=True)
 
-    btn_frame = tk.Frame(body, bg=BG)
-    btn_frame.pack()
+    msg = (
+        "Thank you for participating in our beta test program!\n\n"
+        "Your bug reports and active testing cycles help optimize these tools for everyone.\n\n"
+        "Join our active developer hub to report issues, suggest modifications, or track roadmap updates live!"
+    )
+    tk.Label(body, text=msg, bg=BG, fg=TEXT, font=(FONT, 9), justify="left", wraplength=380).pack(anchor="w")
 
-    tk.Button(
-        btn_frame, text="Join Discord", bg="#5865F2", fg=TEXT2, relief="flat",
-        font=(FONT, 9, "bold"), padx=16, pady=4, cursor="hand2",
-        activebackground="#4752C4", activeforeground=TEXT2,
-        command=lambda: (webbrowser.open("https://discord.gg/YDXpQPF6g9"), win.destroy()),
-    ).pack(side="left", padx=5)
+    btn_row = tk.Frame(body, bg=BG)
+    btn_row.pack(fill="x", pady=(18, 0))
 
     tk.Button(
-        btn_frame, text="Close", bg=PANEL, fg=SUBTEXT, relief="flat",
-        font=(FONT, 9, "bold"), padx=16, pady=4, cursor="hand2",
-        activebackground=BORDER, activeforeground=TEXT,
+        btn_row, text="Join Discord Server", bg=ACCENT, fg=TEXT2, relief="flat", font=(FONT, 9, "bold"),
+        padx=14, pady=6, cursor="hand2", activebackground=ACCENT2, activeforeground=TEXT2,
+        command=lambda: (webbrowser.open("https://discord.gg/VWeTPh3m8Q"), win.destroy()),
+    ).pack(side="left")
+
+    tk.Button(
+        btn_row, text="Dismiss", bg=PANEL, fg=SUBTEXT, relief="flat", font=(FONT, 9, "bold"),
+        padx=14, pady=6, cursor="hand2", activebackground=BORDER, activeforeground=TEXT,
         command=win.destroy,
-    ).pack(side="left", padx=5)
+    ).pack(side="right")
 
-    # Centre on screen
     win.update_idletasks()
     sw = win.winfo_screenwidth()
     sh = win.winfo_screenheight()
-    w = win.winfo_reqwidth()
-    h = win.winfo_reqheight()
-    win.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
-    win.after(100, lambda: win.attributes("-topmost", False))
+    win.geometry(f"+{(sw - 420) // 2}+{(sh - 260) // 2}")
 
 
-# Window View: Help and Tutorial Modal Overlay
 def open_help():
     help_win = tk.Toplevel(root)
-    help_win.title("Tutorial")
+    help_win.title("Documentation & Guide")
+    help_win.geometry("520x460")
     help_win.configure(bg=BG)
-    help_win.resizable(True, True)
+    help_win.resizable(False, False)
 
-    root.update_idletasks()
-    help_w = root.winfo_width()
-    help_h = root.winfo_height()
-    root_x = root.winfo_x()
-    root_y = root.winfo_y()
-    help_win.geometry(f"{help_w}x{help_h}+{root_x}+{root_y}")
-
+    current_page = [0]
     pages = [
         {
-            "title": "Welcome",
+            "title": "Welcome to ToolBox",
             "content": (
-                "Boot's ToolBox — The main control center for\n"
-                "managing all of Boot's scripts.\n\n"
-                "MANAGED SCRIPTS\n"
-                "Click any script button to launch it.\n\n"
-                "The footer at the bottom shows:\n"
+                "This control center manages and runs various modular optimization tools "
+                "tailored for VRChat OSC network tracking.\n\n"
+                "Features include:\n"
+                "• Automated system update patches on initialization cycles.\n"
+                "• Sandbox virtual execution container environments.\n"
+                "• Fast preference configuration overlays."
+            ),
+        },
+        {
+            "title": "Status Indicator",
+            "content": (
+                "The status shelf located across the footer displays active telemetry feedback:\n"
                 "• 'Ready' — waiting for action\n"
                 "• 'Starting up (ScriptName)' — launching\n"
                 "• 'Up to date' — version check complete\n"
                 "• 'Error' — something went wrong"
-            )
+            ),
         },
         {
             "title": "Available Scripts",
             "content": (
                 "▶ Router(Beta) — Manages OSC routing\n"
-                "  Forwards OSC messages between sources\n"
-                "  and destinations.\n\n"
+                " Forwards OSC messages between sources\n"
+                " and destinations.\n\n"
                 "▶ ChatBox — Sends data to VRChat over OSC\n"
-                "  Displays system info, weather, music,\n"
-                "  and custom messages.\n\n"
+                " Displays system info, weather, music,\n"
+                " and custom messages.\n\n"
                 "▶ Face Tracking Controller(Beta) — Control\n"
-                "  face tracking features in VRChat ."
-            )
+                " face tracking features in VRChat ."
+            ),
         },
         {
             "title": "Status Bar",
@@ -1298,10 +1255,10 @@ def open_help():
                 "Center: Version number\n"
                 "Right: Current status\n\n"
                 "Status Examples:\n"
-                "● Status: Running — Script is active\n"
-                "● Status: Stopped — Script is inactive\n"
-                "● Status: Error — Something failed"
-            )
+                "• Status: Running — Script is active\n"
+                "• Status: Stopped — Script is inactive\n"
+                "• Status: Error — Something failed"
+            ),
         },
         {
             "title": "Adding a Script",
@@ -1313,7 +1270,7 @@ def open_help():
                 "5. Click 'Add' to save\n\n"
                 "Your new script button appears in\n"
                 "'MANAGED SCRIPTS' section immediately!"
-            )
+            ),
         },
         {
             "title": "Removing a Script",
@@ -1324,56 +1281,37 @@ def open_help():
                 "4. Script removed from buttons\n\n"
                 "Changes save automatically. Close and\n"
                 "reopen ToolBox to fully refresh if needed."
-            )
+            ),
         },
         {
             "title": "Tips",
             "content": (
                 "• Always start Router first, then ChatBox\n\n"
                 "• Each script remembers its settings\n"
-                "  between sessions\n\n"
+                " between sessions\n\n"
                 "• Check your internet connection if\n"
-                "  scripts fail to start\n\n"
+                " scripts fail to start\n\n"
                 "• Run scripts from the ToolBox for\n"
-                "  proper management"
-            )
+                " proper management"
+            ),
         },
     ]
 
-    current_page = [0]
+    # Header Panel Layout
+    header_panel = tk.Frame(help_win, bg=PANEL, pady=12)
+    header_panel.pack(fill="x")
+    title_label = tk.Label(header_panel, text="", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold"))
+    title_label.pack(side="left", padx=20)
 
-    # Help Window Top Header Frame
-    header = tk.Frame(help_win, bg=PANEL, pady=10)
-    header.pack(fill="x")
-
-    # Help Window Section Title Label
-    title_label = tk.Label(
-        header, text="", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")
-    )
-    title_label.pack(side="left", padx=16)
-
-    # Help Window Pagination Tracker Label
-    page_indicator = tk.Label(
-        header, text="", bg=PANEL, fg=SUBTEXT, font=(FONT, 8)
-    )
-    page_indicator.pack(side="right", padx=16)
-
-    # Help Window Top Visual Separator Line
     tk.Frame(help_win, bg=BORDER, height=1).pack(fill="x")
 
-    # Help Window Content Card Outer Boundary Panel
-    content_panel = tk.Frame(help_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-    content_panel.pack(padx=20, pady=(14, 0), fill="both", expand=True)
+    # Content Display Panel Block Frame
+    content_panel = tk.Frame(help_win, bg=PANEL)
+    content_panel.pack(fill="both", expand=True, padx=20, pady=16)
 
-    # Help Window Main Text Reader Body Label
+    # Body Label
     content_label = tk.Label(
-        content_panel,
-        text="",
-        bg=PANEL, fg=TEXT,
-        justify="left",
-        wraplength=460,
-        anchor="nw",
-        font=(FONT, 10)
+        content_panel, text="", bg=PANEL, fg=TEXT, justify="left", wraplength=460, anchor="nw", font=(FONT, 10)
     )
     content_label.pack(padx=14, pady=14, fill="both", expand=True)
 
@@ -1395,13 +1333,11 @@ def open_help():
     # Help Window Previous Page Pagination Control Button
     prev_btn = tk.Button(
         nav_frame, text="← Back", bg=PANEL, fg=TEXT, relief="flat", width=10,
-        command=lambda: (current_page.__setitem__(0, current_page[0] - 1),
-                         show_page(current_page[0]))
+        command=lambda: (current_page.__setitem__(0, current_page[0] - 1), show_page(current_page[0])),
     )
     prev_btn.grid(row=0, column=0, sticky="w")
     prev_btn.configure(
-        fg=SUBTEXT, activebackground=BORDER, activeforeground=TEXT,
-        cursor="hand2", font=(FONT, 9, "bold"),
+        fg=SUBTEXT, activebackground=BORDER, activeforeground=TEXT, cursor="hand2", font=(FONT, 9, "bold")
     )
 
     # Execution Link Logic Block for Next/Finish Routines
@@ -1414,14 +1350,16 @@ def open_help():
 
     # Help Window Next Page/Finish Progression Action Button
     next_btn = tk.Button(
-        nav_frame, text="Next →", bg=PANEL, fg=TEXT, relief="flat", width=10,
-        command=next_or_finish
+        nav_frame, text="Next →", bg=PANEL, fg=TEXT, relief="flat", width=10, command=next_or_finish
     )
     next_btn.grid(row=0, column=2, sticky="e")
     next_btn.configure(
-        bg=ACCENT, fg=TEXT2, activebackground=ACCENT2, activeforeground=TEXT2,
-        cursor="hand2", font=(FONT, 9, "bold"),
+        bg=ACCENT, fg=TEXT2, activebackground=ACCENT2, activeforeground=TEXT2, cursor="hand2", font=(FONT, 9, "bold")
     )
+
+    # Centre Numeric Page Tracker Information Metric Text
+    page_indicator = tk.Label(nav_frame, text="", bg=BG, fg=SUBTEXT, font=(FONT, 9))
+    page_indicator.grid(row=0, column=1, sticky="center")
 
     show_page(0)
 
@@ -1429,18 +1367,11 @@ def open_help():
 # Window View: Core App Preference Management Overlay Window
 def open_settings():
     global MANAGED_SCRIPTS, UPDATE_BRANCH
-
     settings_win = tk.Toplevel(root)
     settings_win.title("Settings")
     settings_win.configure(bg=BG)
     settings_win.resizable(True, True)
-
-    root.update_idletasks()
-    help_w = root.winfo_width()
-    help_h = root.winfo_height()
-    root_x = root.winfo_x()
-    root_y = root.winfo_y()
-    settings_win.geometry(f"{help_w}x{help_h}+{root_x}+{root_y}")
+    settings_win.geometry("520x460")
 
     # Settings Panel Top Header Frame
     header = tk.Frame(settings_win, bg=PANEL, pady=10)
@@ -1450,44 +1381,46 @@ def open_settings():
     title_label = tk.Label(
         header, text="Manage Scripts & Settings", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")
     )
-    title_label.pack(side="left", padx=16)
 
-    # Settings Panel Top Visual Border Partition
     tk.Frame(settings_win, bg=BORDER, height=1).pack(fill="x")
 
-    # Branch Selector Container Frame
-    branch_frame = tk.Frame(settings_win, bg=PANEL, padx=14, pady=10, highlightthickness=1, highlightbackground=BORDER)
-    branch_frame.pack(padx=20, pady=(10, 0), fill="x")
+    # Lower Form Shell Sub-Block Packaging Layer
+    body_frame = tk.Frame(settings_win, bg=BG, padx=20, pady=14)
+    body_frame.pack(fill="both", expand=True)
 
-    tk.Label(branch_frame, text="Update Branch Location:", bg=PANEL, fg=TEXT, font=(FONT, 9, "bold")).pack(side="left")
+    # --- Live Branch Selection Trace Dropdown Area ---
+    branch_frame = tk.Frame(body_frame, bg=BG)
+    branch_frame.pack(fill="x", pady=(0, 10))
+
+    tk.Label(branch_frame, text="Update Branch Context:", bg=BG, fg=TEXT, font=(FONT, 9, "bold")).pack(side="left")
 
     branch_var = tk.StringVar(value=UPDATE_BRANCH)
 
-    def on_branch_select(*args):
+    def on_branch_change(*args):
         global UPDATE_BRANCH
-        UPDATE_BRANCH = branch_var.get()
-        save_managed_scripts(MANAGED_SCRIPTS)
-        footer_label.config(text=f"Target branch altered to: '{UPDATE_BRANCH}'")
-        if UPDATE_BRANCH == "beta":
-            _show_beta_popup()
+        new_branch = branch_var.get()
+        if new_branch != UPDATE_BRANCH:
+            UPDATE_BRANCH = new_branch
+            save_managed_scripts(MANAGED_SCRIPTS)  # Commit update_branch string context to storage configurations
+            force_update_all_scripts()  # Instantly fire asynchronous live updates swapping code logic branches
 
-    branch_var.trace_add("write", on_branch_select)
+    branch_var.trace_add("write", on_branch_change)
 
-    branch_dropdown = tk.OptionMenu(branch_frame, branch_var, "main", "beta")
-    branch_dropdown.config(bg=BG, fg=TEXT2, activebackground=BORDER, activeforeground=TEXT2, relief="flat",
-                           highlightthickness=0, font=(FONT, 9))
-    branch_dropdown["menu"].config(bg=BG, fg=TEXT, activebackground=ACCENT, font=(FONT, 9))
-    branch_dropdown.pack(side="right")
+    branch_dropdown = tk.OptionMenu(branch_frame, branch_var, "main", "dev", "beta")
+    branch_dropdown.configure(
+        bg=PANEL, fg=TEXT, relief="flat", highlightthickness=1, highlightbackground=BORDER,
+        font=(FONT, 9), activebackground=BORDER, activeforeground=TEXT, cursor="hand2",
+    )
+    branch_dropdown["menu"].configure(bg=PANEL, fg=TEXT, font=(FONT, 9), selectcolor=ACCENT)
+    branch_dropdown.pack(side="left", padx=(10, 0))
 
-    # Settings Scrollable View Core Container Panel
-    content_panel = tk.Frame(settings_win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-    content_panel.pack(padx=20, pady=(10, 0), fill="both", expand=True)
+    # Scrollable Canvas List Container Layout Control Set
+    list_panel = tk.Frame(body_frame, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+    list_panel.pack(fill="both", expand=True, pady=(4, 14))
 
-    # Settings Dynamic Rendering Scroll Engine Canvas Viewport
-    inner_canvas = tk.Canvas(content_panel, bg=PANEL, highlightthickness=0)
-
-    # Settings Scroller Bar Component Interceptor Link
-    scrollbar = tk.Scrollbar(content_panel, orient="vertical", command=inner_canvas.yview)
+    canvas_width = 460
+    inner_canvas = tk.Canvas(list_panel, bg=PANEL, bd=0, highlightthickness=0, width=canvas_width)
+    scrollbar = tk.Scrollbar(list_panel, orient="vertical", command=inner_canvas.yview)
     inner_canvas.configure(yscrollcommand=scrollbar.set)
 
     scrollbar.pack(side="right", fill="y")
@@ -1497,11 +1430,8 @@ def open_settings():
     inner_frame = tk.Frame(inner_canvas, bg=PANEL)
     inner_canvas.create_window((0, 0), window=inner_frame, anchor="nw")
 
-    # Tracking Event Loop Boundary Adjuster Call
-    def on_frame_configure(event=None):
-        inner_canvas.configure(scrollregion=inner_canvas.bbox("all"))
-
-    inner_frame.bind("<Configure>", on_frame_configure)
+    # Adjust window width dynamically on layout configurations
+    inner_frame.bind("<Configure>", lambda e: inner_canvas.configure(scrollregion=inner_canvas.bbox("all")))
 
     # Content Generator Rendering Core Function
     def refresh_script_list():
@@ -1514,24 +1444,19 @@ def open_settings():
             script_row.pack(fill="x", padx=10, pady=6)
 
             # Row Entry Display Label Description Header
-            tk.Label(script_row, text=f"{script['label']}", bg=BG, fg=TEXT, font=(FONT, 9, "bold")).pack(side="left",
-                                                                                                         fill="x",
-                                                                                                         expand=True)
+            tk.Label(script_row, text=f"{script['label']}", bg=BG, fg=TEXT, font=(FONT, 9, "bold")).pack(
+                side="left", fill="x", expand=True
+            )
+
             # Row Entry Meta-Info Technical String Subtext Label
-            tk.Label(script_row, text=f"({script['filename']})", bg=BG, fg=SUBTEXT, font=(FONT, 8)).pack(side="left",
-                                                                                                         padx=(10,
-                                                                                                               0))
+            tk.Label(script_row, text=f"({script['filename']})", bg=BG, fg=SUBTEXT, font=(FONT, 8)).pack(
+                side="left", padx=(10, 0)
+            )
 
             # Entry Item Deletion/Removal Management Interceptor Button
             remove_btn = tk.Button(
-                script_row,
-                text="✕ Remove",
-                bg=PANEL,
-                fg=RED,
-                relief="flat",
-                font=(FONT, 8, "bold"),
-                cursor="hand2",
-                command=lambda i=idx: remove_script(i)
+                script_row, text="✕ Remove", bg=PANEL, fg=RED, relief="flat", font=(FONT, 8, "bold"), cursor="hand2",
+                command=lambda i=idx: remove_script(i),
             )
             remove_btn.pack(side="right", padx=(10, 0))
             remove_btn.configure(activebackground=BORDER, activeforeground=RED)
@@ -1551,130 +1476,104 @@ def open_settings():
         add_win.geometry("400x200")
         add_win.resizable(False, False)
 
-        # Form Display Script Label Section Title Header
-        tk.Label(add_win, text="Script Label:", bg=BG, fg=TEXT, font=(FONT, 9)).pack(pady=(10, 0), padx=10,
-                                                                                     anchor="w")
-        # Form Form-Field Value Entry Interface Text Box
-        label_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(FONT, 9), relief="flat", insertbackground=ACCENT,
-                               highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
-        label_entry.pack(pady=(0, 10), padx=10, fill="x")
+        tk.Label(add_win, text="Script Display Label:", bg=BG, fg=TEXT, font=(FONT, 9)).grid(
+            row=0, column=0, padx=14, pady=14, sticky="w"
+        )
+        label_entry = tk.Entry(
+            add_win, bg=PANEL, fg=TEXT, insertbackground=ACCENT, relief="flat", font=(FONT, 9),
+            highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
+        )
+        label_entry.grid(row=0, column=1, padx=14, pady=14, sticky="ew")
 
-        # Form System Storage Path / Resource Filename Title Label
-        tk.Label(add_win, text="Filename/Path:", bg=BG, fg=TEXT, font=(FONT, 9)).pack(pady=(10, 0), padx=10,
-                                                                                      anchor="w")
-        # Form System Target Parameter String Input Data Box
-        file_entry = tk.Entry(add_win, bg=PANEL, fg=TEXT, font=(FONT, 9), relief="flat", insertbackground=ACCENT,
-                              highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+        tk.Label(add_win, text="Filename / Resource Path:", bg=BG, fg=TEXT, font=(FONT, 9)).grid(
+            row=1, column=0, padx=14, pady=6, sticky="w"
+        )
+        file_entry = tk.Entry(
+            add_win, bg=PANEL, fg=TEXT, insertbackground=ACCENT, relief="flat", font=(FONT, 9),
+            highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
+        )
+        file_entry.grid(row=1, column=1, padx=14, pady=6, sticky="ew")
 
-        file_entry.pack(pady=(0, 20), padx=10, fill="x")
-
-        # Action Execution Validation Sequence Mutator Method
         def save_new_script():
-            label = label_entry.get().strip()
-            filename = file_entry.get().strip()
-            if label and filename:
-                MANAGED_SCRIPTS.append({"label": label, "filename": filename})
-                save_managed_scripts(MANAGED_SCRIPTS)
-                refresh_script_list()
-                refresh_main_buttons()
-                add_win.destroy()
+            lbl = label_entry.get().strip()
+            flm = file_entry.get().strip()
+            if not lbl or not flm:
+                messagebox.showwarning("Validation Error", "All entry parameters must be populated.")
+                return
 
-        # Modal Form Action Button Alignment Layout Box Frame
-        btn_frame = tk.Frame(add_win, bg=BG)
-        btn_frame.pack(pady=10)
+            MANAGED_SCRIPTS.append({"filename": flm, "label": lbl})
+            save_managed_scripts(MANAGED_SCRIPTS)
+            refresh_script_list()
+            refresh_main_buttons()
+            add_win.destroy()
 
-        # Form Operations Commitment Target Dispatch Execution Button
-        tk.Button(
-            btn_frame, text="Add", bg=ACCENT, fg=TEXT2, relief="flat",
-            font=(FONT, 9, "bold"), cursor="hand2",
-            activebackground=ACCENT2, activeforeground=TEXT2,
-            command=save_new_script
-        ).pack(side="left", padx=5)
+        submit_btn = tk.Button(
+            add_win, text="Save Script", bg=ACCENT, fg=TEXT2, relief="flat", font=(FONT, 9, "bold"),
+            command=save_new_script, cursor="hand2", activebackground=ACCENT2, activeforeground=TEXT2,
+        )
+        submit_btn.grid(row=2, column=1, padx=14, pady=14, sticky="e")
 
-        # Form Operations Termination Abort View Modal Close Button
-        tk.Button(
-            btn_frame, text="Cancel", bg=PANEL, fg=SUBTEXT, relief="flat",
-            font=(FONT, 9, "bold"), cursor="hand2",
-            activebackground=BORDER, activeforeground=TEXT,
-            command=add_win.destroy
-        ).pack(side="left", padx=5)
+    # Settings Control System Bottom Action Row Dock
+    nav_frame = tk.Frame(body_frame, bg=BG)
+    nav_frame.pack(fill="x")
 
-    refresh_script_list()
-
-    # Settings Window Footer Navigation Command Panel Frame
-    nav_frame = tk.Frame(settings_win, bg=BG)
-    nav_frame.pack(fill="x", padx=20, pady=(10, 14))
-    nav_frame.columnconfigure(0, weight=1)
-
-    # Settings Panel Trigger Interface New Entry Creation Action Button
+    # Application Modal Creation Trigger Action Button
     add_btn = tk.Button(
-        nav_frame, text="+ Add Script", bg=ACCENT, fg=TEXT2, relief="flat", width=15,
-        command=add_script
+        nav_frame, text="+ Add Script", bg=ACCENT, fg=TEXT2, relief="flat", width=15, command=add_script
     )
     add_btn.pack(side="left")
-    add_btn.configure(
-        activebackground=ACCENT2, activeforeground=TEXT2,
-        cursor="hand2", font=(FONT, 9, "bold"),
-    )
+    add_btn.configure(activebackground=ACCENT2, activeforeground=TEXT2, cursor="hand2", font=(FONT, 9, "bold"))
 
     # Settings Panel Termination UI Dismiss Command Execution Button
     close_btn = tk.Button(
-        nav_frame, text="Close", bg=PANEL, fg=SUBTEXT, relief="flat", width=10,
-        command=settings_win.destroy
+        nav_frame, text="Close", bg=PANEL, fg=SUBTEXT, relief="flat", width=10, command=settings_win.destroy
     )
     close_btn.pack(side="right")
-    close_btn.configure(
-        activebackground=BORDER, activeforeground=TEXT,
-        cursor="hand2", font=(FONT, 9, "bold"),
-    )
+    close_btn.configure(activebackground=BORDER, activeforeground=TEXT, cursor="hand2", font=(FONT, 9, "bold"))
 
+    refresh_script_list()
+
+
+# Main Layout System Workspace Structural Containers
+header_frame = tk.Frame(root, bg=PANEL, pady=12)
+header_frame.pack(fill="x")
+
+title_font = font.Font(family=FONT, size=16, weight="bold")
+title_lbl = tk.Label(header_frame, text=f"{TITLE_PREFIX} VRChat-ToolBox", bg=PANEL, fg=ACCENT2, font=title_font)
+title_lbl.pack(side="left", padx=20)
+
+tk.Frame(root, bg=BORDER, height=1).pack(fill="x")
+
+main_frame = tk.Frame(root, bg=BG, padx=24, pady=16)
+main_frame.pack(fill="both", expand=True)
+main_frame.columnconfigure(0, weight=1)
 
 main_frame.columnconfigure(1, weight=1)
 
 # ── Tool buttons section with label ────────────────────────────────────────
 # Main View Dashboard Content Partition Text Heading Label
-tools_label = tk.Label(
-    main_frame,
-    text="MANAGED SCRIPTS",
-    bg=BG,
-    fg=ACCENT,
-    font=(FONT, 10, "bold")
-)
-tools_label.grid(row=14, column=0, columnspan=2, sticky="w", pady=(16, 8))
+tools_label = tk.Label(main_frame, text="MANAGED SCRIPTS", bg=BG, fg=ACCENT, font=(FONT, 9, "bold"))
+tools_label.grid(row=0, column=0, sticky="w", pady=(0, 10))
 
-# Main Dashboard Dynamic Scripts Grid Allocation Box Layout Frame
-bottom_bar = tk.Frame(main_frame, bg=BG)
-bottom_bar.grid(row=15, column=0, columnspan=2, pady=(0, 6), sticky="ew")
-bottom_bar.columnconfigure(0, weight=1)
+# Subview Scrollable Button Container Frame Engine Component Block
+buttons_container = tk.Frame(main_frame, bg=BG)
+buttons_container.grid(row=1, column=0, sticky="nsew", columnspan=2)
+buttons_container.columnconfigure(0, weight=1)
 
 script_buttons = {}
 
 
-# Component Refresher Task Invocation Engine
 def refresh_main_buttons():
-    global script_buttons
-    for btn in script_buttons.values():
-        btn.destroy()
+    for widget in buttons_container.winfo_children():
+        widget.destroy()
+
     script_buttons.clear()
 
-    for i, entry in enumerate(MANAGED_SCRIPTS):
-        script_filename = entry["filename"]
-        label = entry["label"]
-
-        # Dashboard Interface Target Application Launch/Initialization Command Button
+    for i, script in enumerate(MANAGED_SCRIPTS):
         btn = tk.Button(
-            bottom_bar,
-            text=f"▶  {label}",
-            command=lambda fn=script_filename: launch_script(fn),
-            bg=ACCENT,
-            fg=TEXT2,
-            relief="flat",
-            activebackground=ACCENT2,
-            activeforeground=TEXT2,
-            cursor="hand2",
-            font=(FONT, 10, "bold"),
-            padx=20,
-            pady=8,
+            buttons_container, text=script["label"], command=lambda f=script["filename"]: launch_script(f),
+            bg=PANEL, fg=TEXT, relief="flat", borderwidth=0, highlightthickness=1, highlightbackground=BORDER,
+            activebackground=ACCENT, activeforeground=TEXT2, cursor="hand2", font=(FONT, 10, "bold"), padx=20, pady=8,
         )
         btn.grid(row=i, column=0, padx=0, pady=4, sticky="ew")
         script_buttons[i] = btn
@@ -1703,23 +1602,15 @@ settings_btn.pack(side="right", padx=(0, 8))
 
 # Status Footer System Operational Message Text Display Feedback Label
 footer_label = tk.Label(
-    footer_bar,
-    text="Checking for updates on startup...",
-    bg=PANEL,
-    fg=SUBTEXT,
-    font=(FONT, 8)
+    footer_bar, text="Checking for updates on startup...", bg=PANEL, fg=SUBTEXT, font=(FONT, 8)
 )
-footer_label.pack(side="left", padx=16)
+footer_label.pack(side="bottom", fill="x", pady=(2, 0))
 
+# Automatically kick off startup network validation threads asynchronously
+threading.Thread(target=lambda: check_for_main_updates(silent=True), daemon=True).start()
 
-# ── Startup update check ───────────────────────────────────────────────────
-def run_startup_update_check(_unused=None):
-    check_for_updates(silent=True)
-    footer_label.config(text="Ready")
-    if UPDATE_BRANCH == "beta":
-        _show_beta_popup()
-
-
-root.after(2000, run_startup_update_check, None)
+# Conditional Beta Modal Promotion Injection
+if UPDATE_BRANCH == "beta":
+    root.after(800, _show_beta_popup)
 
 root.mainloop()
