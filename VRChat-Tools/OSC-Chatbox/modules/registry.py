@@ -303,11 +303,11 @@ MODULES: list[dict] = [
     {"id": "vr_all_battery",     "label": "All Batteries",                  "category": "VR",           "render": _render_vr_all_battery,       "has_text": False},
 
     # ── VRChat ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    {"id": "desktop_fps",       "label": "Desktop FPS",                     "category": "VRChat",       "render": _render_fps_desktop,          "has_text": False},
+    {"id": "desktop_fps",       "label": "Desktop FPS (Beta)",              "category": "VRChat",       "render": _render_fps_desktop,          "has_text": False},
     {"id": "vrc_world",         "label": "World Name",                      "category": "VRChat",       "render": _render_vrc_world,            "has_text": False},
     {"id": "vrc_players",       "label": "Player Count",                    "category": "VRChat",       "render": _render_vrc_players,          "has_text": False},
-    {"id": "vrc_avatar",        "label": "Avatar Name (Beta)",              "category": "VRChat",       "render": _render_vrc_avatar,           "has_text": False},
-    {"id": "vrc_ping",          "label": "VRChat Ping ",                    "category": "VRChat",       "render": _render_vrc_ping,             "has_text": False},
+    {"id": "vrc_avatar",        "label": "Avatar Name",                     "category": "VRChat",       "render": _render_vrc_avatar,           "has_text": False},
+    {"id": "vrc_ping",          "label": "VRChat Ping (Beta)",              "category": "VRChat",       "render": _render_vrc_ping,             "has_text": False},
 
     # ── Network ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     {"id": "net_down",          "label": "Download Speed",                  "category": "Network",      "render": _render_net_down,             "has_text": False},
