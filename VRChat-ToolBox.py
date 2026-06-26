@@ -68,7 +68,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.4.8"
+VERSION = "9.4.9"
 
 # Default selected branch tracking variable
 UPDATE_BRANCH = "main"
@@ -104,7 +104,7 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
-if VERSION == "9.4.0":  # upate when adding tools or dependencies
+if VERSION == "9.4.0":  # update when adding tools or dependencies
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             os.remove(TOOLBOX_CONFIG_FILE)
@@ -734,8 +734,8 @@ def ensure_script(filename: str, show_errors: bool = False) -> bool:
                     headers={"Cache-Control": "no-cache", "Pragma": "no-cache"}
                 )
                 dep_resp.raise_for_status()
-                with open(dep_dest, "w", encoding="utf-8") as df:
-                    df.write(dep_resp.text)
+                with open(dep_dest, "wb") as df:
+                    df.write(dep_resp.content)
                 print(f"[{filename}] Dependency added: {dep}")
 
             download_success = True
@@ -828,8 +828,8 @@ def check_for_script_updates(filename: str, silent: bool = False) -> bool:
                     headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
                 )
                 dep_resp.raise_for_status()
-                with open(dep_dest, "w", encoding="utf-8") as df:
-                    df.write(dep_resp.text)
+                with open(dep_dest, "wb") as df:
+                    df.write(dep_resp.content)
             except Exception as e:
                 print(f"[{filename}] Dependency update error ({dep}): {e}")
 
@@ -1159,7 +1159,7 @@ def square_button(parent, text, command, base_size=32):
 
 
 def _show_beta_popup():
-    """Elegant non-blocking modal modal overlay thanking beta testers and promoting the discord server."""
+    """Elegant non-blocking modal overlay thanking beta testers and promoting the discord server."""
     win = tk.Toplevel(root)
     win.title("Beta Branch Active")
     win.geometry("420x260")
@@ -1357,7 +1357,7 @@ def open_help():
         bg=ACCENT, fg=TEXT2, activebackground=ACCENT2, activeforeground=TEXT2, cursor="hand2", font=(FONT, 9, "bold")
     )
 
-    # Center Numeric Page Tracker Information Metric Text
+    # Centre Numeric Page Tracker Information Metric Text
     page_indicator = tk.Label(nav_frame, text="", bg=BG, fg=SUBTEXT, font=(FONT, 9))
     page_indicator.grid(row=0, column=1, sticky="center")
 
