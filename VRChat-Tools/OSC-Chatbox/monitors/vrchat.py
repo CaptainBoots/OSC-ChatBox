@@ -35,13 +35,10 @@ def _start_osc_server():
 _RE_WORLD  = re.compile(r"\[Behaviour\] Joining or Creating Room:\s+(.+)")
 _RE_JOIN   = re.compile(r"\[Behaviour\] OnPlayerJoined\s+(.+?)(?:\s+\(usr_[^)]+\))?$")
 _RE_LEAVE  = re.compile(r"\[Behaviour\] OnPlayerLeft\s+(.+?)(?:\s+\(usr_[^)]+\))?$")
-_RE_AVATAR = re.compile(r"\[Behaviour\] Switching Avatar To\s+(\S+)")
-# VRChat periodically writes a JSON stats blob on a single line:
-# {"runningTime": 97.6, "stats": [{"name": "fps", ...}, {"name": "ping", ...}, ...]}
+_RE_AVATAR = re.compile(r"\[Behaviour\] Switching \S+ to avatar (.+)")
 _RE_STATS  = re.compile(r'^\{"runningTime":')
 
 def _parse_stats(line: str):
-    """Extract fps and ping tw-mean from a VRChat stats JSON line."""
     try:
         obj = json.loads(line)
         fps = ping = None
@@ -73,7 +70,6 @@ def _poll():
         if not log:
             time.sleep(5)
             continue
-
         try:
             with open(log, "r", encoding="utf-8", errors="ignore") as f:
                 if log != last_log:
