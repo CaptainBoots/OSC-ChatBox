@@ -68,7 +68,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.4.9"
+VERSION = "9.5.0"
 
 # Default selected branch tracking variable
 UPDATE_BRANCH = "main"
@@ -1406,7 +1406,7 @@ def open_settings():
 
     branch_var.trace_add("write", on_branch_change)
 
-    branch_dropdown = tk.OptionMenu(branch_frame, branch_var, "main", "dev", "beta")
+    branch_dropdown = tk.OptionMenu(branch_frame, branch_var, "main", "stable", "beta")
     branch_dropdown.configure(
         bg=PANEL, fg=TEXT, relief="flat", highlightthickness=1, highlightbackground=BORDER,
         font=(FONT, 9), activebackground=BORDER, activeforeground=TEXT, cursor="hand2",
