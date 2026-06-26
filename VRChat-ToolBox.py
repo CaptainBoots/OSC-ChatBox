@@ -1,5 +1,5 @@
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-#                                              Boot's ToolBox Script                                                      #
+#                                              Boot's ToolBox Script                                                   #
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Hi :3
 # Welcome to my code
@@ -68,7 +68,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.5.1"
+VERSION = "9.5.2"
 
 # Default selected branch tracking variable
 UPDATE_BRANCH = "main"
@@ -105,7 +105,7 @@ print(f"[Config] Script directory: {SCRIPT_DIR}")
 print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
 print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
 
-if VERSION == "9.4.0":  # update when adding tools or dependencies
+if UPDATE_BRANCH == "beta":
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             os.remove(TOOLBOX_CONFIG_FILE)
