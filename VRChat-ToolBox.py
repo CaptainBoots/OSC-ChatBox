@@ -68,7 +68,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.5.3"
+VERSION = "9.5.4"
 
 # Default selected branch tracking variable
 UPDATE_BRANCH = "main"
@@ -904,13 +904,6 @@ def get_remote_script_info() -> dict[str, str] | None:
 
 def perform_update(remote_text=None, source_url=None):
     try:
-        if getattr(sys, 'frozen', False):
-            messagebox.showinfo(
-                "Update Disabled",
-                "Automatic EXE self-update has been disabled. Please update the executable manually from GitHub."
-            )
-            return
-
         if remote_text is None:
             info = get_remote_script_info()
             if not info:
@@ -990,8 +983,8 @@ def check_for_main_updates(silent: bool = True):
     content_differs = remote_norm != local_norm
     main_update_available = remote_newer or content_differs
 
-    print(f"[VRChat-Tools] Checking... (local: {VERSION} remote: {remote_version} ToolBox Branch: main)")
-    print(f"Tool Branch: {UPDATE_BRANCH})")
+    print(f"[VRChat-Tools] Checking... (local: {VERSION} remote: {remote_version}")
+    print(f"[VRChat-Tools] Tools Branch: {UPDATE_BRANCH})")
 
     if main_update_available:
         if remote_newer:
@@ -1002,13 +995,13 @@ def check_for_main_updates(silent: bool = True):
                 except Exception:
                     pass
             prompt = (
-                f"New version {remote_version} is available on branch '{UPDATE_BRANCH}' (you have {VERSION}).\n\n"
+                f"New version {remote_version} is available (you have {VERSION}).\n\n"
                 "Update and restart now?"
             )
         else:
             print(f"[VRChat-Tools] Remote content differs (version string unchanged at {VERSION})")
             prompt = (
-                f"A remote script update is available on branch '{UPDATE_BRANCH}' (content changed,\n"
+                f"A remote script update is available (content changed,\n"
                 "but version string may not have been bumped).\n\n"
                 "Update and restart now?"
             )
