@@ -117,7 +117,8 @@ def _poll():
                 })
 
         except Exception as e:
-            print(f"[steamvr monitor] error: {e}")
+            if _data.get("vr_connected"):
+                print(f"[steamvr monitor] error: {e}")
             with _lock:
                 _data["vr_connected"] = False
             if initialized:
