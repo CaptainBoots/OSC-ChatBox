@@ -68,14 +68,15 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.5.0"
+VERSION = "9.5.1"
 
 # Default selected branch tracking variable
 UPDATE_BRANCH = "main"
+BETA_POPUP_SHOWN = False
 
 
 def get_github_raw_url():
-    return f"https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/{UPDATE_BRANCH}/VRChat-ToolBox.py"
+    return f"https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
 
 
 def get_github_base_url():
@@ -127,13 +128,14 @@ DEFAULT_MANAGED_SCRIPTS = [
 
 
 def load_managed_scripts():
-    global UPDATE_BRANCH
+    global UPDATE_BRANCH, BETA_POPUP_SHOWN
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
                 config = json.load(f)
 
             UPDATE_BRANCH = config.get("update_branch", "main")
+            BETA_POPUP_SHOWN = config.get("beta_popup_shown", False)
 
             # Verify the configuration version matches the current app version
             config_version = config.get("version")
@@ -155,6 +157,7 @@ def save_managed_scripts(scripts):
         config = {
             "version": VERSION,
             "update_branch": UPDATE_BRANCH,
+            "beta_popup_shown": BETA_POPUP_SHOWN,
             "managed_scripts": scripts
         }
         with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -1159,9 +1162,8 @@ def square_button(parent, text, command, base_size=32):
 
 
 def _show_beta_popup():
-    """Elegant non-blocking modal overlay thanking beta testers and promoting the discord server."""
     win = tk.Toplevel(root)
-    win.title("Beta Branch Active")
+    win.title("Beta Branch")
     win.geometry("420x260")
     win.configure(bg=BG)
     win.resizable(False, False)
@@ -1170,16 +1172,16 @@ def _show_beta_popup():
 
     hdr = tk.Frame(win, bg=PANEL, pady=10)
     hdr.pack(fill="x")
-    tk.Label(hdr, text="✨ Beta Testing Active", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")).pack(side="left", padx=16)
+    tk.Label(hdr, text="◈ Thanks Beta Tester", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")).pack(side="left", padx=16)
     tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
 
     body = tk.Frame(win, bg=BG, padx=20, pady=16)
     body.pack(fill="both", expand=True)
 
     msg = (
-        "Thank you for participating in our beta test program!\n\n"
-        "Your bug reports and active testing cycles help optimize these tools for everyone.\n\n"
-        "Join our active developer hub to report issues, suggest modifications, or track roadmap updates live!"
+        "Thanks for participating in the beta test!\n\n"
+        "Your bug reports help optimize these tools for everyone.\n\n"
+        "Join our discord server to report issues or suggest modifications!"
     )
     tk.Label(body, text=msg, bg=BG, fg=TEXT, font=(FONT, 9), justify="left", wraplength=380).pack(anchor="w")
 
@@ -1397,9 +1399,14 @@ def open_settings():
     branch_var = tk.StringVar(value=UPDATE_BRANCH)
 
     def on_branch_change(*args):
-        global UPDATE_BRANCH
+        global UPDATE_BRANCH, BETA_POPUP_SHOWN
         new_branch = branch_var.get()
         if new_branch != UPDATE_BRANCH:
+            if new_branch == "beta":
+                BETA_POPUP_SHOWN = True
+                root.after(800, _show_beta_popup)
+            else:
+                BETA_POPUP_SHOWN = False
             UPDATE_BRANCH = new_branch
             save_managed_scripts(MANAGED_SCRIPTS)  # Commit update_branch string context to storage configurations
             force_update_all_scripts()  # Instantly fire asynchronous live updates swapping code logic branches
@@ -1610,7 +1617,9 @@ footer_label.pack(side="bottom", fill="x", pady=(2, 0))
 threading.Thread(target=lambda: check_for_main_updates(silent=True), daemon=True).start()
 
 # Conditional Beta Modal Promotion Injection
-if UPDATE_BRANCH == "beta":
+if UPDATE_BRANCH == "beta" and not BETA_POPUP_SHOWN:
+    BETA_POPUP_SHOWN = True
+    save_managed_scripts(MANAGED_SCRIPTS)
     root.after(800, _show_beta_popup)
 
 root.mainloop()
