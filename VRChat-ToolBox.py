@@ -68,7 +68,7 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.5.2"
+VERSION = "9.5.3"
 
 # Default selected branch tracking variable
 UPDATE_BRANCH = "main"
@@ -990,7 +990,8 @@ def check_for_main_updates(silent: bool = True):
     content_differs = remote_norm != local_norm
     main_update_available = remote_newer or content_differs
 
-    print(f"[VRChat-Tools] Checking... (local: {VERSION} remote: {remote_version} Branch: {UPDATE_BRANCH})")
+    print(f"[VRChat-Tools] Checking... (local: {VERSION} remote: {remote_version} ToolBox Branch: main)")
+    print(f"Tool Branch: {UPDATE_BRANCH})")
 
     if main_update_available:
         if remote_newer:
