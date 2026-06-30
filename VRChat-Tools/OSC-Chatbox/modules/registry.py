@@ -112,24 +112,24 @@ def _batt_str(pct, charging):
     return f"{icon}{pct}%"
 
 def _render_vr_hmd_battery(snap, slot):
-    return f"HMD {_batt_str(snap.get('vr_hmd_battery'), snap.get('vr_hmd_charging'))}"
+    return f"HMD: {_batt_str(snap.get('vr_hmd_battery'), snap.get('vr_hmd_charging'))}"
 
 def _render_vr_lc_battery(snap, slot):
-    return f"LC {_batt_str(snap.get('vr_lc_battery'), snap.get('vr_lc_charging'))}"
+    return f"LC: {_batt_str(snap.get('vr_lc_battery'), snap.get('vr_lc_charging'))}"
 
 def _render_vr_rc_battery(snap, slot):
-    return f"RC {_batt_str(snap.get('vr_rc_battery'), snap.get('vr_rc_charging'))}"
+    return f"RC: {_batt_str(snap.get('vr_rc_battery'), snap.get('vr_rc_charging'))}"
 
 def _render_vr_all_battery(snap, slot):
     parts = [
         f"HMD:{_batt_str(snap.get('vr_hmd_battery'), snap.get('vr_hmd_charging'))}",
-        f"L:{_batt_str(snap.get('vr_lc_battery'), snap.get('vr_lc_charging'))}",
-        f"R:{_batt_str(snap.get('vr_rc_battery'), snap.get('vr_rc_charging'))}",
+        f"LC:{_batt_str(snap.get('vr_lc_battery'), snap.get('vr_lc_charging'))}",
+        f"RC:{_batt_str(snap.get('vr_rc_battery'), snap.get('vr_rc_charging'))}",
     ]
     return "  ".join(parts)
 
 # ── Tracker battery — dynamic, one module per tracker index (0-based) ──────────
-_MAX_TRACKERS = 8
+_MAX_TRACKERS = 10
 
 def _make_tracker_render(idx):
     def _render(snap, slot):
@@ -137,7 +137,7 @@ def _make_tracker_render(idx):
         if idx >= len(trackers):
             return f"T{idx + 1}: N/A"
         t = trackers[idx]
-        return f"T{idx + 1}: {_batt_str(t.get('battery'), t.get('charging'))}"
+        return f"{_batt_str(t.get('battery'), t.get('charging'))}"
     return _render
 
 # Pre-build render functions and module entries for all tracker slots
