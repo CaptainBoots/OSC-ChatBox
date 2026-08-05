@@ -43,7 +43,7 @@ def _fmt(val, suffix="", fallback="N/A") -> str:
 
 def _render_time(snap, slot):
     import time
-    return time.strftime("%I:%M %p")
+    return time.strftime("%H:%M")
 
 def _render_custom(snap, slot):
     return slot.get("text", "")
@@ -66,20 +66,20 @@ def _render_gpu_power(snap, slot):  return _fmt(snap.get("gpu_power"), "w")
 
 # ── VRAM ──────────────────────────────────────────────────────────────────────
 def _render_vram_used(snap, slot):
-    return f"VRAM {snap.get('vram_used', 0.0):.1f}GB"
+    return f"{snap.get('vram_used', 0.0):.1f}GB"
 
 def _render_vram_total(snap, slot):
-    return f"VRAM Total {snap.get('vram_total', '?')}GB"
+    return f"{snap.get('vram_total', '?')}GB"
 
 def _render_vram_combined(snap, slot):
     return f"{snap.get('vram_type','GDDR')} {snap.get('vram_used',0.0):.1f}GB/{snap.get('vram_total','?')}GB"
 
 # ── RAM ───────────────────────────────────────────────────────────────────────
 def _render_ram_used(snap, slot):
-    return f"RAM {snap.get('dram_used', 0.0):.1f}GB"
+    return f"{snap.get('dram_used', 0.0):.1f}GB"
 
 def _render_ram_total(snap, slot):
-    return f"RAM Total {snap.get('dram_total', '?')}GB"
+    return f"{snap.get('dram_total', '?')}GB"
 
 def _render_ram_combined(snap, slot):
     return f"{snap.get('dram_type','DDR')} {snap.get('dram_used',0.0):.1f}GB/{snap.get('dram_total','?')}GB"
@@ -87,11 +87,11 @@ def _render_ram_combined(snap, slot):
 # ── SteamVR ───────────────────────────────────────────────────────────────────
 def _render_fps_vr(snap, slot):
     v = snap.get("vr_fps")
-    return f"VR FPS: {v}" if v else "VR FPS: N/A"
+    return f"{v}" if v else "N/A"
 
 def _render_vr_frametime(snap, slot):
     v = snap.get("vr_frametimes")
-    return f"Frame: {v}ms" if v else "Frame: N/A"
+    return f"{v}ms" if v else "N/A"
 
 def _render_vr_reprojection(snap, slot):
     v = snap.get("vr_reprojection")
@@ -155,29 +155,29 @@ _TRACKER_MODULES = [
 # ── VRChat ────────────────────────────────────────────────────────────────────
 def _render_fps_desktop(snap, slot):
     v = snap.get("vrc_fps")
-    return f"FPS: {v}" if v else "FPS: N/A"
+    return f"{v}" if v else "N/A"
 
 def _render_vrc_world(snap, slot):
-    return snap.get("vrc_world") or "World: N/A"
+    return snap.get("vrc_world") or "N/A"
 
 def _render_vrc_players(snap, slot):
     n = snap.get("vrc_player_count", 0)
-    return f"Players: {n}"
+    return f"{n}"
 
 def _render_vrc_avatar(snap, slot):
-    return snap.get("vrc_avatar") or "Avatar: N/A"
+    return snap.get("vrc_avatar") or "N/A"
 
 def _render_vrc_ping(snap, slot):
     v = snap.get("vrc_ping")
-    return f"Ping: {v}ms" if v else "Ping: N/A"
+    return f"{v}ms" if v else "N/A"
 
 
 # ── Network ───────────────────────────────────────────────────────────────────
 def _render_net_down(snap, slot):
-    return f"Download {fmt_net(snap.get('net_down', 0))}"
+    return f"{fmt_net(snap.get('net_down', 0))}"
 
 def _render_net_up(snap, slot):
-    return f"Upload {fmt_net(snap.get('net_up', 0))}"
+    return f"{fmt_net(snap.get('net_up', 0))}"
 
 # ── Weather ───────────────────────────────────────────────────────────────────
 def _render_weather_temp(snap, slot):
@@ -256,7 +256,13 @@ def _render_ascii_dog_2(snap, slot):
 def _render_ascii_fish(snap, slot):
     return "<`)))><"
 
-
+def _render_ascii_bad_dragon(snap, slot):
+    return (
+        f""" 
+      ≥
+ ∠..- 
+"""
+    )
 
 # ── Module registry ───────────────────────────────────────────────────────────
 
@@ -279,9 +285,9 @@ MODULES: list[dict] = [
     {"id": "gpu_power",          "label": "GPU Power W",                    "category": "GPU",          "render": _render_gpu_power,            "has_text": False},
 
     # ── VRAM ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    {"id": "vram_used",          "label": "VRAM Used GB",                   "category": "GPU",          "render": _render_vram_used,            "has_text": False},
-    {"id": "vram_total",         "label": "VRAM Total GB",                  "category": "GPU",          "render": _render_vram_total,           "has_text": False},
-    {"id": "vram_used_of_total", "label": "VRAM Used/Total",                "category": "GPU",          "render": _render_vram_combined,        "has_text": False},
+    {"id": "vram_used",          "label": "VRAM Used GB",                   "category": "Memory",       "render": _render_vram_used,            "has_text": False},
+    {"id": "vram_total",         "label": "VRAM Total GB",                  "category": "Memory",       "render": _render_vram_total,           "has_text": False},
+    {"id": "vram_used_of_total", "label": "VRAM Used/Total",                "category": "Memory",       "render": _render_vram_combined,        "has_text": False},
 
     # ── RAM ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     {"id": "ram_used",           "label": "RAM Used GB",                    "category": "Memory",       "render": _render_ram_used,             "has_text": False},
@@ -333,6 +339,7 @@ MODULES: list[dict] = [
     {"id": "ascii_dog_1",       "label": "ASCII Dog 1",                     "category": "Fun",          "render": _render_ascii_dog_1,          "has_text": False},
     {"id": "ascii_dog_2",       "label": "ASCII Dog 2",                     "category": "Fun",          "render": _render_ascii_dog_2,          "has_text": False},
     {"id": "ascii_fish",        "label": "ASCII Fish",                      "category": "Fun",          "render": _render_ascii_fish,           "has_text": False},
+    {"id": "ascii_bad_dragon",  "label": "ASCII Bad dragon (Beta)",         "category": "Fun",          "render": _render_ascii_bad_dragon,     "has_text": False},
 ]
 
 # Append dynamic tracker modules (T1–T8, "VR Trackers" category)

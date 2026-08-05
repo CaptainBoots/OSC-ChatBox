@@ -28,8 +28,14 @@ DEFAULT_PAGES = [
         "slots": [
             {"module": "custom_text", "text": "Boots's OSC Chatbox"},
             {"module": "time"},
-            {"module": "net_down"},
-            {"module": "net_up"},
+            {"modules": [
+                {"module": "custom_text", "text": "Download:"},
+                {"module": "net_down"},
+            ]},
+            {"modules": [
+                {"module": "custom_text", "text": "Upload:"},
+                {"module": "net_up"},
+            ]},
             {"module": "media_progress"},
             {"module": "media_title"},
         ],
@@ -40,14 +46,22 @@ DEFAULT_PAGES = [
         "slots": [
             {"module": "custom_text", "text": "Hardware"},
             {"module": "time"},
-            {"module": "cpu_name"},
-            {"module": "cpu_load"},
-            {"module": "cpu_temp"},
-            {"module": "cpu_power"},
-            {"module": "gpu_name"},
-            {"module": "gpu_load"},
-            {"module": "gpu_temp"},
-            {"module": "gpu_power"},
+            {"modules": [
+                {"module": "cpu_name"},
+                {"module": "cpu_load"},
+            ]},
+            {"modules": [
+                {"module": "cpu_temp"},
+                {"module": "cpu_power"},
+            ]},
+            {"modules": [
+                {"module": "gpu_name"},
+                {"module": "gpu_load"},
+            ]},
+            {"modules": [
+                {"module": "gpu_temp"},
+                {"module": "gpu_power"},
+            ]},
         ],
     },
     {
@@ -68,8 +82,10 @@ DEFAULT_PAGES = [
         "slots": [
             {"module": "custom_text", "text": "Local Weather"},
             {"module": "time"},
-            {"module": "weather_temp"},
-            {"module": "weather_humidity"},
+            {"modules": [
+                {"module": "weather_temp"},
+                {"module": "weather_humidity"},
+            ]},
             {"module": "weather_desc"},
             {"module": "media_progress"},
             {"module": "media_title"},
@@ -83,9 +99,57 @@ DEFAULT_PAGES = [
             {"module": "time"},
             {"module": "media_progress"},
             {"module": "media_title"},
-            {"module": "media_artist"},
+            {"modules": [
+                {"module": "media_time"},
+                {"module": "media_artist"},
+            ]},
             {"module": "media_album"},
             {"module": "media_detail"},
+        ],
+    },
+    {
+        "enabled":  True,
+        "duration": 20,
+        "slots": [
+            {"module": "custom_text", "text": "VRChat Stats"},
+            {"modules": [
+                {"module": "custom_text", "text": "VRC FPS:"},
+                {"module": "desktop_fps"},
+            ]},
+            {"modules": [
+                {"module": "custom_text", "text": "VRC World:"},
+                {"module": "vrc_world"},
+            ]},
+            {"modules": [
+                {"module": "custom_text", "text": "VRC Player Count:"},
+                {"module": "vrc_players"},
+            ]},
+            {"modules": [
+                {"module": "custom_text", "text": "VRC Avatar Name:"},
+                {"module": "vrc_avatar"},
+            ]},
+            {"modules": [
+                {"module": "custom_text", "text": "VRC Ping:"},
+                {"module": "vrc_ping"},
+            ]},
+        ],
+    },
+    {
+        "enabled":  True,
+        "duration": 20,
+        "slots": [
+            {"module": "custom_text", "text": "Steam VR Stats"},
+            {"modules": [
+                {"module": "custom_text", "text": "VR FPS:"},
+                {"module": "vr_fps"},
+            ]},
+            {"modules": [
+                {"module": "custom_text", "text": "VR Frametime:"},
+                {"module": "vr_frame-time"},
+            ]},
+            {"module": "vr_headset"},
+            {"module": "vr_all_battery"},
+            {"module": "vr_connected"},
         ],
     },
 ]
