@@ -22,7 +22,7 @@ import tkinter.font as font
 import zipfile
 import webbrowser
 import threading
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 
 
 def install_if_missing(package, import_name=None):
@@ -68,11 +68,26 @@ import requests
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 _processes = []
-VERSION = "9.5.4"
+VERSION = "9.5.5"
 
 # Default selected branch tracking variable
 UPDATE_BRANCH = "main"
 BETA_POPUP_SHOWN = False
+
+# Python interpreter used to launch tool scripts. Empty string = use the same
+# interpreter the ToolBox itself is running on (sys.executable).
+PYTHON_INTERPRETER = ""
+
+
+def get_active_python() -> str:
+    """Returns the interpreter path to use for launching tool scripts.
+
+    Falls back to sys.executable if no custom interpreter is configured,
+    or if the configured one no longer exists on disk.
+    """
+    if PYTHON_INTERPRETER and os.path.isfile(PYTHON_INTERPRETER):
+        return PYTHON_INTERPRETER
+    return sys.executable
 
 
 def get_github_raw_url():
@@ -128,7 +143,7 @@ DEFAULT_MANAGED_SCRIPTS = [
 
 
 def load_managed_scripts():
-    global UPDATE_BRANCH, BETA_POPUP_SHOWN
+    global UPDATE_BRANCH, BETA_POPUP_SHOWN, PYTHON_INTERPRETER
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -136,6 +151,7 @@ def load_managed_scripts():
 
             UPDATE_BRANCH = config.get("update_branch", "main")
             BETA_POPUP_SHOWN = config.get("beta_popup_shown", False)
+            PYTHON_INTERPRETER = config.get("python_interpreter", "")
 
             # Verify the configuration version matches the current app version
             config_version = config.get("version")
@@ -158,6 +174,7 @@ def save_managed_scripts(scripts):
             "version": VERSION,
             "update_branch": UPDATE_BRANCH,
             "beta_popup_shown": BETA_POPUP_SHOWN,
+            "python_interpreter": PYTHON_INTERPRETER,
             "managed_scripts": scripts
         }
         with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -644,10 +661,8 @@ def launch_script(filename: str) -> None:
     script_dir = os.path.dirname(dest_path)
 
     try:
-        # 3. Launch script via current Python interpreter in a detached environment
-        # Uses sys.executable to ensure it runs on the exact same Python env (like virtual envs)
         p = subprocess.Popen(
-            [sys.executable, os.path.basename(dest_path)],
+            [get_active_python(), os.path.basename(dest_path)],
             cwd=script_dir,
             creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
         )
@@ -1414,6 +1429,61 @@ def open_settings():
     )
     branch_dropdown["menu"].configure(bg=PANEL, fg=TEXT, font=(FONT, 9), selectcolor=ACCENT)
     branch_dropdown.pack(side="left", padx=(10, 0))
+
+    # --- Python Interpreter Selection Area ---
+    python_frame = tk.Frame(body_frame, bg=BG)
+    python_frame.pack(fill="x", pady=(0, 10))
+
+    tk.Label(python_frame, text="Python Interpreter:", bg=BG, fg=TEXT, font=(FONT, 9, "bold")).pack(
+        side="left"
+    )
+
+    python_path_var = tk.StringVar(
+        value=PYTHON_INTERPRETER if PYTHON_INTERPRETER else f"{sys.executable} (default)"
+    )
+
+    python_entry = tk.Entry(
+        python_frame, textvariable=python_path_var, bg=PANEL, fg=TEXT, insertbackground=ACCENT,
+        relief="flat", font=(FONT, 8), highlightthickness=1, highlightbackground=BORDER,
+        highlightcolor=ACCENT, state="readonly", readonlybackground=PANEL,
+    )
+    python_entry.pack(side="left", fill="x", expand=True, padx=(10, 6))
+
+    def browse_python():
+        global PYTHON_INTERPRETER
+        exe_filter = [("Python executable", "*.exe")] if sys.platform == "win32" else [("All files", "*")]
+        chosen = filedialog.askopenfilename(
+            parent=settings_win,
+            title="Select Python Interpreter",
+            filetypes=exe_filter,
+        )
+        if not chosen:
+            return
+        PYTHON_INTERPRETER = chosen
+        python_path_var.set(PYTHON_INTERPRETER)
+        save_managed_scripts(MANAGED_SCRIPTS)
+        print(f"[Config] Python interpreter for launched scripts set to: {PYTHON_INTERPRETER}")
+
+    def reset_python():
+        global PYTHON_INTERPRETER
+        PYTHON_INTERPRETER = ""
+        python_path_var.set(f"{sys.executable} (default)")
+        save_managed_scripts(MANAGED_SCRIPTS)
+        print("[Config] Python interpreter reset to default (ToolBox's own interpreter).")
+
+    browse_python_btn = tk.Button(
+        python_frame, text="Browse...", bg=PANEL, fg=TEXT, relief="flat", font=(FONT, 8, "bold"),
+        cursor="hand2", command=browse_python,
+    )
+    browse_python_btn.pack(side="left")
+    browse_python_btn.configure(activebackground=BORDER, activeforeground=TEXT)
+
+    reset_python_btn = tk.Button(
+        python_frame, text="Reset", bg=PANEL, fg=SUBTEXT, relief="flat", font=(FONT, 8, "bold"),
+        cursor="hand2", command=reset_python,
+    )
+    reset_python_btn.pack(side="left", padx=(6, 0))
+    reset_python_btn.configure(activebackground=BORDER, activeforeground=TEXT)
 
     # Scrollable Canvas List Container Layout Control Set
     list_panel = tk.Frame(body_frame, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
