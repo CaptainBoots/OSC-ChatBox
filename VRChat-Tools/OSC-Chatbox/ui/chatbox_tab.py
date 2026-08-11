@@ -10,10 +10,46 @@ is managed by the App root window, not by this tab — this tab just uses BG
 as its own background and the stripes show in the gaps between panels.
 """
 
+import glob
 import tkinter as tk
 import webbrowser
 
 from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, RED, FONT, STRIPE_COLOURS, draw_stripes
+
+try:
+    from PIL import Image, ImageTk
+    _PIL_AVAILABLE = True
+except ImportError:
+    _PIL_AVAILABLE = False
+
+# Folder scanned for banner PNGs (e.g. assets/banners/voicemod.png, assets/banners/ko-fi.png ...).
+# Drop any PNGs in here and they'll be picked up automatically, sorted by filename.
+BANNER_DIR = "assets/banners"
+BANNER_HOLD_MS = 15000   # how long each banner stays on screen
+BANNER_SLIDE_MS = 400    # total duration of the slide transition
+BANNER_SLIDE_STEPS = 24  # animation smoothness
+
+# The banner box itself is a fixed 8:3 rectangle (not stretched to fill the
+# bottom bar) so it keeps a consistent shape and the stripe pattern shows
+# around it instead of the box growing/shrinking with the window.
+BANNER_ASPECT_W = 16
+BANNER_ASPECT_H = 3
+BANNER_HEIGHT   = 75
+BANNER_WIDTH    = round(BANNER_HEIGHT * BANNER_ASPECT_W / BANNER_ASPECT_H)
+
+ICON_SIZE = 52  # square size (px) both the Discord and GitHub buttons are scaled to
+
+
+def _load_icon(path, size=ICON_SIZE):
+    """Load a button icon resized to size x size, preserving transparency."""
+    if _PIL_AVAILABLE:
+        img = Image.open(path).convert("RGBA")
+        img = img.resize((size, size), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+    # Fallback if Pillow isn't installed: crude integer downscale via Tk.
+    photo = tk.PhotoImage(file=path)
+    factor = max(1, round(max(photo.width(), photo.height()) / size))
+    return photo.subsample(factor, factor) if factor > 1 else photo
 
 
 
@@ -198,7 +234,7 @@ class ChatboxTab(tk.Frame):
         bottom_frame.columnconfigure(1, weight=1)
 
         # Square Discord logo button
-        _discord_img = tk.PhotoImage(file="assets/discord.png")
+        _discord_img = _load_icon("assets/discord.png")
         _discord_btn = tk.Button(
             bottom_frame, image=_discord_img,
             bg="#5865F2", activebackground="#4752C4",
@@ -209,23 +245,31 @@ class ChatboxTab(tk.Frame):
         _discord_btn.image = _discord_img  # keep reference
         _discord_btn.grid(row=0, column=0, sticky="w", padx=(0, 8))
 
-        # Rainbow pride canvas
-        pride_canvas = tk.Canvas(bottom_frame, height=44, highlightthickness=0, bd=0, bg=BG)
-        pride_canvas.grid(row=0, column=1, sticky="ew", padx=4)
+        # Scrolling banner canvas — cycles through PNGs in BANNER_DIR,
+        # holding each for BANNER_HOLD_MS then sliding to the next.
+        self._banner_canvas = tk.Canvas(bottom_frame, width=BANNER_WIDTH, height=BANNER_HEIGHT,
+                                        highlightthickness=0, bd=0, bg=BG)
+        self._banner_canvas.grid(row=0, column=1, padx=4)  # no sticky → stays fixed-size & centered
 
-        def _draw_pride(canvas, w, h):
-            canvas.delete("all")
-            cols = ["#FF0000", "#FF1E00", "#FF3D00", "#FF5B00", "#FF7A00", "#FF9900", "#FFB700", "#FFD600", "#FFF400", "#EAFF00", "#CCFF00", "#ADFF00", "#8EFF00", "#70FF00", "#51FF00", "#33FF00", "#14FF00", "#00FF0A", "#00FF28", "#00FF47", "#00FF66", "#00FF84", "#00FFA3", "#00FFC1", "#00FFE0", "#00FFFF", "#00E0FF", "#00C1FF", "#00A3FF", "#0084FF", "#0066FF", "#0047FF", "#0028FF", "#000AFF", "#1400FF", "#3300FF", "#5100FF", "#7000FF", "#8E00FF", "#AD00FF", "#CC00FF", "#EA00FF", "#FF00F4", "#FF00D6", "#FF00B7", "#FF0099", "#FF007A", "#FF005B", "#FF003D", "#FF001E"]
-            seg = max(1, w // len(cols))
-            for i, col in enumerate(cols):
-                canvas.create_rectangle(i * seg, 0, (i + 1) * seg + 2, h, fill=col, outline="")
-            canvas.create_text(w // 2, h // 2, text="HAPPY PRIDE MONTH",
-                               font=(FONT, 15, "bold"), fill="black", anchor="center")
+        self._banner_paths      = sorted(glob.glob(f"{BANNER_DIR}/*.png"))
+        self._banner_index      = 0
+        self._banner_photo      = None   # keep a ref so Tk doesn't garbage-collect it
+        self._banner_photo_next = None
+        self._banner_after_id   = None
+        self._banner_anim_id    = None
 
-        pride_canvas.bind("<Configure>", lambda e: _draw_pride(pride_canvas, e.width, e.height))
+        if not self._banner_paths:
+            tk.Label(self._banner_canvas, text="(no banners found in assets/banners)",
+                     bg=BG, fg=SUBTEXT, font=(FONT, 8)).place(relx=0.5, rely=0.5, anchor="center")
+        elif not _PIL_AVAILABLE:
+            tk.Label(self._banner_canvas, text="(Pillow not installed — pip install pillow)",
+                     bg=BG, fg=SUBTEXT, font=(FONT, 8)).place(relx=0.5, rely=0.5, anchor="center")
+
+        self._banner_canvas.bind("<Configure>", self._on_banner_resize)
+        self.bind("<Destroy>", self._on_banner_widget_destroyed)
 
         # Square GitHub logo button
-        _github_img = tk.PhotoImage(file="assets/github.png")
+        _github_img = _load_icon("assets/github.png")
         _github_btn = tk.Button(
             bottom_frame, image=_github_img,
             bg="#24292e", activebackground="#444d56",
@@ -238,6 +282,104 @@ class ChatboxTab(tk.Frame):
 
         # Pin bottom_frame 20 px above the bottom edge of the tab
         bottom_frame.place(relx=0, rely=1.0, anchor="sw", relwidth=1.0, y=-20)
+
+    # ── Banner rotation ──────────────────────────────────────────────────────
+
+    def _draw_banner_bg(self, w, h):
+        """Redraw the diagonal stripe pattern as the banner canvas's own
+        background so the letterboxed space around a non-stretched image
+        still matches the rest of the theme, instead of a flat block."""
+        self._banner_canvas.delete("all")
+        if STRIPE_COLOURS:
+            draw_stripes(self._banner_canvas, w, h, STRIPE_COLOURS)
+
+    def _on_banner_widget_destroyed(self, event):
+        if event.widget is self and self._banner_after_id is not None:
+            try:
+                self.after_cancel(self._banner_after_id)
+            except Exception:
+                pass
+
+    def _on_banner_resize(self, event):
+        w, h = event.width, event.height
+        if w <= 1 or h <= 1:
+            return
+        if not self._banner_paths or not _PIL_AVAILABLE:
+            self._draw_banner_bg(w, h)
+            return
+        # (Re)draw the current image at the new size. First resize also kicks
+        # off the rotation timer.
+        first_draw = self._banner_after_id is None
+        self._show_banner_image(self._banner_index, animate=False)
+        if first_draw:
+            self._schedule_next_banner()
+
+    def _fit_banner_image(self, path, w, h):
+        if w <= 1 or h <= 1:
+            return None
+        img = Image.open(path).convert("RGBA")
+        scale = min(w / img.width, h / img.height)
+        new_w = max(1, int(img.width * scale))
+        new_h = max(1, int(img.height * scale))
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+
+    def _show_banner_image(self, index, animate=True):
+        if not self._banner_canvas.winfo_exists():
+            return
+        w = self._banner_canvas.winfo_width()
+        h = self._banner_canvas.winfo_height()
+        if w <= 1 or h <= 1:
+            return
+
+        photo = self._fit_banner_image(self._banner_paths[index], w, h)
+        if photo is None:
+            return
+
+        # No current image yet (first draw / resize before rotation started)
+        if not animate or not self._banner_canvas.find_withtag("current_banner"):
+            if self._banner_anim_id is not None:
+                self.after_cancel(self._banner_anim_id)
+                self._banner_anim_id = None
+            self._draw_banner_bg(w, h)
+            self._banner_photo = photo
+            self._banner_canvas.create_image(w // 2, h // 2, image=photo,
+                                             anchor="center", tags="current_banner")
+            return
+
+        self._banner_photo_next = photo
+        self._banner_canvas.create_image(w + w // 2, h // 2, image=photo,
+                                         anchor="center", tags="incoming_banner")
+        self._animate_banner_slide(w, step=0)
+
+    def _animate_banner_slide(self, w, step):
+        if not self._banner_canvas.winfo_exists():
+            return
+        if step >= BANNER_SLIDE_STEPS:
+            h = self._banner_canvas.winfo_height()
+            self._draw_banner_bg(w, h)
+            self._banner_photo = self._banner_photo_next
+            self._banner_canvas.create_image(w // 2, h // 2, image=self._banner_photo,
+                                             anchor="center", tags="current_banner")
+            self._banner_anim_id = None
+            return
+        dx = -(w / BANNER_SLIDE_STEPS)
+        self._banner_canvas.move("current_banner", dx, 0)
+        self._banner_canvas.move("incoming_banner", dx, 0)
+        self._banner_anim_id = self.after(
+            max(1, BANNER_SLIDE_MS // BANNER_SLIDE_STEPS),
+            lambda: self._animate_banner_slide(w, step + 1),
+        )
+
+    def _schedule_next_banner(self):
+        self._banner_after_id = self.after(BANNER_HOLD_MS, self._advance_banner)
+
+    def _advance_banner(self):
+        if not self.winfo_exists() or not self._banner_paths:
+            return
+        self._banner_index = (self._banner_index + 1) % len(self._banner_paths)
+        self._show_banner_image(self._banner_index, animate=True)
+        self._schedule_next_banner()
 
     # ── Public update methods ─────────────────────────────────────────────────
 
