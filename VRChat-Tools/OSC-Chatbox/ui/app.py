@@ -54,6 +54,10 @@ class App:
         self.root.geometry("900x680")
         self.root.minsize(150, 30)
 
+        # Apply saved transparency opacity setting
+        saved_opacity = self._cfg.get("transparency_opacity", 1.0)
+        self.root.attributes("-alpha", saved_opacity)
+
         # Style notebook tabs
         style = ttk.Style()
         style.theme_use("default")

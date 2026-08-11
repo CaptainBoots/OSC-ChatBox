@@ -166,6 +166,43 @@ def open_settings(root, state: AppState, cfg: dict, save_cb, reset_cb, theme_cb)
     for child in theme_header.winfo_children():
         child.bind("<Button-1>", _toggle_theme_body)
 
+    # ── Opacity/Transparency Slider (Placed Right Below Themes) ──────────────────
+    transparency_frame = tk.Frame(inner, bg=PANEL)
+    transparency_frame.pack(fill="x", padx=20, pady=(10, 0))
+
+    trans_label = tk.Label(
+        transparency_frame,
+        text="Window Opacity",
+        bg=PANEL, fg=TEXT,
+        font=(FONT, 9, "bold")
+    )
+    trans_label.pack(side="top", anchor="w")
+
+    # Fetch saved opacity (defaulting to 100% / 1.0)
+    current_alpha = cfg.get("transparency_opacity", 1.0)
+
+    def _on_slider_change(val):
+        alpha_val = float(val) / 100.0
+        cfg["transparency_opacity"] = alpha_val
+        save_cb()
+        # Dynamically apply opacity to both dialog and main application root
+        win.attributes("-alpha", alpha_val)
+        root.attributes("-alpha", alpha_val)
+
+    opacity_slider = tk.Scale(
+        transparency_frame,
+        from_=30,          # Minimum 30% to keep window legible/interactable
+        to=100,            # Maximum 100% (fully opaque)
+        orient="horizontal",
+        bg=PANEL, fg=TEXT,
+        highlightthickness=0,
+        troughcolor=BG,
+        activebackground=ACCENT,
+        command=_on_slider_change
+    )
+    opacity_slider.set(int(current_alpha * 100))
+    opacity_slider.pack(fill="x", pady=(5, 0))
+
     # ── Config reset ──────────────────────────────────────────────────────────
     section("Config")
     tk.Button(

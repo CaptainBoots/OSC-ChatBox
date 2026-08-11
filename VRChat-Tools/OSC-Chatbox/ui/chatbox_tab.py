@@ -26,18 +26,14 @@ except ImportError:
 # Drop any PNGs in here and they'll be picked up automatically, sorted by filename.
 BANNER_DIR = "assets/banners"
 BANNER_HOLD_MS = 15000   # how long each banner stays on screen
-BANNER_SLIDE_MS = 400    # total duration of the slide transition
+BANNER_SLIDE_MS = 500    # total duration of the slide transition
 BANNER_SLIDE_STEPS = 24  # animation smoothness
 
-# The banner box itself is a fixed 8:3 rectangle (not stretched to fill the
-# bottom bar) so it keeps a consistent shape and the stripe pattern shows
-# around it instead of the box growing/shrinking with the window.
-BANNER_ASPECT_W = 16
-BANNER_ASPECT_H = 3
-BANNER_HEIGHT   = 75
-BANNER_WIDTH    = round(BANNER_HEIGHT * BANNER_ASPECT_W / BANNER_ASPECT_H)
+BANNER_HEIGHT   = 100
+BANNER_WIDTH    = 600
 
-ICON_SIZE = 52  # square size (px) both the Discord and GitHub buttons are scaled to
+
+ICON_SIZE = 75  # square size (px) both the Discord and GitHub buttons are scaled to
 
 
 def _load_icon(path, size=ICON_SIZE):
@@ -230,26 +226,27 @@ class ChatboxTab(tk.Frame):
         # discord + github images from "https://icons8.com
 
         # ── Bottom bar: pinned 20 px above window bottom via place ──────────────────
-        bottom_frame = tk.Frame(self, bg=BG)
-        bottom_frame.columnconfigure(1, weight=1)
+        # Each piece below is placed directly on `self` — NOT wrapped in a
+        # covering Frame — so only the widgets themselves are opaque. The
+        # gaps between them are untouched by any widget, which lets the
+        # stripe canvas underneath show through there.
 
         # Square Discord logo button
         _discord_img = _load_icon("assets/discord.png")
         _discord_btn = tk.Button(
-            bottom_frame, image=_discord_img,
+            self, image=_discord_img,
             bg="#5865F2", activebackground="#4752C4",
             relief="flat", cursor="hand2", bd=0,
             padx=6, pady=6,
             command=lambda: webbrowser.open("https://discord.gg/YDXpQPF6g9"),
         )
         _discord_btn.image = _discord_img  # keep reference
-        _discord_btn.grid(row=0, column=0, sticky="w", padx=(0, 8))
+        _discord_btn.place(relx=0.0, rely=1.0, anchor="sw", x=8, y=-20)
 
-        # Scrolling banner canvas — cycles through PNGs in BANNER_DIR,
-        # holding each for BANNER_HOLD_MS then sliding to the next.
-        self._banner_canvas = tk.Canvas(bottom_frame, width=BANNER_WIDTH, height=BANNER_HEIGHT,
+
+        self._banner_canvas = tk.Canvas(self, width=BANNER_WIDTH, height=BANNER_HEIGHT,
                                         highlightthickness=0, bd=0, bg=BG)
-        self._banner_canvas.grid(row=0, column=1, padx=4)  # no sticky → stays fixed-size & centered
+        self._banner_canvas.place(relx=0.5, rely=1.0, anchor="s", y=-20)
 
         self._banner_paths      = sorted(glob.glob(f"{BANNER_DIR}/*.png"))
         self._banner_index      = 0
@@ -271,27 +268,23 @@ class ChatboxTab(tk.Frame):
         # Square GitHub logo button
         _github_img = _load_icon("assets/github.png")
         _github_btn = tk.Button(
-            bottom_frame, image=_github_img,
+            self, image=_github_img,
             bg="#24292e", activebackground="#444d56",
             relief="flat", cursor="hand2", bd=0,
             padx=6, pady=6,
             command=lambda: webbrowser.open("https://github.com/CaptainBoots/VRChat-ToolBox"),
         )
         _github_btn.image = _github_img  # keep reference
-        _github_btn.grid(row=0, column=2, sticky="e", padx=(8, 0))
-
-        # Pin bottom_frame 20 px above the bottom edge of the tab
-        bottom_frame.place(relx=0, rely=1.0, anchor="sw", relwidth=1.0, y=-20)
+        _github_btn.place(relx=1.0, rely=1.0, anchor="se", x=-8, y=-20)
 
     # ── Banner rotation ──────────────────────────────────────────────────────
 
     def _draw_banner_bg(self, w, h):
-        """Redraw the diagonal stripe pattern as the banner canvas's own
-        background so the letterboxed space around a non-stretched image
-        still matches the rest of the theme, instead of a flat block."""
+        """Clear the banner canvas back to a flat, opaque background. This
+        box is meant to block the stripes directly behind it (reads as a
+        solid panel) — the stripes only show in the untouched space around
+        the box, not inside it."""
         self._banner_canvas.delete("all")
-        if STRIPE_COLOURS:
-            draw_stripes(self._banner_canvas, w, h, STRIPE_COLOURS)
 
     def _on_banner_widget_destroyed(self, event):
         if event.widget is self and self._banner_after_id is not None:
