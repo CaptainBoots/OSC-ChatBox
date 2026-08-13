@@ -1,12 +1,19 @@
 """
 ui/help_dialog.py
-─────────────────
+──────────────────────
+Qt replacement for ui/help_dialog.py. Same paged help content, same
+back/next navigation, "Close" on the final page.
 """
 
-import tkinter as tk
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
 
-from main import VERSION
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT
+try:
+    from main import VERSION
+except ImportError:
+    VERSION = "version error"
+
+from ui import theme
 
 HELP_PAGES = [
     {
@@ -170,66 +177,103 @@ HELP_PAGES = [
 ]
 
 
-def open_help(root):
-    win = tk.Toplevel(root)
-    win.title("Info Page")
-    win.configure(bg=BG)
-    win.resizable(True, True)
-    root.update_idletasks()
-    win.geometry(f"{root.winfo_width()}x{root.winfo_height()}+{root.winfo_x()}+{root.winfo_y()}")
+def open_help(parent):
+    dlg = QDialog(parent)
+    dlg.setWindowTitle("Info Page")
+    dlg.resize(parent.size())
+
+    root = QVBoxLayout(dlg)
+    root.setContentsMargins(0, 0, 0, 0)
+    root.setSpacing(0)
 
     current = [0]
 
-    # Header
-    hdr = tk.Frame(win, bg=PANEL, pady=10)
-    hdr.pack(fill="x")
-    title_lbl = tk.Label(hdr, text="", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold"))
-    title_lbl.pack(side="left", padx=16)
-    page_lbl = tk.Label(hdr, text="", bg=PANEL, fg=SUBTEXT, font=(FONT, 8))
-    page_lbl.pack(side="right", padx=16)
-    tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
+    # ── Header ────────────────────────────────────────────────────────────
+    hdr = QWidget()
+    hdr.setStyleSheet(f"background-color: {theme.PANEL};")
+    hdr_layout = QHBoxLayout(hdr)
+    hdr_layout.setContentsMargins(16, 10, 16, 10)
 
-    # Content
-    content_panel = tk.Frame(win, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-    content_panel.pack(padx=20, pady=(14, 0), fill="both", expand=True)
-    content_lbl = tk.Label(
-        content_panel, text="", bg=PANEL, fg=TEXT,
-        justify="left", wraplength=500, anchor="nw", font=(FONT, 10),
+    title_lbl = QLabel("")
+    title_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent;")
+    title_lbl.setFont(theme.qt_font(12, bold=True))
+    hdr_layout.addWidget(title_lbl)
+    hdr_layout.addStretch(1)
+
+    page_lbl = QLabel("")
+    page_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+    page_lbl.setFont(theme.qt_font(8))
+    hdr_layout.addWidget(page_lbl)
+
+    root.addWidget(hdr)
+
+    divider = QFrame()
+    divider.setFixedHeight(1)
+    divider.setStyleSheet(f"background-color: {theme.BORDER};")
+    root.addWidget(divider)
+
+    # ── Content ───────────────────────────────────────────────────────────
+    content_panel = QFrame()
+    content_panel.setStyleSheet(
+        f"background-color: {theme.PANEL}; border: 1px solid {theme.BORDER};"
     )
-    content_lbl.pack(padx=16, pady=14, fill="both", expand=True)
+    content_layout = QVBoxLayout(content_panel)
+    content_layout.setContentsMargins(16, 14, 16, 14)
+
+    content_lbl = QLabel("")
+    content_lbl.setStyleSheet(f"color: {theme.TEXT}; background: transparent;")
+    content_lbl.setFont(theme.qt_font(10))
+    content_lbl.setWordWrap(True)
+    content_lbl.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+    content_layout.addWidget(content_lbl)
+
+    body_wrap = QWidget()
+    body_wrap_layout = QVBoxLayout(body_wrap)
+    body_wrap_layout.setContentsMargins(20, 14, 20, 0)
+    body_wrap_layout.addWidget(content_panel)
+    root.addWidget(body_wrap, 1)
+
+    # ── Nav ───────────────────────────────────────────────────────────────
+    nav = QHBoxLayout()
+    nav.setContentsMargins(20, 8, 20, 14)
+
+    prev_btn = QPushButton("← Back")
+    prev_btn.setObjectName("subtleButton")
+    prev_btn.setFont(theme.qt_font(9, bold=True))
+    prev_btn.setFixedWidth(100)
+    nav.addWidget(prev_btn)
+    nav.addStretch(1)
+
+    next_btn = QPushButton("Next →")
+    next_btn.setObjectName("accentButton")
+    next_btn.setFont(theme.qt_font(9, bold=True))
+    next_btn.setFixedWidth(100)
+    nav.addWidget(next_btn)
+
+    root.addLayout(nav)
 
     def show(idx):
         p = HELP_PAGES[idx]
-        title_lbl.config(text=p["title"])
-        content_lbl.config(text=p["content"])
-        page_lbl.config(text=f"{idx + 1} / {len(HELP_PAGES)}")
-        prev_btn.config(state="normal" if idx > 0 else "disabled")
-        next_btn.config(text="Close" if idx == len(HELP_PAGES) - 1 else "Next →")
+        title_lbl.setText(p["title"])
+        content_lbl.setText(p["content"])
+        page_lbl.setText(f"{idx + 1} / {len(HELP_PAGES)}")
+        prev_btn.setEnabled(idx > 0)
+        next_btn.setText("Close" if idx == len(HELP_PAGES) - 1 else "Next →")
 
-    # Nav
-    nav = tk.Frame(win, bg=BG)
-    nav.pack(fill="x", padx=20, pady=(8, 14))
-    nav.columnconfigure(1, weight=1)
-
-    prev_btn = tk.Button(
-        nav, text="← Back", bg=PANEL, fg=SUBTEXT, relief="flat", width=10,
-        activebackground=BORDER, activeforeground=TEXT, cursor="hand2", font=(FONT, 9, "bold"),
-        command=lambda: (current.__setitem__(0, current[0] - 1), show(current[0])),
-    )
-    prev_btn.grid(row=0, column=0, sticky="w")
+    def go_back():
+        if current[0] > 0:
+            current[0] -= 1
+            show(current[0])
 
     def next_or_close():
         if current[0] < len(HELP_PAGES) - 1:
             current[0] += 1
             show(current[0])
         else:
-            win.destroy()
+            dlg.close()
 
-    next_btn = tk.Button(
-        nav, text="Next →", bg=ACCENT, fg=BG, relief="flat", width=10,
-        activebackground=ACCENT2, activeforeground=BG, cursor="hand2", font=(FONT, 9, "bold"),
-        command=next_or_close,
-    )
-    next_btn.grid(row=0, column=2, sticky="e")
+    prev_btn.clicked.connect(go_back)
+    next_btn.clicked.connect(next_or_close)
 
     show(0)
+    dlg.exec()
