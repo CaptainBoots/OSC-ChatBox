@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-VERSION = "8.4.6"
+VERSION = "8.5.0"
 
 # ── Dependency bootstrap ──────────────────────────────────────────────────────
 
@@ -12,6 +12,7 @@ REQUIRED = [
     "requests",
     "Pillow",
     "openvr",
+    "PySide6",
 ]
 
 # Windows-only
@@ -36,6 +37,7 @@ def _ensure_deps():
         "requests":                           "requests",
         "Pillow":                             "PIL",
         "openvr":                             "openvr",
+        "PySide6":                            "PySide6",
         "winrt-runtime":                      "winrt",
         "winrt-Windows.Media.Control":        "winrt.windows.media.control",
     }
@@ -84,7 +86,7 @@ def _patch_lhm_config() -> None:
     lhm_dir  = os.path.dirname(_lhm_exe_path())
     cfg_path = os.path.join(lhm_dir, "LibreHardwareMonitor.config")
 
-    REQUIRED = {
+    REQUIRED_KEYS = {
         "runWebServerMenuItem": "true",
         "startMinMenuItem":     "true",
     }
@@ -106,7 +108,7 @@ def _patch_lhm_config() -> None:
     if app_settings is None:
         app_settings = ET.SubElement(root, "appSettings")
 
-    for key, value in REQUIRED.items():
+    for key, value in REQUIRED_KEYS.items():
         node = app_settings.find(f"./add[@key='{key}']")
         if node is not None:
             if node.get("value") != value:
@@ -123,57 +125,80 @@ def _patch_lhm_config() -> None:
         print(f"[LHM] Could not write config: {e}")
 
 
+def _lhm_theme_colours():
+    """Small shared helper: pull theme colours/font for the two popups
+    below, with a hardcoded fallback if ui.theme isn't importable yet."""
+    try:
+        from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, qt_font
+        return BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, qt_font
+    except Exception:
+        from PySide6.QtGui import QFont
+
+        def qt_font(size, bold=False):
+            f = QFont("Consolas", size)
+            if bold:
+                f.setBold(True)
+            return f
+
+        return (
+            "#0f0f13", "#1f102a", "#2a2a38", "#9D00FF", "#b44bff",
+            "#e2e0f0", "#7e7b9a", qt_font,
+        )
+
+
 def _show_lhm_started_popup() -> None:
     """Small confirmation popup shown after LHM launches successfully."""
-    import tkinter as tk
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 
-    popup = tk.Tk()
-    popup.withdraw()
+    BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, qt_font = _lhm_theme_colours()
 
-    try:
-        from ui.theme import BG, PANEL, BORDER, ACCENT2, TEXT, FONT
-    except Exception:
-        BG = "#0f0f13"; PANEL = "#1f102a"; BORDER = "#2a2a38"
-        ACCENT2 = "#b44bff"; TEXT = "#e2e0f0"; FONT = "Consolas"
+    popup = QDialog()
+    popup.setWindowTitle("Libre Hardware Monitor")
+    popup.setStyleSheet(f"background-color: {BG};")
 
-    popup.title("Libre Hardware Monitor")
-    popup.configure(bg=BG)
-    popup.resizable(False, False)
+    root_layout = QVBoxLayout(popup)
+    root_layout.setContentsMargins(0, 0, 0, 0)
+    root_layout.setSpacing(0)
 
-    hdr = tk.Frame(popup, bg=PANEL, pady=8)
-    hdr.pack(fill="x")
-    tk.Label(hdr, text="Libre Hardware Monitor", bg=PANEL, fg=ACCENT2,
-             font=(FONT, 11, "bold")).pack(side="left", padx=14)
-    tk.Frame(popup, bg=BORDER, height=1).pack(fill="x")
+    hdr = QWidget()
+    hdr.setStyleSheet(f"background-color: {PANEL};")
+    hdr_layout = QHBoxLayout(hdr)
+    hdr_layout.setContentsMargins(14, 8, 14, 8)
+    title_lbl = QLabel("Libre Hardware Monitor")
+    title_lbl.setStyleSheet(f"color: {ACCENT2}; background: transparent;")
+    title_lbl.setFont(qt_font(11, bold=True))
+    hdr_layout.addWidget(title_lbl)
+    root_layout.addWidget(hdr)
 
-    body = tk.Frame(popup, bg=BG, padx=20, pady=14)
-    body.pack()
-    tk.Label(
-        body,
-        text="✓  LHM started successfully.\n\n"
-             "It will appear in your system tray shortly.\n"
-             "The UAC prompt may have appeared behind this window.",
-        bg=BG, fg=TEXT, font=(FONT, 9), justify="left",
-    ).pack()
+    divider = QWidget()
+    divider.setFixedHeight(1)
+    divider.setStyleSheet(f"background-color: {BORDER};")
+    root_layout.addWidget(divider)
 
-    tk.Button(
-        body, text="OK", bg=ACCENT2, fg=BG, relief="flat",
-        font=(FONT, 9, "bold"), padx=16, pady=4, cursor="hand2",
-        activebackground=ACCENT2, activeforeground=BG,
-        command=popup.destroy,
-    ).pack(pady=(10, 0))
+    body = QWidget()
+    body_layout = QVBoxLayout(body)
+    body_layout.setContentsMargins(20, 14, 20, 14)
+    msg = QLabel(
+        "✓  LHM started successfully.\n\n"
+        "It will appear in your system tray shortly.\n"
+        "The UAC prompt may have appeared behind this window."
+    )
+    msg.setStyleSheet(f"color: {TEXT}; background: transparent;")
+    msg.setFont(qt_font(9))
+    body_layout.addWidget(msg)
 
-    popup.update_idletasks()
-    sw = popup.winfo_screenwidth()
-    sh = popup.winfo_screenheight()
-    w  = popup.winfo_reqwidth()
-    h  = popup.winfo_reqheight()
-    popup.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
-    popup.deiconify()
-    popup.lift()
-    popup.attributes("-topmost", True)
-    popup.after(100, lambda: popup.attributes("-topmost", False))
-    popup.mainloop()
+    ok_btn = QPushButton("OK")
+    ok_btn.setStyleSheet(
+        f"QPushButton {{ background-color: {ACCENT}; color: {BG}; padding: 4px 16px; font-weight: bold; }}"
+    )
+    ok_btn.setFont(qt_font(9, bold=True))
+    ok_btn.clicked.connect(popup.accept)
+    body_layout.addWidget(ok_btn, alignment=Qt.AlignCenter)
+
+    root_layout.addWidget(body)
+
+    popup.exec()
 
 
 def _launch_lhm():
@@ -211,45 +236,51 @@ def _show_lhm_prompt(cfg: dict, save_cfg_cb) -> bool:
     Returns True if LHM should be launched.
     Saves preference back to config if user picks always/never.
     """
-    import tkinter as tk
+    from PySide6.QtWidgets import QDialog, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton
+
+    BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, qt_font = _lhm_theme_colours()
 
     result = {"launch": False}
 
-    popup = tk.Tk()
-    popup.withdraw()  # hide briefly while we style it
+    popup = QDialog()
+    popup.setWindowTitle("Libre Hardware Monitor")
+    popup.setStyleSheet(f"background-color: {BG};")
 
-    # Import theme values (theme already set before this call)
-    try:
-        from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT
-    except Exception:
-        BG = "#0f0f13"; PANEL = "#1f102a"; BORDER = "#2a2a38"
-        ACCENT = "#9D00FF"; ACCENT2 = "#b44bff"
-        TEXT = "#e2e0f0"; SUBTEXT = "#7e7b9a"; FONT = "Consolas"
-
-    popup.title("Libre Hardware Monitor")
-    popup.configure(bg=BG)
-    popup.resizable(False, False)
+    root_layout = QVBoxLayout(popup)
+    root_layout.setContentsMargins(0, 0, 0, 0)
+    root_layout.setSpacing(0)
 
     # Header
-    hdr = tk.Frame(popup, bg=PANEL, pady=10)
-    hdr.pack(fill="x")
-    tk.Label(hdr, text="Libre Hardware Monitor", bg=PANEL, fg=ACCENT2,
-             font=(FONT, 12, "bold")).pack(side="left", padx=16)
-    tk.Frame(popup, bg=BORDER, height=1).pack(fill="x")
+    hdr = QWidget()
+    hdr.setStyleSheet(f"background-color: {PANEL};")
+    hdr_layout = QHBoxLayout(hdr)
+    hdr_layout.setContentsMargins(16, 10, 16, 10)
+    title_lbl = QLabel("Libre Hardware Monitor")
+    title_lbl.setStyleSheet(f"color: {ACCENT2}; background: transparent;")
+    title_lbl.setFont(qt_font(12, bold=True))
+    hdr_layout.addWidget(title_lbl)
+    root_layout.addWidget(hdr)
+
+    divider = QWidget()
+    divider.setFixedHeight(1)
+    divider.setStyleSheet(f"background-color: {BORDER};")
+    root_layout.addWidget(divider)
 
     # Body
-    body = tk.Frame(popup, bg=BG, padx=24, pady=16)
-    body.pack(fill="both", expand=True)
-    tk.Label(
-        body,
-        text="Would you like to start Libre Hardware Monitor?\n"
-             "LHM provides GPU & CPU temperature data for the ChatBox.",
-        bg=BG, fg=TEXT, font=(FONT, 9), justify="left", wraplength=320,
-    ).pack(anchor="w", pady=(0, 16))
+    body = QWidget()
+    body_layout = QVBoxLayout(body)
+    body_layout.setContentsMargins(24, 16, 24, 16)
+    msg = QLabel(
+        "Would you like to start Libre Hardware Monitor?\n"
+        "LHM provides GPU & CPU temperature data for the ChatBox."
+    )
+    msg.setStyleSheet(f"color: {TEXT}; background: transparent;")
+    msg.setFont(qt_font(9))
+    msg.setWordWrap(True)
+    body_layout.addWidget(msg)
 
     # Buttons
-    btn_frame = tk.Frame(body, bg=BG)
-    btn_frame.pack(fill="x")
+    btn_grid = QGridLayout()
 
     def _do(choice: str):
         """choice: 'start' | 'always' | 'dismiss' | 'never'"""
@@ -261,50 +292,37 @@ def _show_lhm_prompt(cfg: dict, save_cfg_cb) -> bool:
         elif choice == "never":
             cfg["lhm_prompt"] = "never"
             save_cfg_cb(cfg)
-        popup.destroy()
+        popup.accept()
 
-    btn_cfg = dict(relief="flat", font=(FONT, 9, "bold"), cursor="hand2", padx=14, pady=6)
+    def _mk_btn(text, bg, fg):
+        b = QPushButton(text)
+        b.setFont(qt_font(9, bold=True))
+        b.setStyleSheet(
+            f"QPushButton {{ background-color: {bg}; color: {fg}; padding: 6px 14px; }}"
+            f"QPushButton:hover {{ background-color: {BORDER}; }}"
+        )
+        return b
 
-    tk.Button(btn_frame, text="▶  Start LHM",
-              bg=ACCENT, fg=TEXT,
-              activebackground=ACCENT2, activeforeground=TEXT,
-              command=lambda: _do("start"), **btn_cfg,
-              ).grid(row=0, column=0, padx=(0, 6), pady=4, sticky="ew")
+    start_btn = _mk_btn("▶  Start LHM", ACCENT, TEXT)
+    start_btn.clicked.connect(lambda: _do("start"))
+    btn_grid.addWidget(start_btn, 0, 0)
 
-    tk.Button(btn_frame, text="▶  Always Start",
-              bg=PANEL, fg=TEXT,
-              activebackground=BORDER, activeforeground=TEXT,
-              command=lambda: _do("always"), **btn_cfg,
-              ).grid(row=0, column=1, padx=6, pady=4, sticky="ew")
+    always_btn = _mk_btn("▶  Always Start", PANEL, TEXT)
+    always_btn.clicked.connect(lambda: _do("always"))
+    btn_grid.addWidget(always_btn, 0, 1)
 
-    tk.Button(btn_frame, text="✕  Dismiss",
-              bg=PANEL, fg=SUBTEXT,
-              activebackground=BORDER, activeforeground=TEXT,
-              command=lambda: _do("dismiss"), **btn_cfg,
-              ).grid(row=1, column=0, padx=(0, 6), pady=4, sticky="ew")
+    dismiss_btn = _mk_btn("✕  Dismiss", PANEL, SUBTEXT)
+    dismiss_btn.clicked.connect(lambda: _do("dismiss"))
+    btn_grid.addWidget(dismiss_btn, 1, 0)
 
-    tk.Button(btn_frame, text="✕  Never Ask Again",
-              bg=PANEL, fg=SUBTEXT,
-              activebackground=BORDER, activeforeground=TEXT,
-              command=lambda: _do("never"), **btn_cfg,
-              ).grid(row=1, column=1, padx=6, pady=4, sticky="ew")
+    never_btn = _mk_btn("✕  Never Ask Again", PANEL, SUBTEXT)
+    never_btn.clicked.connect(lambda: _do("never"))
+    btn_grid.addWidget(never_btn, 1, 1)
 
-    btn_frame.columnconfigure(0, weight=1)
-    btn_frame.columnconfigure(1, weight=1)
+    body_layout.addLayout(btn_grid)
+    root_layout.addWidget(body)
 
-    # Centre on screen
-    popup.update_idletasks()
-    w = popup.winfo_reqwidth()
-    h = popup.winfo_reqheight()
-    sw = popup.winfo_screenwidth()
-    sh = popup.winfo_screenheight()
-    popup.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
-    popup.deiconify()
-    popup.lift()
-    popup.attributes("-topmost", True)
-    popup.after(100, lambda: popup.attributes("-topmost", False))
-
-    popup.mainloop()
+    popup.exec()
     return result["launch"]
 
 
@@ -328,8 +346,15 @@ if __name__ == "__main__":
 
     from config import load_config, save_config
     from ui import theme
+
     cfg = load_config()
     theme.set_theme(cfg.get("theme_mode", "rich_purple"))
+
+    # Qt needs exactly one QApplication instance, created before any window
+    # or dialog (including the LHM startup popups below) is constructed.
+    from PySide6.QtWidgets import QApplication
+    qt_app = QApplication(sys.argv)
+    qt_app.setStyleSheet(theme.qss())
 
     _handle_lhm_startup(cfg, save_config)
 

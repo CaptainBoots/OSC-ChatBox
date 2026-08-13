@@ -2,8 +2,17 @@
 ui/theme.py
 ───────────
 Colour definitions. The active palette is selected by colour_mode,
-which is set at startup based on the saved config
+which is set at startup based on the saved config.
+
+Also provides the Qt-specific pieces used across the app: qss() builds a
+global stylesheet from the active palette, qt_font() resolves the theme
+font, and StripeBackground paints the diagonal flag-stripe backgrounds
+(this replaced the old Tk-canvas draw_stripes() when the UI moved to Qt).
 """
+
+from PySide6.QtCore import Qt, QPointF
+from PySide6.QtGui import QPainter, QColor, QPolygonF, QFont, QFontDatabase
+from PySide6.QtWidgets import QWidget
 
 colour_mode = "new"
 
@@ -549,28 +558,232 @@ def set_theme(mode: str):
 
 set_theme(colour_mode)
 
-def draw_stripes(canvas, width: int, height: int, colours: list):
+# ── Qt helpers ────────────────────────────────────────────────────────────
+# Everything below this line is the Qt-side addition. The colour constants
+# above (BG, PANEL, ACCENT, etc.) are set as module globals by set_theme()
+# and read directly here — same pattern the rest of the app already uses.
+
+STRIPE_WIDTH = 28  # px, same tiling width as the old Tk draw_stripes()
+
+
+def qt_font(size: int, bold: bool = False) -> QFont:
+    families = QFontDatabase.families()
+    family = FONT if FONT in families else "Consolas"
+    f = QFont(family, size)
+    if bold:
+        f.setBold(True)
+    return f
+
+
+def qss() -> str:
+    """Global stylesheet approximating the old Tk look: flat buttons, PANEL
+    surfaces, ACCENT highlights, BORDER outlines. Call again (and re-apply
+    via app.setStyleSheet(theme.qss())) any time set_theme() changes the
+    active palette."""
+    return f"""
+    QWidget {{
+        background-color: {BG};
+        color: {TEXT};
+        font-family: "{FONT}";
+        border: none;
+    }}
+
+    QMainWindow, QDialog {{
+        background-color: {BG};
+    }}
+
+    /* ── Tab bar (mirrors ttk Notebook: PANEL tabs, BG when selected) ── */
+    QTabWidget::pane {{
+        border: none;
+        background: {BG};
+    }}
+    QTabBar::tab {{
+        background: {PANEL};
+        color: {SUBTEXT};
+        padding: 6px 16px;
+        border: none;
+        font-weight: bold;
+    }}
+    QTabBar::tab:selected {{
+        background: {BG};
+        color: {TAB};
+    }}
+
+    /* ── Flat buttons (Tk relief="flat") ── */
+    QPushButton {{
+        background-color: {PANEL};
+        color: {ACCENT};
+        border: none;
+        border-radius: 3px;
+        padding: 6px 14px;
+        font-weight: bold;
+    }}
+    QPushButton:hover {{
+        background-color: {BORDER};
+        color: {TEXT};
+    }}
+    QPushButton:disabled {{
+        color: {SUBTEXT};
+    }}
+    QPushButton#accentButton {{
+        background-color: {ACCENT};
+        color: {BG};
+    }}
+    QPushButton#accentButton:hover {{
+        background-color: {ACCENT2};
+    }}
+    QPushButton#subtleButton {{
+        background-color: {PANEL};
+        color: {SUBTEXT};
+        font-weight: normal;
+    }}
+
+    /* ── Line edits (Tk Entry) ── */
+    QLineEdit {{
+        background-color: {PANEL};
+        color: {TEXT};
+        border: 1px solid {BORDER};
+        border-radius: 2px;
+        padding: 3px 6px;
+        selection-background-color: {ACCENT};
+    }}
+    QLineEdit:focus {{
+        border: 1px solid {ACCENT};
+    }}
+
+    /* ── Text preview box (Tk Text) ── */
+    QPlainTextEdit, QTextEdit {{
+        background-color: {PANEL};
+        color: {TEXT};
+        border: none;
+        selection-background-color: {ACCENT};
+    }}
+
+    /* ── Scrollbars (thin, flat) ── */
+    QScrollBar:vertical {{
+        background: {BG};
+        width: 12px;
+        margin: 0;
+    }}
+    QScrollBar::handle:vertical {{
+        background: {BORDER};
+        min-height: 24px;
+        border-radius: 4px;
+    }}
+    QScrollBar::handle:vertical:hover {{
+        background: {ACCENT2};
+    }}
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+        height: 0;
+    }}
+
+    /* ── Slider (opacity) ── */
+    QSlider::groove:horizontal {{
+        background: {BG};
+        height: 6px;
+        border-radius: 3px;
+    }}
+    QSlider::handle:horizontal {{
+        background: {ACCENT};
+        width: 14px;
+        margin: -5px 0;
+        border-radius: 7px;
+    }}
+    QSlider::handle:horizontal:hover {{
+        background: {ACCENT2};
+    }}
+
+    /* ── Checkbox / Radio ── */
+    QCheckBox, QRadioButton {{
+        color: {TEXT};
+        spacing: 8px;
+    }}
+    QCheckBox::indicator, QRadioButton::indicator {{
+        width: 14px;
+        height: 14px;
+        border: 1px solid {BORDER};
+        background: {PANEL};
+    }}
+    QCheckBox::indicator:checked, QRadioButton::indicator:checked {{
+        background: {ACCENT};
+        border: 1px solid {ACCENT};
+    }}
+
+    QMenu {{
+        background-color: {PANEL};
+        color: {TEXT};
+        border: 1px solid {BORDER};
+    }}
+    QMenu::item:selected {{
+        background-color: {ACCENT};
+        color: {BG};
+    }}
+
+    QToolTip {{
+        background-color: {PANEL};
+        color: {TEXT};
+        border: 1px solid {BORDER};
+    }}
     """
-    Fill *canvas* with repeating ~45° diagonal stripes tiling across
-    the full width × height. Import this wherever stripe backgrounds are needed.
-    """
-    canvas.delete("stripe")
-    if not colours or width <= 0 or height <= 0:
-        return
 
-    stripe_w = 28
-    cycle    = stripe_w * len(colours)
-    extent   = width + height + cycle * 2
 
-    for start in range(-cycle, extent, cycle):
-        for i, colour in enumerate(colours):
-            x0 = start + i * stripe_w
-            points = [
-                x0,                      0,
-                x0 + stripe_w,           0,
-                x0 + stripe_w + height,  height,
-                x0            + height,  height,
-                ]
-            canvas.create_polygon(points, fill=colour, outline="", tags="stripe")
+class StripeBackground(QWidget):
+    """Paints repeating ~45° diagonal stripes across the whole widget when a
+    flag theme is active (STRIPE_COLOURS set); otherwise just fills BG.
+    Direct replacement for the old draw_stripes()-on-a-Tk-canvas approach —
+    child widgets are added on top via a normal layout, and the stripes show
+    through any gap that isn't covered by an opaque PANEL-coloured widget.
 
-    canvas.tag_lower("stripe")
+    Also supports an adjustable fill alpha (set_bg_alpha) for background-only
+    window transparency — see ui/app.py. Only this fill uses alpha < 255;
+    every other widget in the app stays fully opaque."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAutoFillBackground(False)
+        self._bg_alpha = 1.0  # 0.0-1.0, applied to the background fill only
+
+    def set_bg_alpha(self, alpha: float):
+        self._bg_alpha = max(0.0, min(1.0, alpha))
+        self.update()
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, False)
+        w, h = self.width(), self.height()
+        a = round(self._bg_alpha * 255)
+
+        colours = STRIPE_COLOURS
+        if not colours:
+            c = QColor(BG)
+            c.setAlpha(a)
+            painter.setCompositionMode(QPainter.CompositionMode_Source)
+            painter.fillRect(self.rect(), c)
+            return
+
+        bg = QColor(BG)
+        bg.setAlpha(a)
+        painter.setCompositionMode(QPainter.CompositionMode_Source)
+        painter.fillRect(self.rect(), bg)
+        painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+
+        stripe_w = STRIPE_WIDTH
+        cycle = stripe_w * len(colours)
+        extent = w + h + cycle * 2
+
+        start = -cycle
+        while start < extent:
+            for i, colour in enumerate(colours):
+                x0 = start + i * stripe_w
+                poly = QPolygonF([
+                    QPointF(x0, 0),
+                    QPointF(x0 + stripe_w, 0),
+                    QPointF(x0 + stripe_w + h, h),
+                    QPointF(x0 + h, h),
+                ])
+                sc = QColor(colour)
+                sc.setAlpha(a)
+                painter.setBrush(sc)
+                painter.setPen(Qt.NoPen)
+                painter.drawPolygon(poly)
+            start += cycle
