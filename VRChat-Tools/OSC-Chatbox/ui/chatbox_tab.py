@@ -20,11 +20,11 @@ from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QRect
 from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
-    QPushButton, QPlainTextEdit, QSizePolicy,
+    QPushButton, QPlainTextEdit, QSizePolicy, QFrame,
 )
 
 from ui import theme
-from ui.theme import StripeBackground
+from ui.theme import StripeBackground, TextChip
 
 BANNER_DIR = "assets/banners"
 BANNER_HOLD_MS = 15000
@@ -38,7 +38,7 @@ ICON_SIZE = 75
 def _hline(parent_layout):
     line = QWidget()
     line.setFixedHeight(1)
-    line.setStyleSheet(f"background-color: {theme.BORDER};")
+    line.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
     parent_layout.addWidget(line)
 
 
@@ -72,7 +72,7 @@ class _BannerRotator(QWidget):
     def __init__(self):
         super().__init__()
         self.setFixedSize(BANNER_WIDTH, BANNER_HEIGHT)
-        self.setStyleSheet(f"background-color: {theme.BG};")
+        self.setStyleSheet(f"background-color: {theme.BG}; border: none;")
 
         self._paths = sorted(glob.glob(f"{BANNER_DIR}/*.png"))
         self._index = 0
@@ -88,7 +88,7 @@ class _BannerRotator(QWidget):
 
         if not self._paths:
             self._current.setText("(no banners found in assets/banners)")
-            self._current.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+            self._current.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
             self._current.setFont(theme.qt_font(8))
         else:
             self._show_pixmap(self._current, self._paths[0])
@@ -148,8 +148,17 @@ class ChatboxTab(StripeBackground):
         self._settings_cb = settings_cb
         self._help_cb     = help_cb
         self._entries     = {}
+        self._chips       = []  # TextChip captions/labels — see set_bg_alpha override below
 
         self._build()
+
+    def set_bg_alpha(self, alpha: float):
+        """Override StripeBackground.set_bg_alpha to also propagate to
+        every TextChip caption/label, so they fade along with the rest
+        of the background instead of staying permanently opaque."""
+        super().set_bg_alpha(alpha)
+        for chip in self._chips:
+            chip.set_bg_alpha(alpha)
 
     def _build(self):
         outer = QVBoxLayout(self)
@@ -158,17 +167,17 @@ class ChatboxTab(StripeBackground):
 
         # ── Status bar ────────────────────────────────────────────────────────
         status_frame = QWidget()
-        status_frame.setStyleSheet(f"background-color: {theme.PANEL};")
+        status_frame.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
         status_layout = QHBoxLayout(status_frame)
         status_layout.setContentsMargins(10, 6, 10, 6)
 
         status_caption = QLabel("Status:")
-        status_caption.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+        status_caption.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
         status_caption.setFont(theme.qt_font(9))
         status_layout.addWidget(status_caption)
 
         self._status_lbl = QLabel("Stopped")
-        self._status_lbl.setStyleSheet(f"color: {theme.RED}; background: transparent;")
+        self._status_lbl.setStyleSheet(f"color: {theme.RED}; background: transparent; border: none;")
         self._status_lbl.setFont(theme.qt_font(9, bold=True))
         status_layout.addWidget(self._status_lbl)
         status_layout.addStretch(1)
@@ -194,14 +203,14 @@ class ChatboxTab(StripeBackground):
         btn_row.addStretch(1)
 
         help_btn = QPushButton("? Help")
-        help_btn.setObjectName("subtleButton")
+        help_btn.setStyleSheet(theme.subtle_button_qss())
         help_btn.setFont(theme.qt_font(9))
         help_btn.setCursor(Qt.PointingHandCursor)
         help_btn.clicked.connect(self._help_cb)
         btn_row.addWidget(help_btn)
 
         settings_btn = QPushButton("⚙ Settings")
-        settings_btn.setObjectName("subtleButton")
+        settings_btn.setStyleSheet(theme.subtle_button_qss())
         settings_btn.setFont(theme.qt_font(9))
         settings_btn.setCursor(Qt.PointingHandCursor)
         settings_btn.clicked.connect(self._settings_cb)
@@ -211,12 +220,12 @@ class ChatboxTab(StripeBackground):
         _hline(outer)
 
         # ── Live preview ──────────────────────────────────────────────────────
-        preview_caption = QLabel("Live Chatbox Preview")
-        preview_caption.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent;")
+        preview_caption = TextChip("Live Chatbox Preview")
         preview_caption.setFont(theme.qt_font(9, bold=True))
-        outer.addWidget(preview_caption)
+        outer.addWidget(preview_caption, alignment=Qt.AlignLeft)
+        self._chips.append(preview_caption)
 
-        preview_frame = QWidget()
+        preview_frame = QFrame()
         preview_frame.setStyleSheet(
             f"background-color: {theme.PANEL}; border: 1px solid {theme.BORDER};"
         )
@@ -228,6 +237,12 @@ class ChatboxTab(StripeBackground):
         self._preview.setReadOnly(True)
         self._preview.setFixedHeight(150)
         self._preview.setFont(theme.qt_font(10))
+        # QPlainTextEdit is QFrame-derived and draws its own native frame
+        # decoration (frameShape/lineWidth) as a SEPARATE mechanism from the
+        # CSS "border" property — setting border:none in the stylesheet
+        # doesn't fully suppress it, which left a mis-sized inner border box
+        # alongside the intended outer one on preview_frame. NoFrame kills it.
+        self._preview.setFrameShape(QFrame.NoFrame)
         self._preview.setStyleSheet(
             f"background-color: {theme.PANEL}; color: {theme.TEXT}; border: none; padding: 8px;"
         )
@@ -235,18 +250,19 @@ class ChatboxTab(StripeBackground):
 
         self._page_lbl = QLabel("")
         self._page_lbl.setAlignment(Qt.AlignRight)
-        self._page_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; padding: 0 8px 4px 0;")
+        self._page_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; padding: 0 8px 4px 0; border: none;")
         self._page_lbl.setFont(theme.qt_font(8))
         preview_layout.addWidget(self._page_lbl)
 
         outer.addWidget(preview_frame)
-        _hline(outer)
+        outer.addSpacing(8)  # preview_frame's own border already separates this section — an
+        # adjacent _hline() here just created a visible double-border line
 
         # ── Config fields ─────────────────────────────────────────────────────
-        cfg_caption = QLabel("Configuration")
-        cfg_caption.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent;")
+        cfg_caption = TextChip("Configuration")
         cfg_caption.setFont(theme.qt_font(9, bold=True))
-        outer.addWidget(cfg_caption)
+        outer.addWidget(cfg_caption, alignment=Qt.AlignLeft)
+        self._chips.append(cfg_caption)
 
         cfg_grid = QGridLayout()
         cfg_grid.setContentsMargins(4, 4, 4, 4)
@@ -263,11 +279,11 @@ class ChatboxTab(StripeBackground):
         ]
 
         for label, key, r, cl, ce in fields:
-            lbl = QLabel(label)
+            lbl = TextChip(label, fg=theme.SUBTEXT, padding="2px 6px")
             lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
             lbl.setFont(theme.qt_font(9))
             cfg_grid.addWidget(lbl, r, cl)
+            self._chips.append(lbl)
 
             entry = QLineEdit(str(self._cfg.get(key, "")))
             entry.setFont(theme.qt_font(9))
@@ -284,17 +300,17 @@ class ChatboxTab(StripeBackground):
         _hline(outer)
 
         # ── Forced text ───────────────────────────────────────────────────────
-        forced_caption = QLabel("Forced Text (overrides all pages)")
-        forced_caption.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent;")
+        forced_caption = TextChip("Forced Text (overrides all pages)")
         forced_caption.setFont(theme.qt_font(9, bold=True))
-        outer.addWidget(forced_caption)
+        outer.addWidget(forced_caption, alignment=Qt.AlignLeft)
+        self._chips.append(forced_caption)
 
         self._forced_entry = QLineEdit()
         self._forced_entry.setFont(theme.qt_font(10))
         outer.addWidget(self._forced_entry)
 
         hint = QLabel("Leave blank to use pages")
-        hint.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+        hint.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
         hint.setFont(theme.qt_font(8))
         outer.addWidget(hint)
 
@@ -339,7 +355,7 @@ class ChatboxTab(StripeBackground):
 
     def set_status(self, text: str):
         colour = theme.GREEN if "running" in text.lower() else theme.RED
-        self._status_lbl.setStyleSheet(f"color: {colour}; background: transparent;")
+        self._status_lbl.setStyleSheet(f"color: {colour}; background: transparent; border: none;")
         self._status_lbl.setText(text)
 
     def set_preview(self, text: str):

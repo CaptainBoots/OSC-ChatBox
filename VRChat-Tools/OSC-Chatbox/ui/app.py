@@ -18,7 +18,7 @@ reach the UI thread: a small QObject bridge re-emits them as Qt signals
 from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTabWidget,
-    QMessageBox, QApplication,
+    QApplication,
 )
 
 from config import load_config, save_config, get_defaults
@@ -59,12 +59,44 @@ class App(QMainWindow):
         self._state.progress_empty   = self._cfg.get("progress_empty",  self._state.progress_empty)
 
         self._bridge = _LoopBridge()
+        self._last_status  = "Stopped"
+        self._last_preview = ""
 
         self._build_root()
         self._build_tabs()
+        self._connect_bridge()
 
-        self._bridge.status_signal.connect(self._chatbox_tab.set_status)
-        self._bridge.preview_signal.connect(self._chatbox_tab.set_preview)
+        # The central widget's alpha was already set in _build_root, but the
+        # two tab widgets (ChatboxTab/BuilderTab) are ALSO StripeBackground
+        # instances covering nearly the whole window, and they default to
+        # fully opaque — apply the saved value to everything now that they
+        # exist, or the slider would only visibly affect a thin sliver
+        # around the header.
+        self._apply_bg_alpha_everywhere(self._bg_alpha)
+
+    def _connect_bridge(self):
+        """(Re)wire the OSC loop callbacks to the current ChatboxTab. Split
+        out so _rebuild_ui can reconnect to a freshly built tab after a
+        live theme change."""
+        if getattr(self, "_bridge_connected", False):
+            for sig in (self._bridge.status_signal, self._bridge.preview_signal):
+                sig.disconnect()
+        self._bridge_connected = True
+
+        def _on_status(text):
+            self._last_status = text
+            self._chatbox_tab.set_status(text)
+
+        def _on_preview(text):
+            self._last_preview = text
+            self._chatbox_tab.set_preview(text)
+
+        self._bridge.status_signal.connect(_on_status)
+        self._bridge.preview_signal.connect(_on_preview)
+        # Restore whatever was last known (e.g. after a theme rebuild while
+        # the loop is running) instead of showing a blank/stale "Stopped".
+        self._chatbox_tab.set_status(self._last_status)
+        self._chatbox_tab.set_preview(self._last_preview)
 
     # ── Root window ───────────────────────────────────────────────────────────
 
@@ -73,14 +105,24 @@ class App(QMainWindow):
         self.resize(1080, 720)
         self.setMinimumSize(150, 30)
 
-        # ── Real background-only transparency ────────────────────────────────
-        # This is the actual fix Qt gives us over Tkinter: WA_TranslucentBackground
-        # gives the window an alpha channel, and only the bare background fill
-        # (StripeBackground / central widget) uses a colour with alpha < 255.
-        # Every other widget (header, buttons, entries, tab bar) is painted
-        # with a fully opaque colour, so it stays 100% legible AND clickable —
-        # Qt's hit-testing follows widget geometry, not pixel alpha, unlike
-        # Tk's colour-key trick which made matching pixels click-through too.
+        # ── Background-only transparency ─────────────────────────────────────
+        # NOTE on transparency vs. the native window frame: true per-pixel
+        # desktop compositing on Windows normally wants FramelessWindowHint
+        # paired with WA_TranslucentBackground — without it, Qt/Windows
+        # doesn't reliably composite arbitrary alpha in the client area, so
+        # this slider may have little to no visible see-through effect with
+        # the native frame restored (it may just look like a slightly
+        # different shade, similar to the very first version of this).
+        # That's the deliberate trade-off here: going frameless to get real
+        # transparency meant losing native resize/drag/snap behaviour,
+        # which breaks tools like FancyZones — those need a standard
+        # top-level window, not a custom-drawn one, to hook into properly.
+        # Getting both at once requires intercepting native Win32 messages
+        # (WM_NCHITTEST) to tell Windows which regions act as a resize
+        # border/title bar on an otherwise-frameless window — doable, but
+        # real native platform code that needs testing on actual Windows to
+        # get right, not something to guess at blind. Flagging it as a
+        # possible follow-up rather than shipping an unverified version.
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         saved_opacity = self._cfg.get("transparency_opacity", 1.0)
         self._bg_alpha = max(0.0, min(1.0, float(saved_opacity)))
@@ -94,18 +136,18 @@ class App(QMainWindow):
 
         # Header bar
         header = QWidget()
-        header.setStyleSheet(f"background-color: {theme.PANEL};")
+        header.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(14, 8, 14, 8)
 
         title_lbl = QLabel(f"{theme.TITLE_PREFIX} OSC-Chatbox")
-        title_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent;")
+        title_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
         title_lbl.setFont(theme.qt_font(13, bold=True))
         header_layout.addWidget(title_lbl)
         header_layout.addStretch(1)
 
         version_lbl = QLabel(f"v{VERSION}")
-        version_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+        version_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
         version_lbl.setFont(theme.qt_font(9))
         header_layout.addWidget(version_lbl)
 
@@ -113,7 +155,7 @@ class App(QMainWindow):
 
         divider = QWidget()
         divider.setFixedHeight(1)
-        divider.setStyleSheet(f"background-color: {theme.BORDER};")
+        divider.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
         root_layout.addWidget(divider)
 
         self._notebook = QTabWidget()
@@ -214,19 +256,57 @@ class App(QMainWindow):
     def _set_theme(self, mode: str):
         self._cfg["theme_mode"] = mode
         self._save()
-        QMessageBox.information(
-            self, "Theme Changed",
-            "Theme will apply after restarting OSC-Chatbox."
-        )
+        theme.set_theme(mode)
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            app_instance.setStyleSheet(theme.qss())
+        self._rebuild_ui()
+
+    def _rebuild_ui(self):
+        """Tear down and reconstruct the central widget + both tabs with
+        whatever the current theme.* colours now are, and reconnect the OSC
+        loop callbacks to the new ChatboxTab. This is what makes theme
+        switching "live" — colours are baked into a lot of individual
+        widgets as literal stylesheet strings at construction time (that's
+        how Qt Style Sheets work), so recolouring in place isn't practical;
+        rebuilding the tree is instant and doesn't touch the running OSC
+        loop or lose your connection, so it's effectively the same as an
+        auto-restart of just the UI, without actually relaunching the app."""
+        old_central = self.takeCentralWidget()
+        if old_central is not None:
+            old_central.deleteLater()
+
+        self._build_root()
+        self._build_tabs()
+        self._connect_bridge()
+        self._apply_bg_alpha_everywhere(self._bg_alpha)
+
+        # Cheap safety net — setCentralWidget() shouldn't hide the window,
+        # but forcing show() costs nothing and guards against edge cases.
+        self.show()
+
+        # setCentralWidget() queues a layout/show pass for the next event
+        # loop iteration — pump it now so the rebuild is visually instant
+        # rather than leaving a one-frame gap before Qt catches up.
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            app_instance.processEvents()
 
     # ── Opacity (background-only — see WA_TranslucentBackground above) ───────
+
+    def _apply_bg_alpha_everywhere(self, alpha_val: float):
+        """StripeBackground is used by the central widget AND both tabs
+        (ChatboxTab/BuilderTab) — all three need the same alpha applied,
+        since together they cover essentially the entire window."""
+        for widget in (self._bg_canvas, self._chatbox_tab, self._builder_tab):
+            widget.set_bg_alpha(alpha_val)
 
     def _set_opacity(self, alpha_val: float):
         alpha_val = max(0.0, min(1.0, float(alpha_val)))
         self._cfg["transparency_opacity"] = alpha_val
         self._save()
         self._bg_alpha = alpha_val
-        self._bg_canvas.set_bg_alpha(alpha_val)
+        self._apply_bg_alpha_everywhere(alpha_val)
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 

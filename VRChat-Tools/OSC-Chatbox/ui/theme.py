@@ -12,7 +12,7 @@ font, and StripeBackground paints the diagonal flag-stripe backgrounds
 
 from PySide6.QtCore import Qt, QPointF
 from PySide6.QtGui import QPainter, QColor, QPolygonF, QFont, QFontDatabase
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QLabel
 
 colour_mode = "new"
 
@@ -575,6 +575,57 @@ def qt_font(size: int, bold: bool = False) -> QFont:
     return f
 
 
+def accent_button_qss() -> str:
+    """Inline stylesheet for the 'accent' button look (bright ACCENT fill,
+    BG text) — e.g. primary actions like Close/Next.
+
+    NOTE: this used to be applied via `button.setObjectName("accentButton")`
+    plus a `QPushButton#accentButton { ... }` rule in qss(). That breaks
+    silently (renders with no visible background at all) whenever the
+    button sits inside ANY ancestor widget that also has its own
+    setStyleSheet() call — which is nearly everywhere in this app, since
+    every panel/frame sets its own background colour that way. Confirmed
+    via isolated testing: the objectName-selector rule gets shadowed by
+    the ancestor's stylesheet, even though the ancestor's rule doesn't
+    mention QPushButton at all. Setting the style directly on the button
+    itself (this function) sidesteps the issue entirely."""
+    return (
+        f"QPushButton {{ background-color: {ACCENT}; color: {BG}; "
+        f"border: none; border-radius: 3px; padding: 6px 14px; font-weight: bold; }}"
+        f"QPushButton:hover {{ background-color: {ACCENT2}; }}"
+    )
+
+
+def subtle_button_qss() -> str:
+    """Inline stylesheet for the 'subtle' button look (PANEL fill, SUBTEXT
+    text) — e.g. secondary actions like Help/Settings/Back. See the note
+    on accent_button_qss() above for why this is applied inline rather
+    than via objectName + global QSS."""
+    return (
+        f"QPushButton {{ background-color: {PANEL}; color: {SUBTEXT}; "
+        f"border: none; border-radius: 3px; padding: 6px 14px; }}"
+        f"QPushButton:hover {{ background-color: {BORDER}; color: {TEXT}; }}"
+    )
+
+
+def section_caption_qss(bg: str = None) -> str:
+    """Small background 'chip' behind section-header captions (e.g.
+    'Live Chatbox Preview', 'Configuration', 'Features'). Without this
+    they're just floating text directly on whatever's behind them, which
+    gets hard to read against busy flag-stripe themes or blends into a
+    same-coloured parent panel.
+
+    Defaults to PANEL (for captions sitting directly on the stripe/BG
+    layer, e.g. in the chatbox tab). Pass bg=BORDER for captions that
+    already sit on a PANEL-coloured parent (settings dialog, dev menu),
+    so the chip doesn't disappear into its own background."""
+    bg = bg or PANEL
+    return (
+        f"color: {ACCENT2}; background-color: {bg}; "
+        f"padding: 3px 10px; border-radius: 3px; border: none;"
+    )
+
+
 def qss() -> str:
     """Global stylesheet approximating the old Tk look: flat buttons, PANEL
     surfaces, ACCENT highlights, BORDER outlines. Call again (and re-apply
@@ -625,18 +676,9 @@ def qss() -> str:
     QPushButton:disabled {{
         color: {SUBTEXT};
     }}
-    QPushButton#accentButton {{
-        background-color: {ACCENT};
-        color: {BG};
-    }}
-    QPushButton#accentButton:hover {{
-        background-color: {ACCENT2};
-    }}
-    QPushButton#subtleButton {{
-        background-color: {PANEL};
-        color: {SUBTEXT};
-        font-weight: normal;
-    }}
+    /* NOTE: accent/subtle button variants are applied inline via
+       accent_button_qss() / subtle_button_qss() above, not via objectName
+       selectors here — see the docstring on those functions for why. */
 
     /* ── Line edits (Tk Entry) ── */
     QLineEdit {{
@@ -727,6 +769,43 @@ def qss() -> str:
     """
 
 
+class TextChip(QLabel):
+    """A QLabel with a translucent background 'chip' painted behind its
+    text — used for section captions (Configuration, Live Chatbox
+    Preview) and field labels (OSC IP, etc). A plain stylesheet
+    background-color is always fully opaque and can't respond to the
+    transparency slider; this paints its own background via QPainter
+    (same technique as StripeBackground) so set_bg_alpha() can fade it
+    along with the rest of the window's background."""
+
+    def __init__(self, text="", *, fg=None, bg=None, radius=3,
+                 padding="3px 10px", parent=None):
+        super().__init__(text, parent)
+        self._chip_bg = QColor(bg or PANEL)
+        self._bg_alpha = 1.0
+        self._radius = radius
+        self.setStyleSheet(
+            f"color: {fg or ACCENT2}; background: transparent; "
+            f"padding: {padding}; border: none;"
+        )
+
+    def set_bg_alpha(self, alpha: float):
+        self._bg_alpha = max(0.0, min(1.0, alpha))
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        c = QColor(self._chip_bg)
+        c.setAlpha(round(self._bg_alpha * 255))
+        painter.setCompositionMode(QPainter.CompositionMode_Source)
+        painter.setBrush(c)
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(self.rect(), self._radius, self._radius)
+        painter.end()
+        super().paintEvent(event)
+
+
 class StripeBackground(QWidget):
     """Paints repeating ~45° diagonal stripes across the whole widget when a
     flag theme is active (STRIPE_COLOURS set); otherwise just fills BG.
@@ -765,7 +844,12 @@ class StripeBackground(QWidget):
         bg.setAlpha(a)
         painter.setCompositionMode(QPainter.CompositionMode_Source)
         painter.fillRect(self.rect(), bg)
-        painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+        # Keep Source mode (not SourceOver) for the stripes too — SourceOver
+        # would blend each stripe on top of the already-transparent base,
+        # and stacking two alpha layers like that compounds toward more
+        # opaque than the slider says (e.g. two 50%-alpha layers combine to
+        # ~75%, not 50%). Source just replaces the pixel outright, keeping
+        # a single consistent alpha across the whole background.
 
         stripe_w = STRIPE_WIDTH
         cycle = stripe_w * len(colours)
