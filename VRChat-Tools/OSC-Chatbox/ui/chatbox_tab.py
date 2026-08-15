@@ -1,27 +1,144 @@
 """
 ui/chatbox_tab.py
-─────────────────
-Chatbox tab: live preview, start/stop/restart, config fields, forced text.
-
-For flag themes, STRIPE_COLOURS drives repeating diagonal stripes drawn on a
-canvas that fills the root window. Widgets sit in a normal Frame on top with
-their own PANEL backgrounds so they remain fully readable. The stripe canvas
-is managed by the App root window, not by this tab — this tab just uses BG
-as its own background and the stripes show in the gaps between panels.
+─────────────────────
+Qt replacement for ui/chatbox_tab.py. Same layout and behaviour:
+  - Status bar + Start/Stop/Restart/Settings/Help buttons
+  - Live chatbox preview
+  - Config fields (OSC IP/Port, interface, LHM URL, location)
+  - Forced text override
+  - Bottom bar: Discord button (bottom-left), rotating banner (bottom-centre),
+    GitHub button (bottom-right) — pinned to the window edges like the Tk
+    version's `.place()` calls, sitting directly on the StripeBackground so
+    flag-theme stripes show in the gaps around them.
 """
 
-import tkinter as tk
+import glob
+import os
 import webbrowser
 
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, RED, FONT, STRIPE_COLOURS, draw_stripes
+from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QRect
+from PySide6.QtGui import QPixmap, QIcon
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
+    QPushButton, QPlainTextEdit, QSizePolicy, QFrame,
+)
+
+from ui import theme
+from ui.theme import StripeBackground, TextChip
+
+BANNER_DIR = "assets/banners"
+BANNER_HOLD_MS = 15000
+BANNER_SLIDE_MS = 500
+
+BANNER_WIDTH  = 600
+BANNER_HEIGHT = 100
+ICON_SIZE = 50
 
 
+def _hline(parent_layout):
+    line = QWidget()
+    line.setFixedHeight(1)
+    line.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
+    parent_layout.addWidget(line)
 
 
-class ChatboxTab(tk.Frame):
-    def __init__(self, parent, cfg: dict, state, save_cb, start_cb, stop_cb,
+class _IconButton(QPushButton):
+    """Square image button (Discord/GitHub), same footprint as the Tk version."""
+    def __init__(self, icon_path: str, bg: str, hover_bg: str, url: str, size=ICON_SIZE):
+        super().__init__()
+        self.setFixedSize(size + 12, size + 12)
+        self.setCursor(Qt.PointingHandCursor)
+        if os.path.isfile(icon_path):
+            self.setIcon(QIcon(QPixmap(icon_path)))
+            self.setIconSize(self.size() - self.size() / 6)
+        else:
+            self.setText("?")
+        self.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {bg};
+                border: none;
+                border-radius: 4px;
+            }}
+            QPushButton:hover {{
+                background-color: {hover_bg};
+            }}
+        """)
+        self.clicked.connect(lambda: webbrowser.open(url))
+
+
+class _BannerRotator(QWidget):
+    """Rotates through PNGs in assets/banners with a horizontal slide,
+    mirroring the Tk canvas-based slide animation."""
+    def __init__(self):
+        super().__init__()
+        self.setFixedSize(BANNER_WIDTH, BANNER_HEIGHT)
+        self.setStyleSheet(f"background-color: {theme.BG}; border: none;")
+
+        self._paths = sorted(glob.glob(f"{BANNER_DIR}/*.png"))
+        self._index = 0
+
+        self._current = QLabel(self)
+        self._current.setAlignment(Qt.AlignCenter)
+        self._current.setGeometry(0, 0, BANNER_WIDTH, BANNER_HEIGHT)
+
+        self._incoming = QLabel(self)
+        self._incoming.setAlignment(Qt.AlignCenter)
+        self._incoming.setGeometry(BANNER_WIDTH, 0, BANNER_WIDTH, BANNER_HEIGHT)
+        self._incoming.hide()
+
+        if not self._paths:
+            self._current.setText("(no banners found in assets/banners)")
+            self._current.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+            self._current.setFont(theme.qt_font(8))
+        else:
+            self._show_pixmap(self._current, self._paths[0])
+            self._timer = QTimer(self)
+            self._timer.timeout.connect(self._advance)
+            self._timer.start(BANNER_HOLD_MS)
+
+    def _show_pixmap(self, label: QLabel, path: str):
+        pix = QPixmap(path)
+        if pix.isNull():
+            return
+        scaled = pix.scaled(BANNER_WIDTH, BANNER_HEIGHT, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        label.setPixmap(scaled)
+
+    def _advance(self):
+        if not self._paths:
+            return
+        self._index = (self._index + 1) % len(self._paths)
+        self._show_pixmap(self._incoming, self._paths[self._index])
+        self._incoming.setGeometry(BANNER_WIDTH, 0, BANNER_WIDTH, BANNER_HEIGHT)
+        self._incoming.show()
+
+        anim_cur = QPropertyAnimation(self._current, b"geometry", self)
+        anim_cur.setDuration(BANNER_SLIDE_MS)
+        anim_cur.setStartValue(QRect(0, 0, BANNER_WIDTH, BANNER_HEIGHT))
+        anim_cur.setEndValue(QRect(-BANNER_WIDTH, 0, BANNER_WIDTH, BANNER_HEIGHT))
+        anim_cur.setEasingCurve(QEasingCurve.InOutCubic)
+
+        anim_in = QPropertyAnimation(self._incoming, b"geometry", self)
+        anim_in.setDuration(BANNER_SLIDE_MS)
+        anim_in.setStartValue(QRect(BANNER_WIDTH, 0, BANNER_WIDTH, BANNER_HEIGHT))
+        anim_in.setEndValue(QRect(0, 0, BANNER_WIDTH, BANNER_HEIGHT))
+        anim_in.setEasingCurve(QEasingCurve.InOutCubic)
+
+        def _finish():
+            self._current.setPixmap(self._incoming.pixmap())
+            self._current.setGeometry(0, 0, BANNER_WIDTH, BANNER_HEIGHT)
+            self._incoming.hide()
+
+        anim_in.finished.connect(_finish)
+        anim_cur.start()
+        anim_in.start()
+        # Keep references alive for the duration of the animation
+        self._anim_cur, self._anim_in = anim_cur, anim_in
+
+
+class ChatboxTab(StripeBackground):
+    def __init__(self, cfg: dict, state, save_cb, start_cb, stop_cb,
                  restart_cb, settings_cb, help_cb):
-        super().__init__(parent, bg=BG)
+        super().__init__()
         self._cfg         = cfg
         self._state       = state
         self._save_cb     = save_cb
@@ -30,229 +147,222 @@ class ChatboxTab(tk.Frame):
         self._restart_cb  = restart_cb
         self._settings_cb = settings_cb
         self._help_cb     = help_cb
-
-        self.columnconfigure(0, weight=1)
-
-        if STRIPE_COLOURS:
-            # Draw stripes directly on this frame's background via a canvas
-            # that sits at z-order bottom; all child widgets grid on top normally.
-            self._stripe_canvas = tk.Canvas(self, bg=BG, highlightthickness=0, bd=0)
-            self._stripe_canvas.place(x=0, y=0, relwidth=1, relheight=1)
-            self.bind("<Configure>", self._on_resize)
+        self._entries     = {}
+        self._chips       = []  # TextChip captions/labels — see set_bg_alpha override below
 
         self._build()
 
-    def _on_resize(self, event):
-        w, h = event.width, event.height
-        draw_stripes(self._stripe_canvas, w, h, STRIPE_COLOURS)
-        self._stripe_canvas.tk.call("lower", self._stripe_canvas._w)
+    def set_bg_alpha(self, alpha: float):
+        """Override StripeBackground.set_bg_alpha to also propagate to
+        every TextChip caption/label, so they fade along with the rest
+        of the background instead of staying permanently opaque."""
+        super().set_bg_alpha(alpha)
+        for chip in self._chips:
+            chip.set_bg_alpha(alpha)
 
     def _build(self):
-        row = 0
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(8, 8, 8, 8)
+        outer.setSpacing(4)
 
         # ── Status bar ────────────────────────────────────────────────────────
-        status_frame = tk.Frame(self, bg=PANEL, pady=6)
-        status_frame.grid(row=row, column=0, sticky="ew", padx=8, pady=(8, 4))
-        status_frame.columnconfigure(1, weight=1)
-        row += 1
+        status_frame = QWidget()
+        status_frame.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
+        status_layout = QHBoxLayout(status_frame)
+        status_layout.setContentsMargins(10, 6, 10, 6)
 
-        tk.Label(status_frame, text="Status:", bg=PANEL, fg=SUBTEXT,
-                 font=(FONT, 9)).grid(row=0, column=0, padx=(10, 4))
-        self._status_lbl = tk.Label(status_frame, text="Stopped", bg=PANEL, fg=RED,
-                                    font=(FONT, 9, "bold"))
-        self._status_lbl.grid(row=0, column=1, sticky="w")
+        status_caption = QLabel("Status:")
+        status_caption.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        status_caption.setFont(theme.qt_font(9))
+        status_layout.addWidget(status_caption)
+
+        self._status_lbl = QLabel("Stopped")
+        self._status_lbl.setStyleSheet(f"color: {theme.RED}; background: transparent; border: none;")
+        self._status_lbl.setFont(theme.qt_font(9, bold=True))
+        status_layout.addWidget(self._status_lbl)
+        status_layout.addStretch(1)
+
+        outer.addWidget(status_frame)
 
         # ── Control buttons ───────────────────────────────────────────────────
-        btn_frame = tk.Frame(self, bg=BG)
-        btn_frame.grid(row=row, column=0, sticky="ew", padx=8, pady=4)
-        row += 1
+        btn_row = QHBoxLayout()
+        btn_row.setContentsMargins(0, 4, 0, 4)
 
-        for text, cmd, fg in (
-                ("▶  Start",   self._start_cb,   ACCENT),
-                ("■  Stop",    self._stop_cb,    ACCENT),
-                ("↺  Restart", self._restart_cb, ACCENT),
+        for text, cmd in (
+                ("▶  Start",   self._start_cb),
+                ("■  Stop",    self._stop_cb),
+                ("↺  Restart", self._restart_cb),
         ):
-            tk.Button(
-                btn_frame, text=text, bg=PANEL, fg=fg,
-                relief="flat", cursor="hand2", font=(FONT, 10, "bold"),
-                activebackground=BORDER, activeforeground=TEXT,
-                width=12, pady=6, command=cmd,
-            ).pack(side="left", padx=4)
+            b = QPushButton(text)
+            b.setFont(theme.qt_font(10, bold=True))
+            b.setMinimumWidth(110)
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(cmd)
+            btn_row.addWidget(b)
 
-        tk.Button(
-            btn_frame, text="⚙ Settings", bg=PANEL, fg=SUBTEXT,
-            relief="flat", cursor="hand2", font=(FONT, 9),
-            activebackground=BORDER, activeforeground=TEXT,
-            command=self._settings_cb,
-        ).pack(side="right", padx=4)
+        btn_row.addStretch(1)
 
-        tk.Button(
-            btn_frame, text="? Help", bg=PANEL, fg=SUBTEXT,
-            relief="flat", cursor="hand2", font=(FONT, 9),
-            activebackground=BORDER, activeforeground=TEXT,
-            command=self._help_cb,
-        ).pack(side="right", padx=4)
+        help_btn = QPushButton("? Help")
+        help_btn.setStyleSheet(theme.subtle_button_qss())
+        help_btn.setFont(theme.qt_font(9))
+        help_btn.setCursor(Qt.PointingHandCursor)
+        help_btn.clicked.connect(self._help_cb)
+        btn_row.addWidget(help_btn)
 
-        tk.Frame(self, bg=BORDER, height=1).grid(row=row, column=0, sticky="ew", padx=8, pady=4)
-        row += 1
+        settings_btn = QPushButton("⚙ Settings")
+        settings_btn.setStyleSheet(theme.subtle_button_qss())
+        settings_btn.setFont(theme.qt_font(9))
+        settings_btn.setCursor(Qt.PointingHandCursor)
+        settings_btn.clicked.connect(self._settings_cb)
+        btn_row.addWidget(settings_btn)
+
+        outer.addLayout(btn_row)
+        _hline(outer)
 
         # ── Live preview ──────────────────────────────────────────────────────
-        tk.Label(self, text="Live Chatbox Preview", bg=BG, fg=ACCENT2,
-                 font=(FONT, 9, "bold")).grid(row=row, column=0, sticky="w", padx=12)
-        row += 1
+        preview_caption = TextChip("Live Chatbox Preview")
+        preview_caption.setFont(theme.qt_font(9, bold=True))
+        outer.addWidget(preview_caption, alignment=Qt.AlignLeft)
+        self._chips.append(preview_caption)
 
-        preview_frame = tk.Frame(self, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-        preview_frame.grid(row=row, column=0, sticky="ew", padx=8, pady=(0, 4))
-        preview_frame.columnconfigure(0, weight=1)
-        row += 1
-
-        self._preview = tk.Text(
-            preview_frame, bg=PANEL, fg=TEXT,
-            font=(FONT, 10), relief="flat",
-            height=8, wrap="word",
-            state="disabled", padx=10, pady=8,
+        preview_frame = QFrame()
+        preview_frame.setStyleSheet(
+            f"background-color: {theme.PANEL}; border: 1px solid {theme.BORDER};"
         )
-        self._preview.pack(fill="x")
+        preview_layout = QVBoxLayout(preview_frame)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+        preview_layout.setSpacing(0)
 
-        self._page_lbl = tk.Label(preview_frame, text="", bg=PANEL, fg=SUBTEXT, font=(FONT, 8))
-        self._page_lbl.pack(anchor="e", padx=8, pady=(0, 4))
+        self._preview = QPlainTextEdit()
+        self._preview.setReadOnly(True)
+        self._preview.setFixedHeight(150)
+        self._preview.setFont(theme.qt_font(10))
+        # QPlainTextEdit is QFrame-derived and draws its own native frame
+        # decoration (frameShape/lineWidth) as a SEPARATE mechanism from the
+        # CSS "border" property — setting border:none in the stylesheet
+        # doesn't fully suppress it, which left a mis-sized inner border box
+        # alongside the intended outer one on preview_frame. NoFrame kills it.
+        self._preview.setFrameShape(QFrame.NoFrame)
+        self._preview.setStyleSheet(
+            f"background-color: {theme.PANEL}; color: {theme.TEXT}; border: none; padding: 8px;"
+        )
+        preview_layout.addWidget(self._preview)
 
-        tk.Frame(self, bg=BORDER, height=1).grid(row=row, column=0, sticky="ew", padx=8, pady=4)
-        row += 1
+        self._page_lbl = QLabel("")
+        self._page_lbl.setAlignment(Qt.AlignRight)
+        self._page_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; padding: 0 8px 4px 0; border: none;")
+        self._page_lbl.setFont(theme.qt_font(8))
+        preview_layout.addWidget(self._page_lbl)
+
+        outer.addWidget(preview_frame)
+        outer.addSpacing(8)  # preview_frame's own border already separates this section — an
+        # adjacent _hline() here just created a visible double-border line
 
         # ── Config fields ─────────────────────────────────────────────────────
-        tk.Label(self, text="Configuration", bg=BG, fg=ACCENT2,
-                 font=(FONT, 9, "bold")).grid(row=row, column=0, sticky="w", padx=12)
-        row += 1
+        cfg_caption = TextChip("Configuration")
+        cfg_caption.setFont(theme.qt_font(9, bold=True))
+        outer.addWidget(cfg_caption, alignment=Qt.AlignLeft)
+        self._chips.append(cfg_caption)
 
-        cfg_frame = tk.Frame(self, bg=BG)
-        cfg_frame.grid(row=row, column=0, sticky="ew", padx=12, pady=4)
-        cfg_frame.columnconfigure(1, weight=1)
-        cfg_frame.columnconfigure(3, weight=1)
-        row += 1
-
-        self._entries = {}
+        cfg_grid = QGridLayout()
+        cfg_grid.setContentsMargins(4, 4, 4, 4)
+        cfg_grid.setColumnStretch(1, 1)
+        cfg_grid.setColumnStretch(3, 1)
 
         fields = [
-            ("OSC IP",       "osc_ip",         0, 0, 1),
-            ("OSC Port",     "osc_port",        0, 2, 3),
-            ("Interface",    "interface",       1, 0, 1),
-            ("useless block","temp_var1",       1, 2, 3),
-            ("LHM URL",      "lhm_api",         2, 0, 1),
-            ("Location",     "location",        2, 2, 3),
+            ("OSC IP",        "osc_ip",     0, 0, 1),
+            ("OSC Port",      "osc_port",   0, 2, 3),
+            ("Interface",     "interface",  1, 0, 1),
+            ("useless block", "temp_var1",  1, 2, 3),
+            ("LHM URL",       "lhm_api",    2, 0, 1),
+            ("Location",      "location",   2, 2, 3),
         ]
 
         for label, key, r, cl, ce in fields:
-            tk.Label(cfg_frame, text=label, bg=BG, fg=SUBTEXT,
-                     font=(FONT, 9), anchor="e").grid(row=r, column=cl, sticky="e",
-                                                      padx=(8, 4), pady=3)
-            e = tk.Entry(
-                cfg_frame, bg=PANEL, fg=TEXT, insertbackground=ACCENT,
-                relief="flat", font=(FONT, 9),
-                highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
-            )
-            e.insert(0, str(self._cfg.get(key, "")))
-            e.grid(row=r, column=ce, sticky="ew", pady=3)
-            self._entries[key] = e
+            lbl = TextChip(label, fg=theme.SUBTEXT, padding="2px 6px")
+            lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            lbl.setFont(theme.qt_font(9))
+            cfg_grid.addWidget(lbl, r, cl)
+            self._chips.append(lbl)
 
-            def _on_change(event, k=key, entry=e):
-                self._cfg[k] = entry.get()
+            entry = QLineEdit(str(self._cfg.get(key, "")))
+            entry.setFont(theme.qt_font(9))
+            cfg_grid.addWidget(entry, r, ce)
+            self._entries[key] = entry
+
+            def _on_change(k=key, e=entry):
+                self._cfg[k] = e.text()
                 self._save_cb()
 
-            e.bind("<FocusOut>", _on_change)
-            e.bind("<Return>",   _on_change)
+            entry.editingFinished.connect(_on_change)
 
-        tk.Frame(self, bg=BORDER, height=1).grid(row=row, column=0, sticky="ew", padx=8, pady=4)
-        row += 1
+        outer.addLayout(cfg_grid)
+        _hline(outer)
 
         # ── Forced text ───────────────────────────────────────────────────────
-        tk.Label(self, text="Forced Text (overrides all pages)",
-                 bg=BG, fg=ACCENT2, font=(FONT, 9, "bold")).grid(
-            row=row, column=0, sticky="w", padx=12)
-        row += 1
+        forced_caption = TextChip("Forced Text (overrides all pages)")
+        forced_caption.setFont(theme.qt_font(9, bold=True))
+        outer.addWidget(forced_caption, alignment=Qt.AlignLeft)
+        self._chips.append(forced_caption)
 
-        forced_frame = tk.Frame(self, bg=BG)
-        forced_frame.grid(row=row, column=0, sticky="ew", padx=12, pady=(0, 8))
-        forced_frame.columnconfigure(0, weight=1)
+        self._forced_entry = QLineEdit()
+        self._forced_entry.setFont(theme.qt_font(10))
+        outer.addWidget(self._forced_entry)
 
-        self._forced_var = tk.StringVar()
-        forced_entry = tk.Entry(
-            forced_frame, textvariable=self._forced_var,
-            bg=PANEL, fg=TEXT, insertbackground=ACCENT,
-            relief="flat", font=(FONT, 10),
-            highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
+        hint = QLabel("Leave blank to use pages")
+        hint.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        hint.setFont(theme.qt_font(8))
+        outer.addWidget(hint)
+
+        def _forced_changed(text):
+            self._state.forced_text = text
+
+        self._forced_entry.textChanged.connect(_forced_changed)
+
+        outer.addStretch(1)
+
+        # ── Bottom bar: pinned via absolute positioning (mirrors Tk .place) ────
+        self._discord_btn = _IconButton(
+            "assets/discord.png", theme.BG, theme.ACCENT2,
+            "https://discord.gg/YDXpQPF6g9",
         )
-        forced_entry.grid(row=0, column=0, sticky="ew")
-        tk.Label(forced_frame, text="Leave blank to use pages",
-                 bg=BG, fg=SUBTEXT, font=(FONT, 8)).grid(row=1, column=0, sticky="w")
+        self._discord_btn.setParent(self)
 
-        def _forced_changed(*_):
-            self._state.forced_text = self._forced_var.get()
+        self._banner = _BannerRotator()
+        self._banner.setParent(self)
 
-        self._forced_var.trace_add("write", _forced_changed)
-
-        # discord + github images from "https://icons8.com
-
-        # ── Bottom bar: pinned 20 px above window bottom via place ──────────────────
-        bottom_frame = tk.Frame(self, bg=BG)
-        bottom_frame.columnconfigure(1, weight=1)
-
-        # Square Discord logo button
-        _discord_img = tk.PhotoImage(file="assets/discord.png")
-        _discord_btn = tk.Button(
-            bottom_frame, image=_discord_img,
-            bg="#5865F2", activebackground="#4752C4",
-            relief="flat", cursor="hand2", bd=0,
-            padx=6, pady=6,
-            command=lambda: webbrowser.open("https://discord.gg/YDXpQPF6g9"),
+        self._github_btn = _IconButton(
+            "assets/github.png", theme.BG, theme.ACCENT2,
+            "https://github.com/CaptainBoots/VRChat-ToolBox",
         )
-        _discord_btn.image = _discord_img  # keep reference
-        _discord_btn.grid(row=0, column=0, sticky="w", padx=(0, 8))
+        self._github_btn.setParent(self)
 
-        # Rainbow pride canvas
-        pride_canvas = tk.Canvas(bottom_frame, height=44, highlightthickness=0, bd=0, bg=BG)
-        pride_canvas.grid(row=0, column=1, sticky="ew", padx=4)
+        self._position_bottom_bar()
 
-        def _draw_pride(canvas, w, h):
-            canvas.delete("all")
-            cols = ["#FF0000", "#FF1E00", "#FF3D00", "#FF5B00", "#FF7A00", "#FF9900", "#FFB700", "#FFD600", "#FFF400", "#EAFF00", "#CCFF00", "#ADFF00", "#8EFF00", "#70FF00", "#51FF00", "#33FF00", "#14FF00", "#00FF0A", "#00FF28", "#00FF47", "#00FF66", "#00FF84", "#00FFA3", "#00FFC1", "#00FFE0", "#00FFFF", "#00E0FF", "#00C1FF", "#00A3FF", "#0084FF", "#0066FF", "#0047FF", "#0028FF", "#000AFF", "#1400FF", "#3300FF", "#5100FF", "#7000FF", "#8E00FF", "#AD00FF", "#CC00FF", "#EA00FF", "#FF00F4", "#FF00D6", "#FF00B7", "#FF0099", "#FF007A", "#FF005B", "#FF003D", "#FF001E"]
-            seg = max(1, w // len(cols))
-            for i, col in enumerate(cols):
-                canvas.create_rectangle(i * seg, 0, (i + 1) * seg + 2, h, fill=col, outline="")
-            canvas.create_text(w // 2, h // 2, text="HAPPY PRIDE MONTH",
-                               font=(FONT, 15, "bold"), fill="black", anchor="center")
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._position_bottom_bar()
 
-        pride_canvas.bind("<Configure>", lambda e: _draw_pride(pride_canvas, e.width, e.height))
+    def _position_bottom_bar(self):
+        w, h = self.width(), self.height()
+        y = h - 20 - self._discord_btn.height()
+        self._discord_btn.move(8, y)
+        self._banner.move((w - self._banner.width()) // 2,
+                          h - 20 - self._banner.height())
+        self._github_btn.move(w - 8 - self._github_btn.width(), y)
 
-        # Square GitHub logo button
-        _github_img = tk.PhotoImage(file="assets/github.png")
-        _github_btn = tk.Button(
-            bottom_frame, image=_github_img,
-            bg="#24292e", activebackground="#444d56",
-            relief="flat", cursor="hand2", bd=0,
-            padx=6, pady=6,
-            command=lambda: webbrowser.open("https://github.com/CaptainBoots/VRChat-ToolBox"),
-        )
-        _github_btn.image = _github_img  # keep reference
-        _github_btn.grid(row=0, column=2, sticky="e", padx=(8, 0))
-
-        # Pin bottom_frame 20 px above the bottom edge of the tab
-        bottom_frame.place(relx=0, rely=1.0, anchor="sw", relwidth=1.0, y=-20)
-
-    # ── Public update methods ─────────────────────────────────────────────────
+    # ── Public update methods (mirrors the Tk version's API) ────────────────
 
     def set_status(self, text: str):
-        colour = GREEN if "running" in text.lower() else RED
-        self._status_lbl.config(text=text, fg=colour)
+        colour = theme.GREEN if "running" in text.lower() else theme.RED
+        self._status_lbl.setStyleSheet(f"color: {colour}; background: transparent; border: none;")
+        self._status_lbl.setText(text)
 
     def set_preview(self, text: str):
-        self._preview.config(state="normal")
-        self._preview.delete("1.0", tk.END)
-        self._preview.insert("1.0", text)
-        self._preview.config(state="disabled")
+        self._preview.setPlainText(text)
 
     def set_page_label(self, text: str):
-        self._page_lbl.config(text=text)
+        self._page_lbl.setText(text)
 
     def get_forced_text(self) -> str:
-        return self._forced_var.get()
+        return self._forced_entry.text()

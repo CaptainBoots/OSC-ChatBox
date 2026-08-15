@@ -1,367 +1,345 @@
-import tkinter as tk
+"""
+ui/builder.py
+──────────────────────
+Qt replacement for ui/builder.py. Same structure: a scrollable list of
+page cards, each with a header (enable toggle, title, duration stepper,
+delete) and a list of slot rows (drag handle, reorder arrows, module
+capsules with optional inline text, add/remove controls).
+"""
+
+from PySide6.QtCore import Qt, QMimeData, QPoint
+from PySide6.QtGui import QDrag, QCursor
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
+    QScrollArea, QFrame, QMenu, QSizePolicy,
+)
 
 from modules.registry import CATEGORIES, MODULE_BY_ID
 from ui.circle_toggle import CircleToggle
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, RED, STRIPE_COLOURS, draw_stripes
+from ui import theme
+from ui.theme import StripeBackground
 
 
-class BuilderTab(tk.Frame):
-    def __init__(self, parent, cfg: dict, save_cb):
-        super().__init__(parent, bg=BG)
-        self._cfg         = cfg
-        self._save_cb     = save_cb
-        self._sel_page    = 0
-        self._drag        = {}
-        self._canvas_win  = None
-        self._cards_frame = None
+def _label_btn(parent_layout, text, fg, command, *, bg=None, font_size=9,
+               bold=True, padding="2px 6px"):
+    bg = bg or theme.PANEL
+    lbl = QLabel(text)
+    lbl.setCursor(Qt.PointingHandCursor)
+    lbl.setStyleSheet(f"color: {fg}; background-color: {bg}; padding: {padding}; border: none;")
+    lbl.setFont(theme.qt_font(font_size, bold=bold))
 
-        if STRIPE_COLOURS:
-            self._stripe_canvas = tk.Canvas(self, bg=BG, highlightthickness=0, bd=0)
-            self._stripe_canvas.place(x=0, y=0, relwidth=1, relheight=1)
-            self.bind("<Configure>", self._on_resize)
+    def _enter(_e):
+        lbl.setStyleSheet(f"color: {fg}; background-color: {theme.BORDER}; padding: {padding}; border: none;")
 
+    def _leave(_e):
+        lbl.setStyleSheet(f"color: {fg}; background-color: {bg}; padding: {padding}; border: none;")
+
+    lbl.enterEvent = _enter
+    lbl.leaveEvent = _leave
+    lbl.mousePressEvent = lambda _e: command()
+    parent_layout.addWidget(lbl)
+    return lbl
+
+
+def _hline(parent_layout):
+    line = QFrame()
+    line.setFixedHeight(1)
+    line.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
+    parent_layout.addWidget(line)
+
+
+class BuilderTab(StripeBackground):
+    def __init__(self, cfg: dict, save_cb):
+        super().__init__()
+        self._cfg = cfg
+        self._save_cb = save_cb
+        self._sel_page = 0
         self._build_ui()
 
-    def _on_resize(self, event):
-        draw_stripes(self._stripe_canvas, event.width, event.height, STRIPE_COLOURS)
-        self._stripe_canvas.tk.call("lower", self._stripe_canvas._w)
-
-    # ── Label-button helper ───────────────────────────────────────────────────
-
-    def _label_btn(self, parent, text, fg, command, *,
-                   bg=PANEL, font_size=9, bold=True, padx=6, pady=2, width=None):
-        kw = dict(
-            bg=bg, fg=fg, cursor="hand2", padx=padx, pady=pady, relief="flat",
-            font=(FONT, font_size, "bold" if bold else "normal"),
-        )
-        if width is not None:
-            kw["width"] = width
-        w = tk.Label(parent, text=text, **kw)
-        w.bind("<Button-1>", lambda _e: command())
-        w.bind("<Enter>",    lambda _e: w.config(bg=BORDER))
-        w.bind("<Leave>",    lambda _e: w.config(bg=bg))
-        return w
-
-    # ── Layout ────────────────────────────────────────────────────────────────
+    # ── Layout ────────────────────────────────────────────────────────────
 
     def _build_ui(self):
-        self.columnconfigure(0, weight=1)
-        self.rowconfigure(0, weight=1)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(4, 8, 4, 8)
 
-        right = tk.Frame(self, bg=BG)
-        right.grid(row=0, column=0, sticky="nsew", padx=4)
-        right.rowconfigure(1, weight=1)
-        right.columnconfigure(0, weight=1)
+        header_row = QHBoxLayout()
+        title = QLabel("Output Pages Setup")
+        title.setStyleSheet(f"color: {theme.TEXT}; background: {theme.BG}; border: none;")
+        title.setFont(theme.qt_font(11, bold=True))
+        header_row.addWidget(title)
+        header_row.addStretch(1)
+        _label_btn(header_row, "+ Create Page", theme.ACCENT, self._add_page,
+                   font_size=9, padding="4px 12px")
+        outer.addLayout(header_row)
 
-        # Header
-        r_hdr = tk.Frame(right, bg=BG)
-        r_hdr.grid(row=0, column=0, sticky="ew", pady=(8, 8))
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setStyleSheet("background: transparent; border: none;")
+        outer.addWidget(self._scroll, 1)
 
-        tk.Label(
-            r_hdr, text="Output Pages Setup",
-            bg=BG, fg=TEXT, font=(FONT, 11, "bold"),
-        ).pack(side="left")
-
-        self._label_btn(
-            r_hdr, "+ Create Page", ACCENT, self._add_page,
-            bg=PANEL, padx=12, pady=4,
-        ).pack(side="right")
-
-        # Scrollable canvas
-        self._canvas = tk.Canvas(right, bg=BG, highlightthickness=0, borderwidth=0)
-        self._canvas.grid(row=1, column=0, sticky="nsew")
-
-        self._vsb = tk.Scrollbar(right, orient="vertical", command=self._canvas.yview)
-        self._vsb.grid(row=1, column=1, sticky="ns")
-        self._canvas.configure(yscrollcommand=self._vsb.set)
-
-        self._bind_mouse_wheel(self._canvas)
-
-        def _on_canvas_configure(e):
-            if self._canvas_win is not None:
-                self._canvas.itemconfigure(self._canvas_win, width=e.width)
-
-        self._canvas.bind("<Configure>", _on_canvas_configure)
         self._refresh_pages()
 
-    # ── Mouse wheel ───────────────────────────────────────────────────────────
-
-    def _bind_mouse_wheel(self, widget):
-        widget.bind("<MouseWheel>", self._on_mouse_wheel, add="+")
-        widget.bind("<Button-4>",   self._on_mouse_wheel, add="+")
-        widget.bind("<Button-5>",   self._on_mouse_wheel, add="+")
-
-    def _on_mouse_wheel(self, event):
-        if event.num == 4:
-            self._canvas.yview_scroll(-1, "units")
-        elif event.num == 5:
-            self._canvas.yview_scroll(1, "units")
-        elif event.delta:
-            self._canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-    # ── Refresh ───────────────────────────────────────────────────────────────
+    # ── Refresh ───────────────────────────────────────────────────────────
 
     def _refresh_pages(self):
-        old_frame = self._cards_frame
-        new_frame = tk.Frame(self._canvas, bg=BG)
+        container = QWidget()
+        container.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 8, 0)
+        layout.setSpacing(12)
 
         pages = self._cfg.get("pages", [])
         for page_idx, page in enumerate(pages):
-            self._build_page_card(new_frame, page_idx, page)
+            layout.addWidget(self._build_page_card(page_idx, page))
+        layout.addStretch(1)
 
-        def _on_frame_configure(_):
-            self._canvas.configure(scrollregion=self._canvas.bbox("all"))
-        new_frame.bind("<Configure>", _on_frame_configure)
+        self._scroll.setWidget(container)
 
-        if self._canvas_win is not None:
-            self._canvas.itemconfigure(self._canvas_win, window=new_frame)
-        else:
-            self._canvas_win = self._canvas.create_window((0, 0), window=new_frame, anchor="nw")
+    # ── Page card ─────────────────────────────────────────────────────────
 
-        self._canvas.itemconfigure(self._canvas_win, width=self._canvas.winfo_width())
-        self._cards_frame = new_frame
-        self._bind_mouse_wheel(new_frame)
+    def _build_page_card(self, page_idx, page):
+        is_sel = (page_idx == self._sel_page)
+        border_clr = theme.ACCENT if is_sel else theme.BORDER
 
-        if old_frame:
-            old_frame.destroy()
-
-    # ── Page card ─────────────────────────────────────────────────────────────
-
-    def _build_page_card(self, parent_frame, page_idx, page):
-        is_sel     = (page_idx == self._sel_page)
-        border_clr = ACCENT if is_sel else BORDER
-
-        card = tk.Frame(
-            parent_frame, bg=PANEL,
-            highlightthickness=1, highlightbackground=border_clr, pady=8,
+        card = QFrame()
+        card.setStyleSheet(
+            f"background-color: {theme.PANEL}; border: 1px solid {border_clr};"
         )
-        card.pack(fill="x", pady=(0, 12), padx=(0, 8))
-        self._bind_mouse_wheel(card)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(12, 8, 12, 8)
 
-        def _select(_e=None, idx=page_idx):
+        def _select(_evt=None, idx=page_idx):
             if self._sel_page != idx:
                 self._sel_page = idx
                 self._refresh_pages()
 
-        card.bind("<Button-1>", _select)
+        card.mousePressEvent = _select
 
-        # ── Header row ────────────────────────────────────────────────────────
-        header = tk.Frame(card, bg=PANEL)
-        header.pack(fill="x", padx=12, pady=(0, 8))
-        header.columnconfigure(1, weight=1)
-        self._bind_mouse_wheel(header)
+        # ── Header row ────────────────────────────────────────────────────
+        header = QHBoxLayout()
 
         def _toggle_enabled(is_enabled):
             page["enabled"] = is_enabled
             self._save()
 
-        chk_toggle = CircleToggle(
-            header,
-            enabled=page.get("enabled", True),
-            command=_toggle_enabled,
-            bg=PANEL,
-        )
-        chk_toggle.grid(row=0, column=0, sticky="w", padx=(2, 4))
-        self._bind_mouse_wheel(chk_toggle)
+        chk_toggle = CircleToggle(enabled=page.get("enabled", True), color=theme.ACCENT)
+        chk_toggle.toggled.connect(_toggle_enabled)
+        header.addWidget(chk_toggle)
 
-        lbl_title = tk.Label(
-            header, text=f"Page {page_idx + 1}",
-            bg=PANEL, fg=TEXT, font=(FONT, 10, "bold"),
-        )
-        lbl_title.grid(row=0, column=1, sticky="w", padx=4)
-        self._bind_mouse_wheel(lbl_title)
+        lbl_title = QLabel(f"Page {page_idx + 1}")
+        lbl_title.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
+        lbl_title.setFont(theme.qt_font(10, bold=True))
+        header.addWidget(lbl_title)
 
-        dur_lbl = tk.Label(header, text="Duration:", bg=PANEL, fg=SUBTEXT, font=(FONT, 8))
-        dur_lbl.grid(row=0, column=2, padx=(8, 2))
-        self._bind_mouse_wheel(dur_lbl)
+        header.addSpacing(8)
+        dur_lbl = QLabel("Duration:")
+        dur_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        dur_lbl.setFont(theme.qt_font(8))
+        header.addWidget(dur_lbl)
 
-        counter_frame = tk.Frame(header, bg=BORDER, padx=1, pady=1)
-        counter_frame.grid(row=0, column=3, padx=2)
-        self._bind_mouse_wheel(counter_frame)
+        counter = QHBoxLayout()
+        counter.setSpacing(1)
 
-        dur_var = tk.StringVar(value=str(page.get("duration", 20)))
+        dur_entry = QLineEdit(str(page.get("duration", 20)))
+        dur_entry.setFixedWidth(34)
+        dur_entry.setAlignment(Qt.AlignCenter)
+        dur_entry.setFont(theme.qt_font(9, bold=True))
+        dur_entry.setStyleSheet(theme.line_edit_qss())
 
         def _decrement():
             try:
-                v = int(dur_var.get().strip())
-                dur_var.set(str(max(1, v - 1)))
+                v = int(dur_entry.text().strip())
             except ValueError:
-                dur_var.set("1")
+                v = 1
+            dur_entry.setText(str(max(1, v - 1)))
+            _dur_changed()
 
         def _increment():
             try:
-                v = int(dur_var.get().strip())
-                dur_var.set(str(min(3600, v + 1)))
+                v = int(dur_entry.text().strip())
             except ValueError:
-                dur_var.set("20")
+                v = 20
+            dur_entry.setText(str(min(3600, v + 1)))
+            _dur_changed()
 
-        self._label_btn(
-            counter_frame, "-", SUBTEXT, _decrement,
-            bg=PANEL, font_size=8, padx=4, pady=1, width=2,
-        ).pack(side="left")
+        minus_lbl = QLabel("-")
+        minus_lbl.setCursor(Qt.PointingHandCursor)
+        minus_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.PANEL}; padding: 1px 4px; border: none;")
+        minus_lbl.setFont(theme.qt_font(8))
+        minus_lbl.mousePressEvent = lambda _e: _decrement()
+        counter.addWidget(minus_lbl)
+        counter.addWidget(dur_entry)
 
-        dur_entry = tk.Entry(
-            counter_frame, textvariable=dur_var, width=3,
-            bg=BG, fg=TEXT, insertbackground=ACCENT,
-            font=(FONT, 9, "bold"), relief="flat", justify="center",
-            highlightthickness=0,
-        )
-        dur_entry.pack(side="left", padx=1)
-        self._bind_mouse_wheel(dur_entry)
+        plus_lbl = QLabel("+")
+        plus_lbl.setCursor(Qt.PointingHandCursor)
+        plus_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.PANEL}; padding: 1px 4px; border: none;")
+        plus_lbl.setFont(theme.qt_font(8))
+        plus_lbl.mousePressEvent = lambda _e: _increment()
+        counter.addWidget(plus_lbl)
 
-        self._label_btn(
-            counter_frame, "+", SUBTEXT, _increment,
-            bg=PANEL, font_size=8, padx=4, pady=1, width=2,
-        ).pack(side="left")
+        counter_wrap = QWidget()
+        counter_wrap.setLayout(counter)
+        counter_wrap.setStyleSheet(f"background-color: {theme.BG}; border: {theme.BORDER};")
+        header.addWidget(counter_wrap)
 
-        def _dur_changed(*_, p_idx=page_idx, v=dur_var):
-            val = v.get().strip()
+        def _dur_changed():
+            val = dur_entry.text().strip()
             if not val:
                 return
             try:
-                self._cfg["pages"][p_idx]["duration"] = int(val)
+                self._cfg["pages"][page_idx]["duration"] = int(val)
                 self._save()
             except (ValueError, KeyError, IndexError):
                 pass
 
-        dur_var.trace_add("write", _dur_changed)
+        dur_entry.editingFinished.connect(_dur_changed)
 
-        self._label_btn(
-            header, "✕", RED, lambda: self._delete_page(page_idx),
-            bg=PANEL, font_size=9, padx=6, pady=2,
-        ).grid(row=0, column=4, padx=(8, 2))
+        header.addStretch(1)
+        _label_btn(header, "✕", theme.RED, lambda: self._delete_page(page_idx), font_size=9)
 
-        # ── Divider ───────────────────────────────────────────────────────────
-        div = tk.Frame(card, bg=BORDER, height=1)
-        div.pack(fill="x", padx=12, pady=(0, 8))
-        self._bind_mouse_wheel(div)
+        card_layout.addLayout(header)
+        _hline(card_layout)
 
-        # ── Slots ─────────────────────────────────────────────────────────────
-        slots_frame = tk.Frame(card, bg=PANEL)
-        slots_frame.pack(fill="x", padx=12)
-        slots_frame.columnconfigure(0, weight=1)
-        self._bind_mouse_wheel(slots_frame)
-
+        # ── Slots ─────────────────────────────────────────────────────────
+        slots_layout = QVBoxLayout()
+        slots_layout.setSpacing(3)
         slots = page.get("slots", [])
         for slot_idx, slot in enumerate(slots):
-            self._build_slot_row(slots_frame, page_idx, slot_idx, slot, slots)
+            slots_layout.addWidget(self._build_slot_row(page_idx, slot_idx, slot))
 
         if not slots:
-            lbl_none = tk.Label(
-                slots_frame, text="No modules on this page yet.",
-                bg=PANEL, fg=SUBTEXT, font=(FONT, 8),
-            )
-            lbl_none.grid(row=0, column=0, columnspan=6, pady=4, sticky="w")
-            self._bind_mouse_wheel(lbl_none)
+            none_lbl = QLabel("No modules on this page yet.")
+            none_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+            none_lbl.setFont(theme.qt_font(8))
+            slots_layout.addWidget(none_lbl)
 
-        add_row_idx = len(slots) if slots else 1
-        bottom_action_frame = tk.Frame(slots_frame, bg=PANEL)
-        bottom_action_frame.grid(row=add_row_idx, column=0, columnspan=6, sticky="ew", pady=(6, 2))
-        self._bind_mouse_wheel(bottom_action_frame)
+        card_layout.addLayout(slots_layout)
 
-        self._label_btn(
-            bottom_action_frame, "+ Add New Line", ACCENT2,
-            lambda pi=page_idx: self._prompt_add_new_line_row(pi),
-            bg=BG, font_size=9, padx=10, pady=3,
-        ).pack(anchor="w", padx=2)
+        add_row = QHBoxLayout()
+        _label_btn(add_row, "+ Add New Line", theme.ACCENT2,
+                   lambda pi=page_idx: self._prompt_add_new_line_row(pi),
+                   bg=theme.BG, font_size=9, padding="3px 10px")
+        add_row.addStretch(1)
+        card_layout.addLayout(add_row)
 
-        for w in [header, lbl_title, slots_frame, bottom_action_frame]:
-            w.bind("<Button-1>", _select)
+        return card
 
-    # ── Slot row ──────────────────────────────────────────────────────────────
+    # ── Slot row ──────────────────────────────────────────────────────────
 
-    def _build_slot_row(self, parent, page_idx, slot_idx, slot, slots):
+    def _build_slot_row(self, page_idx, slot_idx, slot):
         if "modules" not in slot:
             slot["modules"] = [{"module": slot.get("module", ""), "text": slot.get("text", "")}]
 
-        row_frame = tk.Frame(parent, bg=PANEL)
-        row_frame.grid(row=slot_idx, column=0, columnspan=6, sticky="ew", pady=2)
-        self._bind_mouse_wheel(row_frame)
+        row = QFrame()
+        row.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 2, 0, 2)
 
-        handle = tk.Label(row_frame, text="⠿", bg=PANEL, fg=SUBTEXT, font=(FONT, 10), cursor="fleur")
-        handle.pack(side="left", padx=(0, 2))
+        handle = QLabel("⠿")
+        handle.setCursor(Qt.SizeAllCursor)
+        handle.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        handle.setFont(theme.qt_font(10))
+        self._wire_drag_handle(handle, page_idx, slot_idx)
+        row_layout.addWidget(handle)
 
-        handle.bind("<ButtonPress-1>",   lambda e, pi=page_idx, si=slot_idx: self._drag_start(e, pi, si))
-        handle.bind("<B1-Motion>",       lambda e, pi=page_idx: self._drag_motion(e, pi))
-        handle.bind("<ButtonRelease-1>", lambda e, pi=page_idx: self._drag_end(e, pi))
-        self._bind_mouse_wheel(handle)
+        up_lbl = QLabel("▲")
+        up_lbl.setCursor(Qt.PointingHandCursor)
+        up_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.PANEL}; padding: 1px 3px; border: none;")
+        up_lbl.setFont(theme.qt_font(7))
+        up_lbl.mousePressEvent = lambda _e, pi=page_idx, si=slot_idx: self._move_slot(pi, si, -1)
+        row_layout.addWidget(up_lbl)
 
-        self._label_btn(
-            row_frame, "▲", SUBTEXT,
-            lambda pi=page_idx, si=slot_idx: self._move_slot(pi, si, -1),
-            font_size=7, padx=3, pady=1, width=2,
-        ).pack(side="left", padx=1)
+        down_lbl = QLabel("▼")
+        down_lbl.setCursor(Qt.PointingHandCursor)
+        down_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.PANEL}; padding: 1px 3px; border: none;")
+        down_lbl.setFont(theme.qt_font(7))
+        down_lbl.mousePressEvent = lambda _e, pi=page_idx, si=slot_idx: self._move_slot(pi, si, 1)
+        row_layout.addWidget(down_lbl)
 
-        self._label_btn(
-            row_frame, "▼", SUBTEXT,
-            lambda pi=page_idx, si=slot_idx: self._move_slot(pi, si, 1),
-            font_size=7, padx=3, pady=1, width=2,
-        ).pack(side="left", padx=(1, 6))
-
-        capsule = tk.Frame(row_frame, bg=PANEL)
-        capsule.pack(side="left", fill="x", expand=True)
-        self._bind_mouse_wheel(capsule)
+        capsule = QHBoxLayout()
+        capsule.setSpacing(4)
 
         for m_idx, sub_slot in enumerate(slot["modules"]):
-            mod   = MODULE_BY_ID.get(sub_slot.get("module", ""))
+            mod = MODULE_BY_ID.get(sub_slot.get("module", ""))
             label = mod["label"] if mod else sub_slot.get("module", "unknown")
 
-            mod_block = tk.Frame(capsule, bg=BORDER, padx=4, pady=2)
-            mod_block.pack(side="left", padx=2)
-            self._bind_mouse_wheel(mod_block)
+            mod_block = QFrame()
+            mod_block.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
+            mod_block_layout = QHBoxLayout(mod_block)
+            mod_block_layout.setContentsMargins(4, 2, 4, 2)
 
-            tk.Label(mod_block, text=label, bg=BORDER, fg=TEXT, font=(FONT, 9)).pack(side="left", padx=4)
+            mlbl = QLabel(label)
+            mlbl.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
+            mlbl.setFont(theme.qt_font(9))
+            mod_block_layout.addWidget(mlbl)
 
             if mod and mod.get("has_text"):
-                txt_var = tk.StringVar(value=sub_slot.get("text", ""))
-                entry = tk.Entry(
-                    mod_block, textvariable=txt_var, width=12,
-                    bg=BG, fg=TEXT, insertbackground=ACCENT, relief="flat", font=(FONT, 9),
-                    highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
-                )
-                entry.pack(side="left", padx=4)
-                self._bind_mouse_wheel(entry)
+                entry = QLineEdit(sub_slot.get("text", ""))
+                entry.setFixedWidth(90)
+                entry.setFont(theme.qt_font(9))
+                entry.setStyleSheet(theme.line_edit_qss())
 
-                def _text_changed(*_, var=txt_var, pi=page_idx, si=slot_idx, mi=m_idx):
+                def _text_changed(text, pi=page_idx, si=slot_idx, mi=m_idx):
                     try:
-                        self._cfg["pages"][pi]["slots"][si]["modules"][mi]["text"] = var.get()
+                        self._cfg["pages"][pi]["slots"][si]["modules"][mi]["text"] = text
                         self._save()
                     except IndexError:
                         pass
 
-                txt_var.trace_add("write", _text_changed)
+                entry.textChanged.connect(_text_changed)
+                mod_block_layout.addWidget(entry)
 
             if len(slot["modules"]) > 1:
-                self._label_btn(
-                    mod_block, "✕", SUBTEXT,
-                    lambda pi=page_idx, si=slot_idx, mi=m_idx: self._remove_sub_module(pi, si, mi),
-                    bg=BORDER, font_size=8, padx=3, pady=1,
-                ).pack(side="left", padx=(2, 2))
+                x_lbl = QLabel("✕")
+                x_lbl.setCursor(Qt.PointingHandCursor)
+                x_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.BORDER}; padding: 1px 3px; border: none;")
+                x_lbl.setFont(theme.qt_font(8))
+                x_lbl.mousePressEvent = (
+                    lambda _e, pi=page_idx, si=slot_idx, mi=m_idx: self._remove_sub_module(pi, si, mi)
+                )
+                mod_block_layout.addWidget(x_lbl)
 
-        right_controls = tk.Frame(row_frame, bg=PANEL)
-        right_controls.pack(side="right", padx=(2, 4))
-        self._bind_mouse_wheel(right_controls)
+            capsule.addWidget(mod_block)
 
-        self._label_btn(
-            right_controls, "+", ACCENT2,
-            lambda pi=page_idx, si=slot_idx: self._prompt_append_module(pi, si),
-            font_size=13, bold=True, padx=4, pady=1,
-        ).pack(side="left", padx=4)
+        capsule.addStretch(1)
+        row_layout.addLayout(capsule, 1)
 
-        self._label_btn(
-            right_controls, "x", RED,
-            lambda pi=page_idx, si=slot_idx: self._remove_slot(pi, si),
-            font_size=13, bold=True, padx=4, pady=1,
-        ).pack(side="left", padx=4)
+        _label_btn(row_layout, "+", theme.ACCENT2,
+                   lambda pi=page_idx, si=slot_idx: self._prompt_append_module(pi, si),
+                   font_size=13, padding="1px 6px")
+        _label_btn(row_layout, "x", theme.RED,
+                   lambda pi=page_idx, si=slot_idx: self._remove_slot(pi, si),
+                   font_size=13, padding="1px 6px")
 
-    # ── Mutators ──────────────────────────────────────────────────────────────
+        return row
+
+    # ── Drag-and-drop (mirrors the Tk version: measure dy on release, no
+    #    live animation — same behaviour as the original handle) ────────────
+
+    def _wire_drag_handle(self, handle, page_idx, slot_idx):
+        drag_state = {}
+
+        def _press(event):
+            drag_state["page"] = page_idx
+            drag_state["src"] = slot_idx
+            drag_state["y_start"] = event.globalPosition().y()
+
+        def _release(event):
+            if not drag_state:
+                return
+            dy = event.globalPosition().y() - drag_state.get("y_start", event.globalPosition().y())
+            steps = int(dy // 28)
+            if steps != 0:
+                self._move_slot(drag_state["page"], drag_state["src"], steps)
+            drag_state.clear()
+
+        handle.mousePressEvent = _press
+        handle.mouseReleaseEvent = _release
+
+    # ── Mutators ──────────────────────────────────────────────────────────
 
     def _add_page(self):
-        self._cfg.setdefault("pages", []).append({
-            "enabled":  True,
-            "duration": 6,
-            "slots":    [],
-        })
+        self._cfg.setdefault("pages", []).append({"enabled": True, "duration": 6, "slots": []})
         self._sel_page = len(self._cfg["pages"]) - 1
         self._save()
         self._refresh_pages()
@@ -375,7 +353,7 @@ class BuilderTab(tk.Frame):
             self._save()
             self._refresh_pages()
 
-    def _remove_slot(self, page_idx: int, slot_idx: int):
+    def _remove_slot(self, page_idx, slot_idx):
         try:
             self._cfg["pages"][page_idx]["slots"].pop(slot_idx)
             self._save()
@@ -383,9 +361,9 @@ class BuilderTab(tk.Frame):
         except IndexError:
             pass
 
-    def _move_slot(self, page_idx: int, slot_idx: int, direction: int):
+    def _move_slot(self, page_idx, slot_idx, direction):
         try:
-            slots   = self._cfg["pages"][page_idx]["slots"]
+            slots = self._cfg["pages"][page_idx]["slots"]
             new_idx = slot_idx + direction
             if 0 <= new_idx < len(slots):
                 slots[slot_idx], slots[new_idx] = slots[new_idx], slots[slot_idx]
@@ -394,47 +372,33 @@ class BuilderTab(tk.Frame):
         except IndexError:
             pass
 
-    # ── Drag-and-drop ─────────────────────────────────────────────────────────
-
-    def _drag_start(self, event, page_idx: int, slot_idx: int):
-        self._drag = {"page": page_idx, "src": slot_idx, "y_start": event.y_root}
-
-    def _drag_motion(self, event, page_idx: int):
-        pass
-
-    def _drag_end(self, event, page_idx: int):
-        if not self._drag:
-            return
-        dy    = event.y_root - self._drag.get("y_start", event.y_root)
-        steps = dy // 28
-        if steps != 0:
-            self._move_slot(self._drag["page"], self._drag["src"], steps)
-        self._drag = {}
-
-    # ── Save ──────────────────────────────────────────────────────────────────
-
     def _save(self):
         self._save_cb()
 
-    # ── Context menus ─────────────────────────────────────────────────────────
+    # ── Module picker menus ─────────────────────────────────────────────────
 
-    def _prompt_append_module(self, page_idx: int, slot_idx: int):
-        menu = tk.Menu(
-            self, tearoff=0,
-            bg=PANEL, fg=TEXT, activebackground=ACCENT, activeforeground=BG, font=(FONT, 9),
+    def _build_category_menu(self, on_pick):
+        menu = QMenu(self)
+        menu.setStyleSheet(
+            f"QMenu {{ background-color: {theme.PANEL}; color: {theme.TEXT}; "
+            f"border: 1px solid {theme.BORDER}; }} "
+            f"QMenu::item:selected {{ background-color: {theme.ACCENT}; color: {theme.BG}; }}"
         )
         for cat, mods in CATEGORIES.items():
-            sub = tk.Menu(menu, tearoff=0, bg=PANEL, fg=TEXT, activebackground=ACCENT, activeforeground=BG)
+            sub = menu.addMenu(cat)
+            sub.setStyleSheet(menu.styleSheet())
             for m in mods:
-                sub.add_command(
-                    label=m["label"],
-                    command=lambda m_id=m["id"], pi=page_idx, si=slot_idx:
-                    self._append_module_to_slot(pi, si, m_id),
-                )
-            menu.add_cascade(label=cat, menu=sub)
-        menu.post(self.winfo_pointerx(), self.winfo_pointery())
+                action = sub.addAction(m["label"])
+                action.triggered.connect(lambda _checked=False, m_id=m["id"]: on_pick(m_id))
+        return menu
 
-    def _append_module_to_slot(self, page_idx: int, slot_idx: int, module_id: str):
+    def _prompt_append_module(self, page_idx, slot_idx):
+        menu = self._build_category_menu(
+            lambda m_id: self._append_module_to_slot(page_idx, slot_idx, m_id)
+        )
+        menu.exec(QCursor.pos())
+
+    def _append_module_to_slot(self, page_idx, slot_idx, module_id):
         try:
             slots = self._cfg["pages"][page_idx]["slots"]
             slots[slot_idx]["modules"].append({"module": module_id, "text": ""})
@@ -443,7 +407,7 @@ class BuilderTab(tk.Frame):
         except IndexError:
             pass
 
-    def _remove_sub_module(self, page_idx: int, slot_idx: int, module_idx: int):
+    def _remove_sub_module(self, page_idx, slot_idx, module_idx):
         try:
             slots = self._cfg["pages"][page_idx]["slots"]
             slots[slot_idx]["modules"].pop(module_idx)
@@ -452,32 +416,21 @@ class BuilderTab(tk.Frame):
         except IndexError:
             pass
 
-    def _prompt_add_new_line_row(self, page_idx: int):
-        menu = tk.Menu(
-            self, tearoff=0,
-            bg=PANEL, fg=TEXT, activebackground=ACCENT, activeforeground=BG, font=(FONT, 9),
-        )
-        for cat, mods in CATEGORIES.items():
-            sub = tk.Menu(menu, tearoff=0, bg=PANEL, fg=TEXT, activebackground=ACCENT, activeforeground=BG)
-            for m in mods:
-                sub.add_command(
-                    label=m["label"],
-                    command=lambda m_dict=m, pi=page_idx: self._add_slot_for_page(pi, m_dict),
-                )
-            menu.add_cascade(label=cat, menu=sub)
-        menu.post(self.winfo_pointerx(), self.winfo_pointery())
+    def _prompt_add_new_line_row(self, page_idx):
+        menu = self._build_category_menu(lambda m_id: self._add_slot_for_page(page_idx, m_id))
+        menu.exec(QCursor.pos())
 
-    def _add_slot_for_page(self, page_idx: int, mod: dict):
+    def _add_slot_for_page(self, page_idx, module_id):
         try:
             pages = self._cfg.get("pages", [])
-            slot  = {"modules": [{"module": mod["id"], "text": ""}]}
+            slot = {"modules": [{"module": module_id, "text": ""}]}
             pages[page_idx].setdefault("slots", []).append(slot)
             self._save()
             self._refresh_pages()
         except IndexError:
             pass
 
-    # ── External refresh ──────────────────────────────────────────────────────
+    # ── External refresh ─────────────────────────────────────────────────
 
     def refresh(self):
         self._refresh_pages()
