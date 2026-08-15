@@ -182,12 +182,12 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
 
     # ── Background Transparency slider ───────────────────────────────────
     inner_layout.addSpacing(20)  # was a spacing-only _section_label("") call
-    trans_label = QLabel("Background Transparency")
+    trans_label = QLabel("Background Brightness")
     trans_label.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
     trans_label.setFont(theme.qt_font(9, bold=True))
     inner_layout.addWidget(trans_label)
 
-    trans_hint = QLabel("Only the empty background fades — buttons, text and panels stay fully opaque.")
+    trans_hint = QLabel("Only affects the chatbox and builder page.")
     trans_hint.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
     trans_hint.setFont(theme.qt_font(8))
     trans_hint.setWordWrap(True)
@@ -195,6 +195,24 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
 
     current_alpha = cfg.get("transparency_opacity", 1.0)
     opacity_slider = QSlider(Qt.Horizontal)
+    opacity_slider.setStyleSheet(f"""
+        QSlider::groove:horizontal {{
+            height: 6px;
+            background: {theme.BORDER};
+            border-radius: 3px;
+        }}
+        QSlider::sub-page:horizontal {{
+            background: {theme.ACCENT2};
+            border-radius: 3px;
+        }}
+        QSlider::handle:horizontal {{
+            background: {theme.ACCENT};
+            width: 14px;
+            height: 14px;
+            margin: -4px 0;
+            border-radius: 7px;
+        }}
+    """)
     opacity_slider.setMinimum(20)   # Qt can go lower than Tk's 30% floor safely —
     opacity_slider.setMaximum(100)  # widgets stay opaque/clickable at any level.
     opacity_slider.setValue(int(current_alpha * 100))
