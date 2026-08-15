@@ -626,6 +626,21 @@ def section_caption_qss(bg: str = None) -> str:
     )
 
 
+def line_edit_qss() -> str:
+    """Inline stylesheet for QLineEdit inputs. Same root cause as
+    accent_button_qss()/subtle_button_qss() above: the global QSS rule
+    for QLineEdit gets silently shadowed whenever the input sits inside
+    any ancestor widget that has its own setStyleSheet() call (which is
+    true for basically every module capsule / row / card in this app),
+    leaving text inputs with no visible background at all."""
+    return (
+        f"QLineEdit {{ background-color: {PANEL}; color: {TEXT}; "
+        f"border: 1px solid {BORDER}; border-radius: 2px; padding: 3px 6px; "
+        f"selection-background-color: {ACCENT}; }}"
+        f"QLineEdit:focus {{ border: 1px solid {ACCENT}; }}"
+    )
+
+
 def qss() -> str:
     """Global stylesheet approximating the old Tk look: flat buttons, PANEL
     surfaces, ACCENT highlights, BORDER outlines. Call again (and re-apply
