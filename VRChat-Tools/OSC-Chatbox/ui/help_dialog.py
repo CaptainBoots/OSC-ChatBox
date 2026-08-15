@@ -190,18 +190,18 @@ def open_help(parent):
 
     # ── Header ────────────────────────────────────────────────────────────
     hdr = QWidget()
-    hdr.setStyleSheet(f"background-color: {theme.PANEL};")
+    hdr.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
     hdr_layout = QHBoxLayout(hdr)
     hdr_layout.setContentsMargins(16, 10, 16, 10)
 
     title_lbl = QLabel("")
-    title_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent;")
+    title_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
     title_lbl.setFont(theme.qt_font(12, bold=True))
     hdr_layout.addWidget(title_lbl)
     hdr_layout.addStretch(1)
 
     page_lbl = QLabel("")
-    page_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+    page_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
     page_lbl.setFont(theme.qt_font(8))
     hdr_layout.addWidget(page_lbl)
 
@@ -209,7 +209,7 @@ def open_help(parent):
 
     divider = QFrame()
     divider.setFixedHeight(1)
-    divider.setStyleSheet(f"background-color: {theme.BORDER};")
+    divider.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
     root.addWidget(divider)
 
     # ── Content ───────────────────────────────────────────────────────────
@@ -221,7 +221,7 @@ def open_help(parent):
     content_layout.setContentsMargins(16, 14, 16, 14)
 
     content_lbl = QLabel("")
-    content_lbl.setStyleSheet(f"color: {theme.TEXT}; background: transparent;")
+    content_lbl.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
     content_lbl.setFont(theme.qt_font(10))
     content_lbl.setWordWrap(True)
     content_lbl.setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -238,14 +238,14 @@ def open_help(parent):
     nav.setContentsMargins(20, 8, 20, 14)
 
     prev_btn = QPushButton("← Back")
-    prev_btn.setObjectName("subtleButton")
+    prev_btn.setStyleSheet(theme.subtle_button_qss())
     prev_btn.setFont(theme.qt_font(9, bold=True))
     prev_btn.setFixedWidth(100)
     nav.addWidget(prev_btn)
     nav.addStretch(1)
 
     next_btn = QPushButton("Next →")
-    next_btn.setObjectName("accentButton")
+    next_btn.setStyleSheet(theme.accent_button_qss())
     next_btn.setFont(theme.qt_font(9, bold=True))
     next_btn.setFixedWidth(100)
     nav.addWidget(next_btn)

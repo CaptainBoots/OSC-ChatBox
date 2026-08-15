@@ -25,14 +25,14 @@ def _label_btn(parent_layout, text, fg, command, *, bg=None, font_size=9,
     bg = bg or theme.PANEL
     lbl = QLabel(text)
     lbl.setCursor(Qt.PointingHandCursor)
-    lbl.setStyleSheet(f"color: {fg}; background-color: {bg}; padding: {padding};")
+    lbl.setStyleSheet(f"color: {fg}; background-color: {bg}; padding: {padding}; border: none;")
     lbl.setFont(theme.qt_font(font_size, bold=bold))
 
     def _enter(_e):
-        lbl.setStyleSheet(f"color: {fg}; background-color: {theme.BORDER}; padding: {padding};")
+        lbl.setStyleSheet(f"color: {fg}; background-color: {theme.BORDER}; padding: {padding}; border: none;")
 
     def _leave(_e):
-        lbl.setStyleSheet(f"color: {fg}; background-color: {bg}; padding: {padding};")
+        lbl.setStyleSheet(f"color: {fg}; background-color: {bg}; padding: {padding}; border: none;")
 
     lbl.enterEvent = _enter
     lbl.leaveEvent = _leave
@@ -44,7 +44,7 @@ def _label_btn(parent_layout, text, fg, command, *, bg=None, font_size=9,
 def _hline(parent_layout):
     line = QFrame()
     line.setFixedHeight(1)
-    line.setStyleSheet(f"background-color: {theme.BORDER};")
+    line.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
     parent_layout.addWidget(line)
 
 
@@ -64,7 +64,7 @@ class BuilderTab(StripeBackground):
 
         header_row = QHBoxLayout()
         title = QLabel("Output Pages Setup")
-        title.setStyleSheet(f"color: {theme.TEXT}; background: transparent;")
+        title.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
         title.setFont(theme.qt_font(11, bold=True))
         header_row.addWidget(title)
         header_row.addStretch(1)
@@ -127,13 +127,13 @@ class BuilderTab(StripeBackground):
         header.addWidget(chk_toggle)
 
         lbl_title = QLabel(f"Page {page_idx + 1}")
-        lbl_title.setStyleSheet(f"color: {theme.TEXT}; background: transparent;")
+        lbl_title.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
         lbl_title.setFont(theme.qt_font(10, bold=True))
         header.addWidget(lbl_title)
 
         header.addSpacing(8)
         dur_lbl = QLabel("Duration:")
-        dur_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+        dur_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
         dur_lbl.setFont(theme.qt_font(8))
         header.addWidget(dur_lbl)
 
@@ -163,7 +163,7 @@ class BuilderTab(StripeBackground):
 
         minus_lbl = QLabel("-")
         minus_lbl.setCursor(Qt.PointingHandCursor)
-        minus_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.PANEL}; padding: 1px 4px;")
+        minus_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.PANEL}; padding: 1px 4px; border: none;")
         minus_lbl.setFont(theme.qt_font(8))
         minus_lbl.mousePressEvent = lambda _e: _decrement()
         counter.addWidget(minus_lbl)
@@ -171,14 +171,14 @@ class BuilderTab(StripeBackground):
 
         plus_lbl = QLabel("+")
         plus_lbl.setCursor(Qt.PointingHandCursor)
-        plus_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.PANEL}; padding: 1px 4px;")
+        plus_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.PANEL}; padding: 1px 4px; border: none;")
         plus_lbl.setFont(theme.qt_font(8))
         plus_lbl.mousePressEvent = lambda _e: _increment()
         counter.addWidget(plus_lbl)
 
         counter_wrap = QWidget()
         counter_wrap.setLayout(counter)
-        counter_wrap.setStyleSheet(f"background-color: {theme.BORDER};")
+        counter_wrap.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
         header.addWidget(counter_wrap)
 
         def _dur_changed():
@@ -208,7 +208,7 @@ class BuilderTab(StripeBackground):
 
         if not slots:
             none_lbl = QLabel("No modules on this page yet.")
-            none_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+            none_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
             none_lbl.setFont(theme.qt_font(8))
             slots_layout.addWidget(none_lbl)
 
@@ -230,27 +230,27 @@ class BuilderTab(StripeBackground):
             slot["modules"] = [{"module": slot.get("module", ""), "text": slot.get("text", "")}]
 
         row = QFrame()
-        row.setStyleSheet(f"background-color: {theme.PANEL};")
+        row.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 2, 0, 2)
 
         handle = QLabel("⠿")
         handle.setCursor(Qt.SizeAllCursor)
-        handle.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+        handle.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
         handle.setFont(theme.qt_font(10))
         self._wire_drag_handle(handle, page_idx, slot_idx)
         row_layout.addWidget(handle)
 
         up_lbl = QLabel("▲")
         up_lbl.setCursor(Qt.PointingHandCursor)
-        up_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.PANEL}; padding: 1px 3px;")
+        up_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.PANEL}; padding: 1px 3px; border: none;")
         up_lbl.setFont(theme.qt_font(7))
         up_lbl.mousePressEvent = lambda _e, pi=page_idx, si=slot_idx: self._move_slot(pi, si, -1)
         row_layout.addWidget(up_lbl)
 
         down_lbl = QLabel("▼")
         down_lbl.setCursor(Qt.PointingHandCursor)
-        down_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.PANEL}; padding: 1px 3px;")
+        down_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.PANEL}; padding: 1px 3px; border: none;")
         down_lbl.setFont(theme.qt_font(7))
         down_lbl.mousePressEvent = lambda _e, pi=page_idx, si=slot_idx: self._move_slot(pi, si, 1)
         row_layout.addWidget(down_lbl)
@@ -263,12 +263,12 @@ class BuilderTab(StripeBackground):
             label = mod["label"] if mod else sub_slot.get("module", "unknown")
 
             mod_block = QFrame()
-            mod_block.setStyleSheet(f"background-color: {theme.BORDER};")
+            mod_block.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
             mod_block_layout = QHBoxLayout(mod_block)
             mod_block_layout.setContentsMargins(4, 2, 4, 2)
 
             mlbl = QLabel(label)
-            mlbl.setStyleSheet(f"color: {theme.TEXT}; background: transparent;")
+            mlbl.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
             mlbl.setFont(theme.qt_font(9))
             mod_block_layout.addWidget(mlbl)
 
@@ -290,7 +290,7 @@ class BuilderTab(StripeBackground):
             if len(slot["modules"]) > 1:
                 x_lbl = QLabel("✕")
                 x_lbl.setCursor(Qt.PointingHandCursor)
-                x_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.BORDER}; padding: 1px 3px;")
+                x_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background-color: {theme.BORDER}; padding: 1px 3px; border: none;")
                 x_lbl.setFont(theme.qt_font(8))
                 x_lbl.mousePressEvent = (
                     lambda _e, pi=page_idx, si=slot_idx, mi=m_idx: self._remove_sub_module(pi, si, mi)

@@ -1,7 +1,7 @@
 """
 ui/settings_dialog.py
 ──────────────────────────
-Qt replacement for ui/settings_dialog.py. Same sections, same order:
+Same sections, same order as the original Tk version:
   Themes (collapsible) → Background Transparency → Config reset →
   Progress Bar Characters → Features → Libre Hardware Monitor → Actions
 """
@@ -17,23 +17,14 @@ from config import normalize_char
 from state import DEFAULT_SLEEP, SLOW_SLEEP, SPEED_SLEEP
 from state import DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY
 from ui.circle_toggle import CircleToggle
+from ui.dev_menu import open_dev_menu
 from ui import theme
 from ui.theme import THEMES, THEME_LABELS, colour_mode
-
-# NOTE: the original ui/settings_dialog.py hard-imports `ui.dev_menu`
-# (ui/dev_menu.py wasn't part of the files shared for this port, so it
-# couldn't be translated to Qt). This import is left optional here — if/when
-# a Qt dev menu exists at ui/dev_menu.py, this will pick it up
-# automatically; until then the Dev Menu button just stays hidden.
-try:
-    from ui.dev_menu import open_dev_menu
-except ImportError:
-    open_dev_menu = None
 
 
 def _section_label(parent_layout, text):
     lbl = QLabel(text)
-    lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent;")
+    lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
     lbl.setFont(theme.qt_font(10, bold=True))
     lbl.setAlignment(Qt.AlignHCenter)
     parent_layout.addSpacing(12)
@@ -43,7 +34,7 @@ def _section_label(parent_layout, text):
 def _hline(parent_layout):
     line = QFrame()
     line.setFixedHeight(1)
-    line.setStyleSheet(f"background-color: {theme.BORDER};")
+    line.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
     parent_layout.addWidget(line)
 
 
@@ -58,11 +49,11 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
 
     # ── Header ────────────────────────────────────────────────────────────
     hdr = QWidget()
-    hdr.setStyleSheet(f"background-color: {theme.PANEL};")
+    hdr.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
     hdr_layout = QHBoxLayout(hdr)
     hdr_layout.setContentsMargins(16, 10, 16, 10)
     title = QLabel("Settings")
-    title.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent;")
+    title.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
     title.setFont(theme.qt_font(12, bold=True))
     hdr_layout.addWidget(title)
     hdr_layout.addStretch(1)
@@ -74,7 +65,7 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
     inner = QWidget()
-    inner.setStyleSheet(f"background-color: {theme.PANEL};")
+    inner.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
     inner_layout = QVBoxLayout(inner)
     inner_layout.setContentsMargins(20, 10, 20, 10)
     scroll.setWidget(inner)
@@ -87,17 +78,17 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
     theme_header_layout.setContentsMargins(0, 8, 0, 0)
 
     arrow_lbl = QLabel("▶")
-    arrow_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent;")
+    arrow_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
     arrow_lbl.setFont(theme.qt_font(12, bold=True))
     theme_header_layout.addWidget(arrow_lbl)
 
     themes_lbl = QLabel("  Themes")
-    themes_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent;")
+    themes_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
     themes_lbl.setFont(theme.qt_font(12, bold=True))
     theme_header_layout.addWidget(themes_lbl)
 
     preview_lbl = QLabel(f"({THEME_LABELS.get(cfg.get('theme_mode', colour_mode), '')})")
-    preview_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+    preview_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
     preview_lbl.setFont(theme.qt_font(9))
     theme_header_layout.addWidget(preview_lbl)
     theme_header_layout.addStretch(1)
@@ -105,7 +96,7 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
     inner_layout.addWidget(theme_header)
 
     restart_lbl = QLabel("Restart required to apply")
-    restart_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+    restart_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
     restart_lbl.setFont(theme.qt_font(8))
     inner_layout.addWidget(restart_lbl)
     restart_lbl.hide()
@@ -190,14 +181,14 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
     theme_header.mousePressEvent = _toggle_theme_body
 
     # ── Background Transparency slider ───────────────────────────────────
-    _section_label(inner_layout, "")  # spacing only
+    inner_layout.addSpacing(20)  # was a spacing-only _section_label("") call
     trans_label = QLabel("Background Transparency")
-    trans_label.setStyleSheet(f"color: {theme.TEXT}; background: transparent;")
+    trans_label.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
     trans_label.setFont(theme.qt_font(9, bold=True))
     inner_layout.addWidget(trans_label)
 
     trans_hint = QLabel("Only the empty background fades — buttons, text and panels stay fully opaque.")
-    trans_hint.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+    trans_hint.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
     trans_hint.setFont(theme.qt_font(8))
     trans_hint.setWordWrap(True)
     inner_layout.addWidget(trans_hint)
@@ -220,7 +211,7 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
     reset_row = QHBoxLayout()
     reset_row.addStretch(1)
     reset_btn = QPushButton("Reset to Defaults")
-    reset_btn.setObjectName("subtleButton")
+    reset_btn.setStyleSheet(theme.subtle_button_qss())
     reset_btn.setFont(theme.qt_font(9, bold=True))
 
     def _do_reset_confirm():
@@ -246,7 +237,7 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
     )):
         cap = QLabel(lbl_text)
         cap.setAlignment(Qt.AlignHCenter)
-        cap.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent;")
+        cap.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
         cap.setFont(theme.qt_font(8))
         chars_grid.addWidget(cap, 0, col)
 
@@ -270,7 +261,7 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
             (state.progress_empty,  theme.ACCENT2),
     ):
         p = QLabel(ch * 8)
-        p.setStyleSheet(f"color: {color}; background-color: {theme.BORDER}; padding: 2px 4px;")
+        p.setStyleSheet(f"color: {color}; background-color: {theme.BORDER}; padding: 2px 4px; border: none;")
         p.setFont(theme.qt_font(10))
         preview_row.addWidget(p)
         previews.append(p)
@@ -307,7 +298,7 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
 
     for label, attr, hint in flags:
         cb = QCheckBox(label)
-        cb.setStyleSheet(f"color: {theme.TEXT}; background: transparent;")
+        cb.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
         cb.setFont(theme.qt_font(9))
         cb.setChecked(bool(getattr(state, attr, False)))
 
@@ -320,7 +311,7 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
         inner_layout.addWidget(cb)
 
         hint_lbl = QLabel(hint)
-        hint_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; margin-left: 20px;")
+        hint_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; margin-left: 20px; border: none;")
         hint_lbl.setFont(theme.qt_font(8))
         inner_layout.addWidget(hint_lbl)
 
@@ -341,7 +332,7 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
 
     for value, label_text in lhm_options:
         rb = QRadioButton(label_text)
-        rb.setStyleSheet(f"color: {theme.TEXT}; background: transparent;")
+        rb.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
         rb.setFont(theme.qt_font(9))
         rb.setCursor(Qt.PointingHandCursor)
         rb.setChecked(value == current_lhm)
@@ -367,13 +358,12 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
     btn_row.addWidget(restore_btn)
 
     dev_btn = QPushButton("Dev Menu")
-    dev_btn.setStyleSheet(f"color: {theme.ACCENT2}; font-weight: bold;")
+    dev_btn.setStyleSheet(f"color: {theme.ACCENT2}; font-weight: bold; border: none;")
     dev_btn.setFont(theme.qt_font(9, bold=True))
-    if open_dev_menu is not None:
-        dev_btn.clicked.connect(lambda: open_dev_menu(dlg, state, cfg, save_cb))
+    dev_btn.clicked.connect(lambda: open_dev_menu(dlg, state, cfg, save_cb))
 
     def _refresh_dev_btn_impl():
-        dev_btn.setVisible(bool(getattr(state, "testing", False)) and open_dev_menu is not None)
+        dev_btn.setVisible(bool(getattr(state, "testing", False)))
 
     _refresh_dev_btn = _refresh_dev_btn_impl
     _refresh_dev_btn()
@@ -382,7 +372,7 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
     btn_row.addStretch(1)
 
     close_btn = QPushButton("Close Settings")
-    close_btn.setObjectName("accentButton")
+    close_btn.setStyleSheet(theme.accent_button_qss())
     close_btn.setFont(theme.qt_font(9, bold=True))
     close_btn.clicked.connect(dlg.close)
     btn_row.addWidget(close_btn)
