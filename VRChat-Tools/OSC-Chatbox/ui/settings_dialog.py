@@ -1,237 +1,308 @@
 """
 ui/settings_dialog.py
-─────────────────────
-Settings modal for OSC-Chatbox
+──────────────────────────
+Same sections, same order as the original Tk version:
+  Themes (collapsible) → Background Transparency → Config reset →
+  Progress Bar Characters → Features → Libre Hardware Monitor → Actions
 """
 
-import tkinter as tk
-from tkinter import messagebox
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QDialog, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel,
+    QPushButton, QLineEdit, QCheckBox, QRadioButton, QSlider, QScrollArea,
+    QMessageBox, QFrame, QButtonGroup,
+)
 
 from config import normalize_char
-from state import AppState, DEFAULT_SLEEP, SLOW_SLEEP, SPEED_SLEEP
+from state import DEFAULT_SLEEP, SLOW_SLEEP, SPEED_SLEEP
 from state import DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY
 from ui.circle_toggle import CircleToggle
 from ui.dev_menu import open_dev_menu
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, THEMES, THEME_LABELS, colour_mode
+from ui import theme
+from ui.theme import THEMES, THEME_LABELS, colour_mode
 
 
-def open_settings(root, state: AppState, cfg: dict, save_cb, reset_cb, theme_cb):
-    win = tk.Toplevel(root)
-    win.title("Settings")
-    win.configure(bg=BG)
-    win.resizable(True, True)
-    root.update_idletasks()
-    win.geometry(f"{root.winfo_width()}x{root.winfo_height()}+{root.winfo_x()}+{root.winfo_y()}")
+def _section_label(parent_layout, text):
+    lbl = QLabel(text)
+    lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
+    lbl.setFont(theme.qt_font(10, bold=True))
+    lbl.setAlignment(Qt.AlignHCenter)
+    parent_layout.addSpacing(12)
+    parent_layout.addWidget(lbl)
 
-    # ── Header (fixed, outside scroll) ───────────────────────────────────────
-    hdr = tk.Frame(win, bg=PANEL, pady=10)
-    hdr.pack(fill="x")
-    tk.Label(hdr, text="Settings", bg=PANEL, fg=ACCENT2,
-             font=(FONT, 12, "bold")).pack(side="left", padx=16)
-    tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
 
-    # ── Scrollable canvas (builder-style) ────────────────────────────────────
-    scroll_frame = tk.Frame(win, bg=PANEL)
-    scroll_frame.pack(fill="both", expand=True)
-    scroll_frame.rowconfigure(0, weight=1)
-    scroll_frame.columnconfigure(0, weight=1)
+def _hline(parent_layout):
+    line = QFrame()
+    line.setFixedHeight(1)
+    line.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
+    parent_layout.addWidget(line)
 
-    canvas = tk.Canvas(scroll_frame, bg=PANEL, highlightthickness=0)
-    canvas.grid(row=0, column=0, sticky="nsew")
 
-    vsb = tk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
-    vsb.grid(row=0, column=1, sticky="ns")
-    canvas.configure(yscrollcommand=vsb.set)
+def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity_cb):
+    dlg = QDialog(parent)
+    dlg.setWindowTitle("Settings")
+    dlg.resize(parent.size())
 
-    inner = tk.Frame(canvas, bg=PANEL)
-    canvas_win = canvas.create_window((0, 0), window=inner, anchor="nw")
+    root = QVBoxLayout(dlg)
+    root.setContentsMargins(0, 0, 0, 0)
+    root.setSpacing(0)
 
-    def _on_inner_configure(_e):
-        canvas.configure(scrollregion=canvas.bbox("all"))
+    # ── Header ────────────────────────────────────────────────────────────
+    hdr = QWidget()
+    hdr.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
+    hdr_layout = QHBoxLayout(hdr)
+    hdr_layout.setContentsMargins(16, 10, 16, 10)
+    title = QLabel("Settings")
+    title.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
+    title.setFont(theme.qt_font(12, bold=True))
+    hdr_layout.addWidget(title)
+    hdr_layout.addStretch(1)
+    root.addWidget(hdr)
+    _hline(root)
 
-    def _on_canvas_configure(e):
-        canvas.itemconfigure(canvas_win, width=e.width)
+    # ── Scroll area ───────────────────────────────────────────────────────
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
+    inner = QWidget()
+    inner.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
+    inner_layout = QVBoxLayout(inner)
+    inner_layout.setContentsMargins(20, 10, 20, 10)
+    scroll.setWidget(inner)
+    root.addWidget(scroll, 1)
 
-    inner.bind("<Configure>", _on_inner_configure)
-    canvas.bind("<Configure>", _on_canvas_configure)
+    # ── Themes (collapsible) ─────────────────────────────────────────────
+    theme_header = QWidget()
+    theme_header.setCursor(Qt.PointingHandCursor)
+    theme_header_layout = QHBoxLayout(theme_header)
+    theme_header_layout.setContentsMargins(0, 8, 0, 0)
 
-    # ── Mousewheel (mirrors BuilderTab) ──────────────────────────────────────
-    def _on_wheel(event):
-        if event.num == 4:
-            canvas.yview_scroll(-1, "units")
-        elif event.num == 5:
-            canvas.yview_scroll(1, "units")
-        elif event.delta:
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+    arrow_lbl = QLabel("▶")
+    arrow_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
+    arrow_lbl.setFont(theme.qt_font(12, bold=True))
+    theme_header_layout.addWidget(arrow_lbl)
 
-    def _bind_wheel(widget):
-        widget.bind("<MouseWheel>", _on_wheel, add="+")
-        widget.bind("<Button-4>",   _on_wheel, add="+")
-        widget.bind("<Button-5>",   _on_wheel, add="+")
-        for child in widget.winfo_children():
-            _bind_wheel(child)
+    themes_lbl = QLabel("  Themes")
+    themes_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
+    themes_lbl.setFont(theme.qt_font(12, bold=True))
+    theme_header_layout.addWidget(themes_lbl)
 
-    # Bind after all widgets are built
-    win.after(100, lambda: _bind_wheel(inner))
+    preview_lbl = QLabel(f"({THEME_LABELS.get(cfg.get('theme_mode', colour_mode), '')})")
+    preview_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+    preview_lbl.setFont(theme.qt_font(9))
+    theme_header_layout.addWidget(preview_lbl)
+    theme_header_layout.addStretch(1)
 
-    # ── Section helper ────────────────────────────────────────────────────────
-    def section(label):
-        tk.Label(inner, text=label, bg=PANEL, fg=ACCENT2,
-                 font=(FONT, 10, "bold")).pack(pady=(16, 6))
+    inner_layout.addWidget(theme_header)
 
-    # ── Theme (collapsible, collapsed by default) ─────────────────────────────
-    theme_header = tk.Frame(inner, bg=PANEL, cursor="hand2")
-    theme_header.pack(fill="x", padx=20, pady=(16, 0))
+    restart_lbl = QLabel("Restart required to apply")
+    restart_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+    restart_lbl.setFont(theme.qt_font(8))
+    inner_layout.addWidget(restart_lbl)
+    restart_lbl.hide()
 
-    _theme_open = tk.BooleanVar(value=False)
-
-    arrow_lbl = tk.Label(theme_header, text="▶", bg=PANEL, fg=ACCENT2,
-                         font=(FONT, 12, "bold"), cursor="hand2")
-    arrow_lbl.pack(side="left")
-
-    tk.Label(theme_header, text="  Themes", bg=PANEL, fg=ACCENT2,
-             font=(FONT, 12, "bold"), cursor="hand2").pack(side="left")
-
-    current_theme_name = THEME_LABELS.get(cfg.get("theme_mode", colour_mode), "")
-    _preview_lbl = tk.Label(theme_header, text=f"",
-                            bg=PANEL, fg=SUBTEXT, font=(FONT, 9), cursor="hand2")
-    _preview_lbl.pack(side="left")
-
-    restart_lbl = tk.Label(inner, text="Restart required to apply", bg=PANEL,
-                           fg=SUBTEXT, font=(FONT, 8))
-
-    theme_body = tk.Frame(inner, bg=PANEL)
+    theme_body = QWidget()
+    theme_body_layout = QVBoxLayout(theme_body)
+    theme_body_layout.setContentsMargins(20, 4, 0, 0)
+    inner_layout.addWidget(theme_body)
+    theme_body.hide()
 
     current_theme = cfg.get("theme_mode", colour_mode)
-    theme_state   = {"selected": current_theme}
-    theme_rows: list[dict] = []
+    theme_state = {"selected": current_theme}
+    theme_rows = []
 
     def _refresh_theme_rows():
         for row_data in theme_rows:
             is_sel = row_data["mode"] == theme_state["selected"]
             row_data["toggle"].set(is_sel)
-            row_data["label"].config(fg=ACCENT2 if is_sel else TEXT)
+            row_data["label"].setStyleSheet(
+                f"color: {theme.ACCENT2 if is_sel else theme.TEXT}; background: transparent;"
+            )
 
     def _select_theme(mode):
         theme_state["selected"] = mode
         _refresh_theme_rows()
-        _preview_lbl.config(text=f"({THEME_LABELS.get(mode, mode)})")
+        preview_lbl.setText(f"({THEME_LABELS.get(mode, mode)})")
         theme_cb(mode)
 
-    theme_list_frame = tk.Frame(theme_body, bg=PANEL)
-    theme_list_frame.pack(anchor="w", padx=20, pady=(4, 0))
-
     for mode, label_text in THEME_LABELS.items():
-        row = tk.Frame(theme_list_frame, bg=PANEL, cursor="hand2")
-        row.pack(anchor="w", pady=3, fill="x")
+        row = QWidget()
+        row.setCursor(Qt.PointingHandCursor)
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 3, 0, 3)
 
-        toggle = CircleToggle(row, enabled=(mode == current_theme), bg=PANEL, color=ACCENT)
-        toggle.pack(side="left", padx=(0, 4))
+        toggle = CircleToggle(enabled=(mode == current_theme), color=theme.ACCENT)
+        row_layout.addWidget(toggle)
 
-        lbl = tk.Label(row, text=label_text, bg=PANEL, font=(FONT, 9), cursor="hand2")
-        lbl.pack(side="left", padx=(4, 8))
+        lbl = QLabel(label_text)
+        lbl.setFont(theme.qt_font(9))
+        row_layout.addWidget(lbl)
 
-        swatch = tk.Frame(row, bg=PANEL, cursor="hand2")
-        swatch.pack(side="left")
+        swatch = QWidget()
+        swatch_layout = QHBoxLayout(swatch)
+        swatch_layout.setContentsMargins(4, 0, 0, 0)
+        swatch_layout.setSpacing(1)
         for colour_key in ("BG", "PANEL", "ACCENT", "ACCENT2"):
-            tk.Frame(swatch, bg=THEMES[mode][colour_key], width=14, height=14,
-                     highlightthickness=1, highlightbackground=BORDER).pack(side="left", padx=1)
+            sw = QFrame()
+            sw.setFixedSize(14, 14)
+            sw.setStyleSheet(
+                f"background-color: {THEMES[mode][colour_key]}; border: 1px solid {theme.BORDER};"
+            )
+            swatch_layout.addWidget(sw)
+        row_layout.addWidget(swatch)
+        row_layout.addStretch(1)
 
-        row_data = {"mode": mode, "toggle": toggle, "label": lbl}
-        theme_rows.append(row_data)
+        def _mk_click(m):
+            def _handler(_evt):
+                _select_theme(m)
+            return _handler
 
-        for widget in (row, lbl, swatch, toggle):
-            widget.bind("<Button-1>", lambda e, m=mode: _select_theme(m))
+        row.mousePressEvent = _mk_click(mode)
+        toggle.toggled.connect(lambda _checked, m=mode: _select_theme(m))
+
+        theme_rows.append({"mode": mode, "toggle": toggle, "label": lbl})
+        theme_body_layout.addWidget(row)
 
     _refresh_theme_rows()
 
-    def _toggle_theme_body(*_):
-        if _theme_open.get():
-            # collapse
-            _theme_open.set(False)
-            arrow_lbl.config(text="▶")
-            restart_lbl.pack_forget()
-            theme_body.pack_forget()
+    _theme_open = {"value": False}
+
+    def _toggle_theme_body(_evt=None):
+        _theme_open["value"] = not _theme_open["value"]
+        if _theme_open["value"]:
+            arrow_lbl.setText("▼")
+            restart_lbl.show()
+            theme_body.show()
         else:
-            # expand
-            _theme_open.set(True)
-            arrow_lbl.config(text="▼")
-            restart_lbl.pack(after=theme_header)
-            theme_body.pack(after=restart_lbl, fill="x")
-        win.after(50, lambda: _bind_wheel(inner))
+            arrow_lbl.setText("▶")
+            restart_lbl.hide()
+            theme_body.hide()
 
-    for w in (theme_header, arrow_lbl, _preview_lbl):
-        w.bind("<Button-1>", _toggle_theme_body)
-    # also bind every child of theme_header
-    for child in theme_header.winfo_children():
-        child.bind("<Button-1>", _toggle_theme_body)
+    theme_header.mousePressEvent = _toggle_theme_body
 
-    # ── Config reset ──────────────────────────────────────────────────────────
-    section("Config")
-    tk.Button(
-        inner, text="Reset to Defaults",
-        bg=PANEL, fg=SUBTEXT, relief="flat",
-        activebackground=BORDER, activeforeground=TEXT,
-        cursor="hand2", font=(FONT, 9, "bold"),
-        command=lambda: messagebox.askyesno("Reset", "Reset all settings to defaults?") and reset_cb(),
-    ).pack(pady=6)
+    # ── Background Transparency slider ───────────────────────────────────
+    inner_layout.addSpacing(20)  # was a spacing-only _section_label("") call
+    trans_label = QLabel("Background Brightness")
+    trans_label.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
+    trans_label.setFont(theme.qt_font(9, bold=True))
+    inner_layout.addWidget(trans_label)
 
-    # ── Progress bar chars ────────────────────────────────────────────────────
-    section("Progress Bar Characters")
-    chars_frame = tk.Frame(inner, bg=PANEL)
-    chars_frame.pack()
+    trans_hint = QLabel("Only affects the chatbox and builder page.")
+    trans_hint.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+    trans_hint.setFont(theme.qt_font(8))
+    trans_hint.setWordWrap(True)
+    inner_layout.addWidget(trans_hint)
+
+    current_alpha = cfg.get("transparency_opacity", 1.0)
+    opacity_slider = QSlider(Qt.Horizontal)
+    opacity_slider.setStyleSheet(f"""
+        QSlider::groove:horizontal {{
+            height: 6px;
+            background: {theme.BORDER};
+            border-radius: 3px;
+        }}
+        QSlider::sub-page:horizontal {{
+            background: {theme.ACCENT2};
+            border-radius: 3px;
+        }}
+        QSlider::handle:horizontal {{
+            background: {theme.ACCENT};
+            width: 14px;
+            height: 14px;
+            margin: -4px 0;
+            border-radius: 7px;
+        }}
+    """)
+    opacity_slider.setMinimum(20)   # Qt can go lower than Tk's 30% floor safely —
+    opacity_slider.setMaximum(100)  # widgets stay opaque/clickable at any level.
+    opacity_slider.setValue(int(current_alpha * 100))
+
+    def _on_slider_change(val):
+        alpha_val = val / 100.0
+        opacity_cb(alpha_val)
+
+    opacity_slider.valueChanged.connect(_on_slider_change)
+    inner_layout.addWidget(opacity_slider)
+
+    # ── Config reset ──────────────────────────────────────────────────────
+    _section_label(inner_layout, "Config")
+    reset_row = QHBoxLayout()
+    reset_row.addStretch(1)
+    reset_btn = QPushButton("Reset to Defaults")
+    reset_btn.setStyleSheet(theme.subtle_button_qss())
+    reset_btn.setFont(theme.qt_font(9, bold=True))
+
+    def _do_reset_confirm():
+        if QMessageBox.question(dlg, "Reset", "Reset all settings to defaults?") == QMessageBox.Yes:
+            reset_cb()
+
+    reset_btn.clicked.connect(_do_reset_confirm)
+    reset_row.addWidget(reset_btn)
+    reset_row.addStretch(1)
+    inner_layout.addLayout(reset_row)
+
+    # ── Progress bar characters ──────────────────────────────────────────
+    _section_label(inner_layout, "Progress Bar Characters")
+    chars_row = QHBoxLayout()
+    chars_row.addStretch(1)
+    chars_grid = QGridLayout()
 
     entries = []
-    for col, (lbl, val) in enumerate((
+    for col, (lbl_text, val) in enumerate((
             ("Filled", state.progress_filled),
             ("Border", state.progress_border),
             ("Empty",  state.progress_empty),
     )):
-        tk.Label(chars_frame, text=lbl, bg=PANEL, fg=SUBTEXT,
-                 font=(FONT, 8)).grid(row=0, column=col, padx=6)
-        e = tk.Entry(
-            chars_frame, width=4, justify="center",
-            bg=PANEL, fg=TEXT, insertbackground=ACCENT, relief="flat",
-            font=(FONT, 9), highlightthickness=1,
-            highlightbackground=BORDER, highlightcolor=ACCENT,
-        )
-        e.insert(0, val)
-        e.grid(row=1, column=col, padx=6, pady=2)
+        cap = QLabel(lbl_text)
+        cap.setAlignment(Qt.AlignHCenter)
+        cap.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        cap.setFont(theme.qt_font(8))
+        chars_grid.addWidget(cap, 0, col)
+
+        e = QLineEdit(val)
+        e.setFixedWidth(40)
+        e.setAlignment(Qt.AlignHCenter)
+        e.setFont(theme.qt_font(9))
+        chars_grid.addWidget(e, 1, col)
         entries.append(e)
 
-    preview_frame = tk.Frame(inner, bg=PANEL)
-    preview_frame.pack(pady=(4, 8))
-    tk.Label(preview_frame, text="Preview", bg=PANEL, fg=SUBTEXT, font=(FONT, 8)).pack()
+    chars_row.addLayout(chars_grid)
+    chars_row.addStretch(1)
+    inner_layout.addLayout(chars_row)
 
+    preview_row = QHBoxLayout()
+    preview_row.addStretch(1)
     previews = []
     for ch, color in (
-            (state.progress_filled, TEXT),
-            (state.progress_border, TEXT),
-            (state.progress_empty,  ACCENT2),
+            (state.progress_filled, theme.TEXT),
+            (state.progress_border, theme.TEXT),
+            (state.progress_empty,  theme.ACCENT2),
     ):
-        lbl = tk.Label(preview_frame, text=ch * 8, bg=BORDER, fg=color,
-                       font=(FONT, 10), padx=4, pady=2)
-        lbl.pack(side="left", padx=4)
-        previews.append(lbl)
+        p = QLabel(ch * 8)
+        p.setStyleSheet(f"color: {color}; background-color: {theme.BORDER}; padding: 2px 4px; border: none;")
+        p.setFont(theme.qt_font(10))
+        preview_row.addWidget(p)
+        previews.append(p)
+    preview_row.addStretch(1)
+    inner_layout.addLayout(preview_row)
 
-    def _apply_chars(_=None):
-        state.progress_filled = normalize_char(entries[0].get(), DEFAULT_PROGRESS_FILLED)
-        state.progress_border = normalize_char(entries[1].get(), DEFAULT_PROGRESS_BORDER)
-        state.progress_empty  = normalize_char(entries[2].get(), DEFAULT_PROGRESS_EMPTY)
+    def _apply_chars():
+        state.progress_filled = normalize_char(entries[0].text(), DEFAULT_PROGRESS_FILLED)
+        state.progress_border = normalize_char(entries[1].text(), DEFAULT_PROGRESS_BORDER)
+        state.progress_empty  = normalize_char(entries[2].text(), DEFAULT_PROGRESS_EMPTY)
         for entry, ch in zip(entries, (state.progress_filled, state.progress_border, state.progress_empty)):
-            if entry.get() != ch:
-                entry.delete(0, tk.END)
-                entry.insert(0, ch)
+            if entry.text() != ch:
+                entry.setText(ch)
         for prev, ch in zip(previews, (state.progress_filled, state.progress_border, state.progress_empty)):
-            prev.config(text=ch * 8)
+            prev.setText(ch * 8)
         save_cb()
 
     for e in entries:
-        e.bind("<KeyRelease>", _apply_chars)
-        e.bind("<FocusOut>",   _apply_chars)
+        e.textChanged.connect(lambda _t: _apply_chars())
+        e.editingFinished.connect(_apply_chars)
 
-    # ── Feature flags ─────────────────────────────────────────────────────────
-    section("Features")
+    # ── Feature flags ─────────────────────────────────────────────────────
+    _section_label(inner_layout, "Features")
 
     flags = [
         ("Trim Media Titles", "media_title_trim", "Removes words like official, lyrics, video"),
@@ -240,97 +311,91 @@ def open_settings(root, state: AppState, cfg: dict, save_cb, reset_cb, theme_cb)
         ("Testing Mode",      "testing",          "Enables dev testing"),
     ]
 
-    for label, attr, hint in flags:
-        var = tk.BooleanVar(value=getattr(state, attr, False))
+    def _refresh_dev_btn():
+        pass  # reassigned below once dev_btn exists
 
-        def _changed(*_, a=attr, v=var):
-            setattr(state, a, v.get())
+    for label, attr, hint in flags:
+        cb = QCheckBox(label)
+        cb.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
+        cb.setFont(theme.qt_font(9))
+        cb.setChecked(bool(getattr(state, attr, False)))
+
+        def _changed(checked, a=attr):
+            setattr(state, a, bool(checked))
             save_cb()
             _refresh_dev_btn()
 
-        tk.Checkbutton(
-            inner, text=label, bg=PANEL, fg=TEXT,
-            variable=var, onvalue=True, offvalue=False,
-            selectcolor=PANEL, activebackground=PANEL,
-            font=(FONT, 9), command=_changed,
-        ).pack(anchor="w", padx=20, pady=(8, 0))
-        tk.Label(inner, text=hint, bg=PANEL, fg=SUBTEXT,
-                 font=(FONT, 8)).pack(anchor="w", padx=40)
+        cb.toggled.connect(_changed)
+        inner_layout.addWidget(cb)
 
-    # ── LHM startup preference ────────────────────────────────────────────────
-    section("Libre Hardware Monitor")
+        hint_lbl = QLabel(hint)
+        hint_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; margin-left: 20px; border: none;")
+        hint_lbl.setFont(theme.qt_font(8))
+        inner_layout.addWidget(hint_lbl)
+
+    # ── LHM startup preference ───────────────────────────────────────────
+    _section_label(inner_layout, "Libre Hardware Monitor")
 
     lhm_options = [
-        ("always",  "Always start LHM on launch"),
-        ("ask",     "Ask every time"),
-        ("never",   "Never start / don't ask"),
+        ("always", "Always start LHM on launch"),
+        ("ask",    "Ask every time"),
+        ("never",  "Never start / don't ask"),
     ]
+    lhm_group = QButtonGroup(dlg)
+    current_lhm = cfg.get("lhm_prompt", "ask")
 
-    lhm_var = tk.StringVar(value=cfg.get("lhm_prompt", "ask"))
-
-    lhm_frame = tk.Frame(inner, bg=PANEL)
-    lhm_frame.pack(anchor="w", padx=20, pady=(0, 4))
-
-    def _lhm_changed(*_):
-        cfg["lhm_prompt"] = lhm_var.get()
+    def _lhm_changed(value):
+        cfg["lhm_prompt"] = value
         save_cb()
 
     for value, label_text in lhm_options:
-        row = tk.Frame(lhm_frame, bg=PANEL)
-        row.pack(anchor="w", pady=3)
-        rb = tk.Radiobutton(
-            row,
-            text=label_text,
-            variable=lhm_var,
-            value=value,
-            bg=PANEL, fg=TEXT,
-            selectcolor=PANEL,
-            activebackground=PANEL,
-            activeforeground=ACCENT2,
-            font=(FONT, 9),
-            cursor="hand2",
-            command=_lhm_changed,
-        )
-        rb.pack(side="left")
+        rb = QRadioButton(label_text)
+        rb.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
+        rb.setFont(theme.qt_font(9))
+        rb.setCursor(Qt.PointingHandCursor)
+        rb.setChecked(value == current_lhm)
+        rb.toggled.connect(lambda checked, v=value: _lhm_changed(v) if checked else None)
+        lhm_group.addButton(rb)
+        inner_layout.addWidget(rb)
 
-    # ── Action buttons ────────────────────────────────────────────────────────
-    section("Actions")
+    # ── Actions ───────────────────────────────────────────────────────────
+    _section_label(inner_layout, "Actions")
+
+    btn_row = QHBoxLayout()
 
     def _trigger_reset():
-        if messagebox.askyesno("Reset", "Are you sure you want to restore default values?", parent=win):
+        if QMessageBox.question(
+                dlg, "Reset", "Are you sure you want to restore default values?"
+        ) == QMessageBox.Yes:
             reset_cb()
-            win.destroy()
+            dlg.close()
 
-    btn_frame = tk.Frame(inner, bg=PANEL, pady=12)
-    btn_frame.pack(fill="x", padx=16)
+    restore_btn = QPushButton("Restore Defaults")
+    restore_btn.setFont(theme.qt_font(9))
+    restore_btn.clicked.connect(_trigger_reset)
+    btn_row.addWidget(restore_btn)
 
-    tk.Button(
-        btn_frame, text="Restore Defaults", bg=BG, fg=TEXT, relief="flat",
-        font=(FONT, 9), activebackground=BORDER, activeforeground=TEXT,
-        padx=12, pady=4, cursor="hand2", command=_trigger_reset,
-    ).pack(side="left")
+    dev_btn = QPushButton("Dev Menu")
+    dev_btn.setStyleSheet(f"color: {theme.ACCENT2}; font-weight: bold; border: none;")
+    dev_btn.setFont(theme.qt_font(9, bold=True))
+    dev_btn.clicked.connect(lambda: open_dev_menu(dlg, state, cfg, save_cb))
 
-    # Dev Menu button — shown only when Testing Mode is on
-    dev_btn = tk.Button(
-        btn_frame, text="Dev Menu", bg=PANEL, fg=ACCENT2, relief="flat",
-        font=(FONT, 9, "bold"), activebackground=BORDER, activeforeground=ACCENT2,
-        padx=12, pady=4, cursor="hand2",
-        command=lambda: open_dev_menu(win, state, cfg, save_cb),
-    )
+    def _refresh_dev_btn_impl():
+        dev_btn.setVisible(bool(getattr(state, "testing", False)))
 
-    def _refresh_dev_btn():
-        if getattr(state, "testing", False):
-            dev_btn.pack(side="left", padx=(8, 0))
-        else:
-            dev_btn.pack_forget()
+    _refresh_dev_btn = _refresh_dev_btn_impl
+    _refresh_dev_btn()
+    btn_row.addWidget(dev_btn)
 
-    _refresh_dev_btn()  # set initial visibility
+    btn_row.addStretch(1)
 
-    tk.Button(
-        btn_frame, text="Close Settings", bg=ACCENT, fg=BG, relief="flat",
-        font=(FONT, 9, "bold"), activebackground=ACCENT2, activeforeground=BG,
-        padx=16, pady=4, cursor="hand2", command=win.destroy,
-    ).pack(side="right")
+    close_btn = QPushButton("Close Settings")
+    close_btn.setStyleSheet(theme.accent_button_qss())
+    close_btn.setFont(theme.qt_font(9, bold=True))
+    close_btn.clicked.connect(dlg.close)
+    btn_row.addWidget(close_btn)
 
-    # bottom padding
-    tk.Frame(inner, bg=PANEL, height=20).pack()
+    inner_layout.addLayout(btn_row)
+    inner_layout.addSpacing(20)
+
+    dlg.exec()
