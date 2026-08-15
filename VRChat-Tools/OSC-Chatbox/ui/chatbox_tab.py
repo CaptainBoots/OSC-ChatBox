@@ -32,7 +32,7 @@ BANNER_SLIDE_MS = 500
 
 BANNER_WIDTH  = 600
 BANNER_HEIGHT = 100
-ICON_SIZE = 75
+ICON_SIZE = 50
 
 
 def _hline(parent_layout):
@@ -323,7 +323,7 @@ class ChatboxTab(StripeBackground):
 
         # ── Bottom bar: pinned via absolute positioning (mirrors Tk .place) ────
         self._discord_btn = _IconButton(
-            "assets/discord.png", "#5865F2", "#4752C4",
+            "assets/discord.png", theme.BG, theme.ACCENT2,
             "https://discord.gg/YDXpQPF6g9",
         )
         self._discord_btn.setParent(self)
@@ -332,7 +332,7 @@ class ChatboxTab(StripeBackground):
         self._banner.setParent(self)
 
         self._github_btn = _IconButton(
-            "assets/github.png", "#24292e", "#444d56",
+            "assets/github.png", theme.BG, theme.ACCENT2,
             "https://github.com/CaptainBoots/VRChat-ToolBox",
         )
         self._github_btn.setParent(self)

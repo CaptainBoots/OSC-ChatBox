@@ -64,7 +64,7 @@ class BuilderTab(StripeBackground):
 
         header_row = QHBoxLayout()
         title = QLabel("Output Pages Setup")
-        title.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
+        title.setStyleSheet(f"color: {theme.TEXT}; background: {theme.BG}; border: none;")
         title.setFont(theme.qt_font(11, bold=True))
         header_row.addWidget(title)
         header_row.addStretch(1)
@@ -144,6 +144,7 @@ class BuilderTab(StripeBackground):
         dur_entry.setFixedWidth(34)
         dur_entry.setAlignment(Qt.AlignCenter)
         dur_entry.setFont(theme.qt_font(9, bold=True))
+        dur_entry.setStyleSheet(theme.line_edit_qss())
 
         def _decrement():
             try:
@@ -178,7 +179,7 @@ class BuilderTab(StripeBackground):
 
         counter_wrap = QWidget()
         counter_wrap.setLayout(counter)
-        counter_wrap.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
+        counter_wrap.setStyleSheet(f"background-color: {theme.BG}; border: {theme.BORDER};")
         header.addWidget(counter_wrap)
 
         def _dur_changed():
@@ -276,6 +277,7 @@ class BuilderTab(StripeBackground):
                 entry = QLineEdit(sub_slot.get("text", ""))
                 entry.setFixedWidth(90)
                 entry.setFont(theme.qt_font(9))
+                entry.setStyleSheet(theme.line_edit_qss())
 
                 def _text_changed(text, pi=page_idx, si=slot_idx, mi=m_idx):
                     try:
