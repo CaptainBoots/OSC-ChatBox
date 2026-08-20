@@ -510,6 +510,23 @@ THEMES: dict[str, dict] = {
         "ORANGE":  "#9966CC",
         "STRIPE_COLOURS": ["#000000", "#7A7A7A", "#FFFFFF", "#9966CC", "#FFFFFF", "#7A7A7A"],
     },
+    "omni_flag": {
+        "BG":      "#16000B",
+        "PANEL":   "#260014",
+        "BORDER":  "#FF8C69",
+        "ACCENT":  "#FF69B4",
+        "ACCENT2": "#8B00FF",
+        "TAB":     "#FF69B4",
+        "TEXT":    "#FFFFFF",
+        "TEXT2":   "#FFF0F7",
+        "SUBTEXT": "#D5A0B8",
+        "GREEN":   "#57C785",
+        "RED":     "#FF69B4",
+        "YELLOW":  "#FFD166",
+        "CYAN":    "#7B68EE",
+        "ORANGE":  "#FF8C69",
+        "STRIPE_COLOURS": ["#FF69B4", "#FF8C69", "#FF69B4", "#FFFFFF", "#8B00FF"],
+    },
 }
 
 THEME_LABELS = {
@@ -539,6 +556,7 @@ THEME_LABELS = {
     "genderfluid_flag": "Genderfluid Flag",
     "intersex_flag":    "Intersex Flag",
     "demi_flag":        "Demi Flag",
+    "omni_flag":        "Omni Flag",
 }
 
 
