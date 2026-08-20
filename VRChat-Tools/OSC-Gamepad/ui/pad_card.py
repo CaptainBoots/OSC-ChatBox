@@ -5,17 +5,21 @@ PadCard: one pad's config row (name, host, port, style, connect)
 plus its active pad area (NES / Joystick).
 """
 
-import tkinter as tk
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QFrame, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
+    QPushButton, QRadioButton, QButtonGroup,
+)
 
 from core.pad_state import PadState
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, RED, FONT
+from ui import theme
 from ui.widgets import NESPad, JoystickPad
 
 
-class PadCard(tk.Frame):
-    def __init__(self, parent, index: int, on_remove, host="127.0.0.1", port="9000",
-                 style="nes", name="", **kwargs):
-        super().__init__(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER, **kwargs)
+class PadCard(QFrame):
+    def __init__(self, index: int, on_remove, host="127.0.0.1", port="9000",
+                 style="nes", name="", parent=None):
+        super().__init__(parent)
         self.index     = index
         self.on_remove = on_remove
         self.state: PadState | None = None
@@ -26,76 +30,139 @@ class PadCard(tk.Frame):
         self._default_name  = name or f"Pad {index}"
         self._connected     = False
 
+        self.setStyleSheet(f"background-color: {theme.PANEL}; border: 1px solid {theme.BORDER};")
         self._build()
 
     def _build(self):
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(8, 8, 8, 8)
+        outer.setSpacing(6)
+
         # ── Header ────────────────────────────────────────────────────────────
-        hdr = tk.Frame(self, bg=PANEL)
-        hdr.pack(fill=tk.X, padx=8, pady=(8, 4))
+        hdr = QHBoxLayout()
 
-        tk.Label(hdr, text="◈", font=(FONT, 10, "bold"), fg=ACCENT2, bg=PANEL).pack(side=tk.LEFT)
+        icon = QLabel("◈")
+        icon.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
+        icon.setFont(theme.qt_font(10, bold=True))
+        hdr.addWidget(icon)
 
-        self._name_var = tk.StringVar(value=self._default_name)
-        tk.Entry(
-            hdr, textvariable=self._name_var,
-            font=(FONT, 10, "bold"), fg=ACCENT2, bg=PANEL,
-            insertbackground=ACCENT2, relief="flat",
-            highlightthickness=0, width=18,
-        ).pack(side=tk.LEFT, padx=(4, 0))
+        self._name_entry = QLineEdit(self._default_name)
+        self._name_entry.setFixedWidth(160)
+        self._name_entry.setFont(theme.qt_font(10, bold=True))
+        self._name_entry.setStyleSheet(
+            f"QLineEdit {{ background-color: {theme.PANEL}; color: {theme.ACCENT2}; "
+            f"border: none; padding: 1px 4px; }}"
+        )
+        hdr.addWidget(self._name_entry)
+        hdr.addStretch(1)
 
-        rm_btn = tk.Label(hdr, text="✕", font=(FONT, 10), fg=RED, bg=PANEL, cursor="hand2")
-        rm_btn.pack(side=tk.RIGHT, padx=4)
-        rm_btn.bind("<Button-1>", lambda e: self.on_remove(self))
+        rm_btn = QLabel("✕")
+        rm_btn.setCursor(Qt.PointingHandCursor)
+        rm_btn.setStyleSheet(f"color: {theme.RED}; background: transparent; border: none;")
+        rm_btn.setFont(theme.qt_font(10))
+        rm_btn.mousePressEvent = lambda _e: self.on_remove(self)
+        hdr.addWidget(rm_btn)
 
-        tk.Frame(self, bg=BORDER, height=1).pack(fill=tk.X, padx=8)
+        outer.addLayout(hdr)
+
+        divider = QFrame()
+        divider.setFixedHeight(1)
+        divider.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
+        outer.addWidget(divider)
 
         # ── Config row ────────────────────────────────────────────────────────
-        cfg_row = tk.Frame(self, bg=PANEL)
-        cfg_row.pack(fill=tk.X, padx=8, pady=6)
+        cfg_row = QHBoxLayout()
 
         def lbl(text):
-            tk.Label(cfg_row, text=text, font=(FONT, 8), fg=SUBTEXT, bg=PANEL).pack(side=tk.LEFT)
+            l = QLabel(text)
+            l.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+            l.setFont(theme.qt_font(8))
+            cfg_row.addWidget(l)
 
         def entry(default, width):
-            e = tk.Entry(
-                cfg_row, font=(FONT, 9), width=width,
-                bg=PANEL, fg=TEXT, insertbackground=ACCENT,
-                relief="flat", highlightthickness=1,
-                highlightbackground=BORDER, highlightcolor=ACCENT,
-            )
-            e.insert(0, default)
-            e.pack(side=tk.LEFT, padx=(2, 8))
+            e = QLineEdit(default)
+            e.setFixedWidth(width)
+            e.setFont(theme.qt_font(9))
+            e.setStyleSheet(theme.line_edit_qss())
+            cfg_row.addWidget(e)
             return e
 
         lbl("Host:")
-        self._host = entry(self._default_host, 13)
+        self._host = entry(self._default_host, 100)
+        cfg_row.addSpacing(6)
         lbl("Port:")
-        self._port = entry(self._default_port, 6)
+        self._port = entry(self._default_port, 50)
+        cfg_row.addSpacing(6)
 
-        self._style_var = tk.StringVar(value=self._default_style)
+        self._style_group = QButtonGroup(self)
+        self._style_buttons = {}
         for val, txt in (("nes", "NES"), ("joy", "Joystick")):
-            tk.Radiobutton(
-                cfg_row, text=txt, variable=self._style_var, value=val,
-                font=(FONT, 8), fg=TEXT, bg=PANEL,
-                selectcolor=PANEL, activebackground=PANEL,
-                command=self._rebuild_pad,
-            ).pack(side=tk.LEFT, padx=2)
+            rb = QRadioButton(txt)
+            rb.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
+            rb.setFont(theme.qt_font(8))
+            rb.setCursor(Qt.PointingHandCursor)
+            rb.setChecked(val == self._default_style)
+            rb.toggled.connect(lambda checked, v=val: self._rebuild_pad() if checked else None)
+            self._style_group.addButton(rb)
+            self._style_buttons[val] = rb
+            cfg_row.addWidget(rb)
 
-        self._conn_btn = tk.Button(
-            cfg_row, text="Connect", font=(FONT, 8, "bold"),
-            fg=BG, bg=ACCENT, relief="flat",
-            activebackground=ACCENT2, activeforeground=BG,
-            cursor="hand2", padx=6, command=self._toggle_connect,
-        )
-        self._conn_btn.pack(side=tk.LEFT, padx=(8, 0))
+        cfg_row.addSpacing(8)
 
-        self._status_dot = tk.Label(cfg_row, text="●", font=(FONT, 10), fg=SUBTEXT, bg=PANEL)
-        self._status_dot.pack(side=tk.LEFT, padx=4)
+        self._conn_btn = QPushButton("Connect")
+        self._conn_btn.setCursor(Qt.PointingHandCursor)
+        self._conn_btn.setFont(theme.qt_font(8, bold=True))
+        self._set_connect_style(connected=False)
+        self._conn_btn.clicked.connect(self._toggle_connect)
+        cfg_row.addWidget(self._conn_btn)
+
+        self._status_dot = QLabel("●")
+        self._status_dot.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        self._status_dot.setFont(theme.qt_font(10))
+        cfg_row.addWidget(self._status_dot)
+        cfg_row.addStretch(1)
+
+        outer.addLayout(cfg_row)
 
         # ── Pad area ──────────────────────────────────────────────────────────
-        self._pad_area = tk.Frame(self, bg=PANEL)
-        self._pad_area.pack(padx=4, pady=(0, 8))
+        self._pad_area = QVBoxLayout()
+        self._pad_area.setContentsMargins(4, 0, 4, 8)
+        outer.addLayout(self._pad_area)
+        self._pad_widget = None
         self._show_placeholder()
+
+    # ── Style helpers ─────────────────────────────────────────────────────────
+
+    def _set_connect_style(self, connected: bool):
+        if connected:
+            self._conn_btn.setText("Disconnect")
+            self._conn_btn.setStyleSheet(
+                f"QPushButton {{ background-color: {theme.RED}; color: {theme.BG}; border: none; padding: 3px 8px; }}"
+            )
+        else:
+            self._conn_btn.setText("Connect")
+            self._conn_btn.setStyleSheet(
+                f"QPushButton {{ background-color: {theme.ACCENT}; color: {theme.BG}; border: none; padding: 3px 8px; }}"
+                f"QPushButton:hover {{ background-color: {theme.ACCENT2}; }}"
+            )
+
+    def _clear_pad_area(self):
+        while self._pad_area.count():
+            item = self._pad_area.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.setParent(None)
+                w.deleteLater()
+        self._pad_widget = None
+
+    def _show_placeholder(self):
+        self._clear_pad_area()
+        placeholder = QLabel("Press Connect to activate")
+        placeholder.setAlignment(Qt.AlignCenter)
+        placeholder.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        placeholder.setFont(theme.qt_font(8))
+        placeholder.setContentsMargins(0, 16, 0, 16)
+        self._pad_area.addWidget(placeholder)
 
     # ── Connection ────────────────────────────────────────────────────────────
 
@@ -103,11 +170,11 @@ class PadCard(tk.Frame):
         self._disconnect() if self._connected else self._connect()
 
     def _connect(self):
-        host = self._host.get().strip()
+        host = self._host.text().strip()
         try:
-            port = int(self._port.get().strip())
+            port = int(self._port.text().strip())
         except ValueError:
-            self._status_dot.config(fg=RED)
+            self._status_dot.setStyleSheet(f"color: {theme.RED}; background: transparent; border: none;")
             return
 
         if self.state:
@@ -115,11 +182,8 @@ class PadCard(tk.Frame):
 
         self.state = PadState(host, port)
         self._connected = True
-        self._status_dot.config(fg=GREEN)
-        self._conn_btn.config(
-            text="Disconnect", fg=BG, bg=RED,
-            activebackground=RED, activeforeground=BG,
-        )
+        self._status_dot.setStyleSheet(f"color: {theme.GREEN}; background: transparent; border: none;")
+        self._set_connect_style(connected=True)
         self._rebuild_pad()
 
     def _disconnect(self):
@@ -127,37 +191,36 @@ class PadCard(tk.Frame):
             self.state.stop()
             self.state = None
         self._connected = False
-        self._status_dot.config(fg=SUBTEXT)
-        self._conn_btn.config(
-            text="Connect", fg=BG, bg=ACCENT,
-            activebackground=ACCENT2, activeforeground=BG,
-        )
-        for w in self._pad_area.winfo_children():
-            w.destroy()
+        self._status_dot.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        self._set_connect_style(connected=False)
         self._show_placeholder()
-
-    def _show_placeholder(self):
-        tk.Label(
-            self._pad_area, text="Press Connect to activate",
-            font=(FONT, 8), fg=SUBTEXT, bg=PANEL,
-        ).pack(pady=16)
 
     def _rebuild_pad(self):
         if not self.state:
             return
-        for w in self._pad_area.winfo_children():
-            w.destroy()
-        cls = NESPad if self._style_var.get() == "nes" else JoystickPad
-        cls(self._pad_area, self.state).pack()
+        self._clear_pad_area()
+        style = "nes" if self._style_buttons["nes"].isChecked() else "joy"
+        cls = NESPad if style == "nes" else JoystickPad
+        self._pad_widget = cls(self.state)
+        self._pad_area.addWidget(self._pad_widget)
+        # Adding a widget to an already-materialized layout queues a
+        # layout/show pass for the next event loop iteration — pump it now
+        # so the pad controls appear immediately rather than needing an
+        # extra redraw before becoming visible.
+        from PySide6.QtWidgets import QApplication
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            app_instance.processEvents()
 
     # ── Config I/O ────────────────────────────────────────────────────────────
 
     def get_config(self) -> dict:
+        style = "nes" if self._style_buttons["nes"].isChecked() else "joy"
         return {
-            "host":  self._host.get().strip(),
-            "port":  self._port.get().strip(),
-            "style": self._style_var.get(),
-            "name":  self._name_var.get().strip(),
+            "host":  self._host.text().strip(),
+            "port":  self._port.text().strip(),
+            "style": style,
+            "name":  self._name_entry.text().strip(),
         }
 
     def destroy_state(self):
