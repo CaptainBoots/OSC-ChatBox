@@ -63,7 +63,7 @@ class OutputTarget:
         subscribed = [s for s in sources if s.name in self.source_names]
         # Sort by priority (position in source_names list, lower = higher priority)
         subscribed.sort(key=lambda s: self.source_names.index(s.name)
-                        if s.name in self.source_names else 999)
+        if s.name in self.source_names else 999)
 
         # Merge: reverse so highest-priority wins by writing last
         merged: dict[str, tuple] = {}
