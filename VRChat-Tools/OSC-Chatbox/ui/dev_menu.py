@@ -14,13 +14,14 @@ from PySide6.QtWidgets import (
 )
 
 from state import AppState
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, qt_font, accent_button_qss
+from ui import theme
+from ui.theme import qt_font, accent_button_qss
 
 
 def open_dev_menu(parent, state: AppState, cfg: dict, save_cb):
     win = QDialog(parent)
     win.setWindowTitle("Dev Menu")
-    win.setStyleSheet(f"background-color: {BG}; border: none;")
+    win.setStyleSheet(f"background-color: {theme.BG}; border: none;")
     win.resize(parent.size())
 
     root = QVBoxLayout(win)
@@ -29,11 +30,11 @@ def open_dev_menu(parent, state: AppState, cfg: dict, save_cb):
 
     # ── Header (fixed, outside scroll) ───────────────────────────────────────
     hdr = QWidget()
-    hdr.setStyleSheet(f"background-color: {PANEL}; border: none;")
+    hdr.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
     hdr_layout = QHBoxLayout(hdr)
     hdr_layout.setContentsMargins(16, 10, 16, 10)
     title = QLabel("Dev Menu")
-    title.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+    title.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
     title.setFont(qt_font(12, bold=True))
     hdr_layout.addWidget(title)
     hdr_layout.addStretch(1)
@@ -41,16 +42,16 @@ def open_dev_menu(parent, state: AppState, cfg: dict, save_cb):
 
     divider = QFrame()
     divider.setFixedHeight(1)
-    divider.setStyleSheet(f"background-color: {BORDER}; border: none;")
+    divider.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
     root.addWidget(divider)
 
     # ── Scrollable area ───────────────────────────────────────────────────────
     scroll = QScrollArea()
     scroll.setWidgetResizable(True)
-    scroll.setStyleSheet(f"background-color: {PANEL}; border: none;")
+    scroll.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
 
     inner = QWidget()
-    inner.setStyleSheet(f"background-color: {PANEL}; border: none;")
+    inner.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
     inner_layout = QVBoxLayout(inner)
     inner_layout.setContentsMargins(0, 0, 0, 0)
     inner_layout.setSpacing(0)
@@ -61,7 +62,7 @@ def open_dev_menu(parent, state: AppState, cfg: dict, save_cb):
     # ── Section helper ────────────────────────────────────────────────────────
     def section(label):
         lbl = QLabel(label)
-        lbl.setStyleSheet(f"color: {ACCENT2}; background-color: {BORDER}; padding: 3px 10px; border-radius: 3px;")
+        lbl.setStyleSheet(f"color: {theme.ACCENT2}; background-color: {theme.BORDER}; padding: 3px 10px; border-radius: 3px;")
         lbl.setFont(qt_font(10, bold=True))
         lbl.setAlignment(Qt.AlignHCenter)
         inner_layout.addSpacing(16)
@@ -78,7 +79,7 @@ def open_dev_menu(parent, state: AppState, cfg: dict, save_cb):
     section("Developer Tools")
 
     placeholder = QLabel("Dev tools and diagnostics will appear here.")
-    placeholder.setStyleSheet(f"color: {SUBTEXT}; background: transparent; border: none;")
+    placeholder.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
     placeholder.setFont(qt_font(9))
     placeholder.setContentsMargins(24, 0, 24, 8)
     inner_layout.addWidget(placeholder)
@@ -87,7 +88,7 @@ def open_dev_menu(parent, state: AppState, cfg: dict, save_cb):
     section("Actions")
 
     btn_frame = QWidget()
-    btn_frame.setStyleSheet(f"background-color: {PANEL}; border: none;")
+    btn_frame.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
     btn_layout = QHBoxLayout(btn_frame)
     btn_layout.setContentsMargins(16, 12, 16, 12)
     btn_layout.addStretch(1)
