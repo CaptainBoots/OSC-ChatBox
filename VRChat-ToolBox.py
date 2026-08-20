@@ -13,6 +13,7 @@ import io
 import json
 import os
 import re
+import shutil
 import site
 import subprocess
 import sys
@@ -22,7 +23,7 @@ import tkinter.font as font
 import zipfile
 import webbrowser
 import threading
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 
 
 def install_if_missing(package, import_name=None):
@@ -67,12 +68,61 @@ import requests
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
-_processes = []
-VERSION = "9.5.1"
-
-# Default selected branch tracking variable
-UPDATE_BRANCH = "main"
+# ─── App metadata / runtime state ──────────────────────────────────────────
+VERSION = "9.6.0"
+UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
+
+# Python interpreter used to launch tool scripts. Empty string = use the same
+# interpreter the ToolBox itself is running on (sys.executable).
+PYTHON_INTERPRETER = ""
+
+# ─── Filesystem layout ──────────────────────────────────────────────────────
+if getattr(sys, 'frozen', False):
+    SCRIPT_DIR = os.path.dirname(sys.executable)
+else:
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "VRChat-Tools")
+TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "configs")
+TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
+BACKUP_DIR = os.path.join(TOOLBOX_CONFIG_DIR, "ToolBox Backup")
+LEGACY_TOOLBOX_CONFIG_FILES = [
+    os.path.join(TOOLS_ROOT_DIR, "osc_config.json"),
+    os.path.join(TOOLS_ROOT_DIR, "chatbox_config.json"),
+    os.path.join(TOOLS_ROOT_DIR, "toolbox_config.json"),
+]
+
+# Legacy per-script folder map, used only to migrate old flat-layout installs
+# (script sitting directly in VRChat-Tools/ instead of its own subfolder).
+SCRIPT_FOLDER_MAP = {
+    "OSC-Router.py": "OSC-Router",
+    "OSC-FaceTrackingController.py": "OSC-FaceTrackingController",
+    "OSC-Gamepad.py": "OSC-Gamepad",
+    "OSC-ScriptMaker.py": "OSC-ScriptMaker",
+    "OSC-ParameterBrowser.py": "OSC-ParameterBrowser",
+    "VRChat-Launcher.py": "VRChat-Launcher",
+    "VRChat-LocalFavorites.py": "VRChat-LocalFavorites",
+    "VRChat-SocialLogger.py": "VRChat-SocialLogger",
+}
+
+# Per-tool config files to wipe on update (paths relative to TOOLS_ROOT_DIR).
+# This ensures users always get a clean config after a breaking update.
+TOOL_CONFIG_WIPE_MAP: dict[str, list[str]] = {
+    "OSC-Chatbox/main.py": [
+        os.path.join("OSC-Chatbox", "chatbox_config.json"),
+    ],
+}
+
+# NOTE: tool file layout itself is no longer hardcoded here. Every managed
+# tool is assumed to live at "<ToolFolder>/<main file>" (e.g.
+# "OSC-Chatbox/main.py"), and its full folder contents are discovered
+# dynamically from GitHub at download/update time (see get_repo_tree() /
+# ensure_tool_folder() further down). That means adding a new file to a tool
+# on GitHub "just works" without ever having to touch this file.
+
+# ─── GitHub URLs ─────────────────────────────────────────────────────────────
+GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/releases/latest/download/"
 
 
 def get_github_raw_url():
@@ -83,36 +133,48 @@ def get_github_base_url():
     return f"https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/{UPDATE_BRANCH}/VRChat-Tools/"
 
 
-GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/releases/latest/download/"
+def get_active_python() -> str:
+    """Returns the interpreter path to use for launching tool scripts.
 
-if getattr(sys, 'frozen', False):
-    SCRIPT_DIR = os.path.dirname(sys.executable)
-else:
-    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    Falls back to sys.executable if no custom interpreter is configured,
+    or if the configured one no longer exists on disk.
+    """
+    if PYTHON_INTERPRETER and os.path.isfile(PYTHON_INTERPRETER):
+        return PYTHON_INTERPRETER
+    return sys.executable
 
-TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "VRChat-Tools")
-TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "VRChat-Toolbox")
-TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
-LEGACY_TOOLBOX_CONFIG_FILES = [
-    os.path.join(TOOLS_ROOT_DIR, "osc_config.json"),
-    os.path.join(TOOLS_ROOT_DIR, "chatbox_config.json"),
-    os.path.join(TOOLS_ROOT_DIR, "toolbox_config.json"),
-]
 
-os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
+# ─── Libre Hardware Monitor (EXE tool, downloaded from GitHub Releases) ───────
+LHM_FOLDER = "LibreHardwareMonitor"
+LHM_EXE_NAME = "LibreHardwareMonitor.exe"
+LHM_FILENAME = f"{LHM_FOLDER}/{LHM_EXE_NAME}"
+LHM_RELEASE_URL = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest/download/LibreHardwareMonitor.zip"
 
-print(f"[Config] Script directory: {SCRIPT_DIR}")
-print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
-print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
+# ─── Tool state tracking (drives "Download" / "Update" / "Run" button labels) ─
+TOOL_STATE_MISSING = "missing"
+TOOL_STATE_UPDATE = "update"
+TOOL_STATE_CURRENT = "current"
 
-if VERSION == "9.4.0":  # update when adding tools or dependencies
-    if os.path.exists(TOOLBOX_CONFIG_FILE):
-        try:
-            os.remove(TOOLBOX_CONFIG_FILE)
-            print(f"[Config] Version config change detected. Forced clean reset of: {TOOLBOX_CONFIG_FILE}")
-        except OSError as e:
-            print(f"[Config] Failed to force-delete config: {e}")
+# filename -> one of the TOOL_STATE_* constants above. Populated by the
+# lightweight background scan on boot, and updated immediately after any
+# download/update triggered by a click.
+tool_states: dict[str, str] = {}
 
+# ─── Theme ────────────────────────────────────────────────────────────────
+FONT = "Consolas"
+TITLE_PREFIX = "◈"  # new (default)
+BG = "#0f0f13"
+PANEL = "#1f102a"
+BORDER = "#2a2a38"
+ACCENT = "#9D00FF"
+ACCENT2 = "#b44bff"
+TEXT = "#e2e0f0"
+TEXT2 = "#ffffff"
+SUBTEXT = "#7e7b9a"
+GREEN = "#00ffcc"
+RED = "#ff4b72"
+
+# ─── Default managed tools list (used if no saved config exists yet) ─────────
 DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "VRChat-Launcher/main.py", "label": "VRChat Launcher(Beta)"},
     {"filename": "LibreHardwareMonitor/LibreHardwareMonitor.exe", "label": "Libre Hardware Monitor"},
@@ -127,8 +189,52 @@ DEFAULT_MANAGED_SCRIPTS = [
 ]
 
 
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# BOOT: migrate old layouts, load/save config, resolve managed scripts
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+def _migrate_legacy_config_folder() -> None:
+    """One-time migration: older builds stored the ToolBox's own config under
+    VRChat-Tools/VRChat-Toolbox/. Newer builds use VRChat-Tools/configs/
+    instead — move any existing files over so settings (branch, python
+    interpreter, managed scripts list) aren't silently lost."""
+    legacy_config_dir = os.path.join(TOOLS_ROOT_DIR, "VRChat-Toolbox")
+    if not os.path.isdir(legacy_config_dir) or os.path.abspath(legacy_config_dir) == os.path.abspath(TOOLBOX_CONFIG_DIR):
+        return
+    try:
+        os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
+        for name in os.listdir(legacy_config_dir):
+            src = os.path.join(legacy_config_dir, name)
+            dst = os.path.join(TOOLBOX_CONFIG_DIR, name)
+            if os.path.exists(dst):
+                continue
+            os.replace(src, dst)
+            print(f"[Layout] Moved config item '{name}' from VRChat-Toolbox/ -> configs/")
+        if not os.listdir(legacy_config_dir):
+            os.rmdir(legacy_config_dir)
+    except OSError as e:
+        print(f"[Layout] Could not migrate legacy config folder: {e}")
+
+
+os.makedirs(TOOLS_ROOT_DIR, exist_ok=True)
+_migrate_legacy_config_folder()
+os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
+
+print(f"[Config] Script directory: {SCRIPT_DIR}")
+print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
+print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
+
+if UPDATE_BRANCH == "beta":
+    if os.path.exists(TOOLBOX_CONFIG_FILE):
+        try:
+            os.remove(TOOLBOX_CONFIG_FILE)
+            print(f"[Config] Version config change detected. Forced clean reset of: {TOOLBOX_CONFIG_FILE}")
+        except OSError as e:
+            print(f"[Config] Failed to force-delete config: {e}")
+
+
 def load_managed_scripts():
-    global UPDATE_BRANCH, BETA_POPUP_SHOWN
+    global UPDATE_BRANCH, BETA_POPUP_SHOWN, PYTHON_INTERPRETER
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -136,6 +242,7 @@ def load_managed_scripts():
 
             UPDATE_BRANCH = config.get("update_branch", "main")
             BETA_POPUP_SHOWN = config.get("beta_popup_shown", False)
+            PYTHON_INTERPRETER = config.get("python_interpreter", "")
 
             # Verify the configuration version matches the current app version
             config_version = config.get("version")
@@ -158,6 +265,7 @@ def save_managed_scripts(scripts):
             "version": VERSION,
             "update_branch": UPDATE_BRANCH,
             "beta_popup_shown": BETA_POPUP_SHOWN,
+            "python_interpreter": PYTHON_INTERPRETER,
             "managed_scripts": scripts
         }
         with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -173,162 +281,6 @@ MANAGED_SCRIPTS = load_managed_scripts()
 print("Boot's ToolBox")
 print("Made By Boots")
 print(f"Version {VERSION}")
-
-TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "VRChat-Tools")
-TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "VRChat-Toolbox")
-TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
-BACKUP_DIR = os.path.join(TOOLBOX_CONFIG_DIR, "ToolBox Backup")
-
-SUBFOLDER_SCRIPT_MAP = {
-    "VRChat-Launcher/main.py": {
-        "remote_path": "VRChat-Launcher/main.py",
-        "local_path": os.path.join("VRChat-Launcher", "main.py"),
-    },
-    "OSC-Router/main.py": {
-        "remote_path": "OSC-Router/main.py",
-        "local_path": os.path.join("OSC-Router", "main.py"),
-    },
-    "OSC-Chatbox/main.py": {
-        "remote_path": "OSC-Chatbox/main.py",
-        "local_path": os.path.join("OSC-Chatbox", "main.py"),
-    },
-    "OSC-Gamepad/main.py": {
-        "remote_path": "OSC-Gamepad/main.py",
-        "local_path": os.path.join("OSC-Gamepad", "main.py"),
-    },
-    "OSC-FaceTrackingController/main.py": {
-        "remote_path": "OSC-FaceTrackingController/main.py",
-        "local_path": os.path.join("OSC-FaceTrackingController", "main.py"),
-    },
-    "OSC-ParameterBrowser/main.py": {
-        "remote_path": "OSC-ParameterBrowser/main.py",
-        "local_path": os.path.join("OSC-ParameterBrowser", "main.py"),
-    },
-    "OSC-ScriptMaker/main.py": {
-        "remote_path": "OSC-ScriptMaker/main.py",
-        "local_path": os.path.join("OSC-ScriptMaker", "main.py"),
-    },
-    "VRChat-LocalFavorites/main.py": {
-        "remote_path": "VRChat-LocalFavorites/main.py",
-        "local_path": os.path.join("VRChat-LocalFavorites", "main.py"),
-    },
-    "VRChat-SocialLogger/main.py": {
-        "remote_path": "VRChat-SocialLogger/main.py",
-        "local_path": os.path.join("VRChat-SocialLogger", "main.py"),
-    },
-}
-
-# Per-tool config files to wipe on update (paths relative to TOOLS_ROOT_DIR).
-# This ensures users always get a clean config after a breaking update.
-TOOL_CONFIG_WIPE_MAP: dict[str, list[str]] = {
-    "OSC-Chatbox/main.py": [
-        os.path.join("OSC-Chatbox", "chatbox_config.json"),
-    ],
-}
-
-TOOL_DEPENDENCIES_MAP = {
-    "VRChat-Launcher/main.py": [
-    ],
-    "OSC-Router/main.py": [
-        # Sibling files in the main folder
-        "OSC-Router/__init__.py",
-        "OSC-Router/config.py",
-
-        # Core
-        "OSC-Router/core/__init__.py",
-        "OSC-Router/core/router.py",
-        "OSC-Router/core/source.py",
-
-        # UI module
-        "OSC-Router/ui/__init__.py",
-        "OSC-Router/ui/app.py",
-        "OSC-Router/ui/circle_toggle.py",
-        "OSC-Router/ui/router_tab.py",
-        "OSC-Router/ui/help_dialog.py",
-        "OSC-Router/ui/settings_dialog.py",
-        "OSC-Router/ui/theme.py",
-    ],
-    "OSC-Chatbox/main.py": [
-        # Sibling files in the main folder
-        "OSC-Chatbox/__init__.py",
-        "OSC-Chatbox/config.py",
-        "OSC-Chatbox/gpu_ids.py",
-        "OSC-Chatbox/osc_loop.py",
-        "OSC-Chatbox/state.py",
-
-        # Assets
-        "OSC-Chatbox/assets/__init__.py",
-        "OSC-Chatbox/assets/discord.png",
-        "OSC-Chatbox/assets/github.png",
-
-        # Hardware module
-        "OSC-Chatbox/hardware/__init__.py",
-        "OSC-Chatbox/hardware/cpu.py",
-        "OSC-Chatbox/hardware/gpu.py",
-        "OSC-Chatbox/hardware/lhm.py",
-        "OSC-Chatbox/hardware/memory.py",
-
-        # Modules module
-        "OSC-Chatbox/modules/__init__.py",
-        "OSC-Chatbox/modules/registry.py",
-
-        # Monitors module
-        "OSC-Chatbox/monitors/__init__.py",
-        "OSC-Chatbox/monitors/media.py",
-        "OSC-Chatbox/monitors/network.py",
-        "OSC-Chatbox/monitors/weather.py",
-        "OSC-Chatbox/monitors/steamvr.py",
-        "OSC-Chatbox/monitors/vrchat.py",
-
-        # UI module
-        "OSC-Chatbox/ui/__init__.py",
-        "OSC-Chatbox/ui/app.py",
-        "OSC-Chatbox/ui/circle_toggle.py",
-        "OSC-Chatbox/ui/builder.py",
-        "OSC-Chatbox/ui/chatbox_tab.py",
-        "OSC-Chatbox/ui/help_dialog.py",
-        "OSC-Chatbox/ui/dev_menu.py",
-        "OSC-Chatbox/ui/settings_dialog.py",
-        "OSC-Chatbox/ui/theme.py",
-    ],
-    "OSC-Gamepad/main.py": [
-        # Sibling files in the main folder
-        "OSC-Gamepad/__init__.py",
-        "OSC-Gamepad/config.py",
-
-        # Core
-        "OSC-Gamepad/core/__init__.py",
-        "OSC-Gamepad/core/pad_state.py",
-
-        # UI module
-        "OSC-Gamepad/ui/__init__.py",
-        "OSC-Gamepad/ui/app.py",
-        "OSC-Gamepad/ui/circle_toggle.py",
-        "OSC-Gamepad/ui/gamepad_tab.py",
-        "OSC-Gamepad/ui/pad_card.py",
-        "OSC-Gamepad/ui/help_dialog.py",
-        "OSC-Gamepad/ui/settings_dialog.py",
-        "OSC-Gamepad/ui/theme.py",
-        "OSC-Gamepad/ui/widgets.py",
-    ],
-    "OSC-FaceTrackingController/main.py": [
-    ],
-    "OSC-ParameterBrowser/main.py": [
-    ],
-    "OSC-ScriptMaker/main.py": [
-    ],
-    "VRChat-LocalFavorites/main.py": [
-    ],
-    "VRChat-SocialLogger/main.py": [
-    ],
-
-}
-
-# ─── Libre Hardware Monitor (EXE tool, downloaded from GitHub Releases) ───────
-LHM_FOLDER = "LibreHardwareMonitor"
-LHM_EXE_NAME = "LibreHardwareMonitor.exe"
-LHM_FILENAME = f"{LHM_FOLDER}/{LHM_EXE_NAME}"
-LHM_RELEASE_URL = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest/download/LibreHardwareMonitor.zip"
 
 
 def _lhm_exe_path() -> str:
@@ -520,7 +472,6 @@ def launch_lhm() -> None:
             print(f"[LHM] Launched with admin elevation via ShellExecuteW")
         else:
             p = subprocess.Popen([dest], cwd=os.path.dirname(dest))
-            _processes.append(p)
             print(f"[LHM] Launched (PID: {p.pid})")
 
         _show_lhm_started_popup()
@@ -532,17 +483,7 @@ def launch_lhm() -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-
-SCRIPT_FOLDER_MAP = {
-    "OSC-Router.py": "OSC-Router",
-    "OSC-FaceTrackingController.py": "OSC-FaceTrackingController",
-    "OSC-Gamepad.py": "OSC-Gamepad",
-    "OSC-ScriptMaker.py": "OSC-ScriptMaker",
-    "OSC-ParameterBrowser.py": "OSC-ParameterBrowser",
-    "VRChat-Launcher.py": "VRChat-Launcher",
-    "VRChat-LocalFavorites.py": "VRChat-LocalFavorites",
-    "VRChat-SocialLogger.py": "VRChat-SocialLogger",
-}
+# (SCRIPT_FOLDER_MAP lives in the CONFIGURATION & GLOBAL VARIABLES section above)
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -585,73 +526,217 @@ def _migrate_legacy_layout() -> None:
             print(f"[Layout] Could not migrate legacy backups: {e}")
 
 
-def _is_path_like(filename: str) -> bool:
-    """True only for absolute paths or paths with explicit OS separators that aren't in our known maps."""
-    if filename in SUBFOLDER_SCRIPT_MAP:
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# TOOL STATE (missing / needs update / current) — drives button labels
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# (TOOL_STATE_* constants and the tool_states dict live in the
+# CONFIGURATION & GLOBAL VARIABLES section above)
+
+
+def _tool_folder_name(filename: str) -> str:
+    """Top-level repo folder for a tool, e.g. 'OSC-Chatbox/main.py' -> 'OSC-Chatbox'."""
+    return filename.split("/")[0]
+
+
+def _tool_local_path(filename: str) -> str:
+    """Local disk path to a tool's main file."""
+    return os.path.join(TOOLS_ROOT_DIR, filename.replace("/", os.sep))
+
+
+def get_tool_state(filename: str) -> str:
+    """Best-known state for a tool. Falls back to a plain local-existence
+    check if the background scan hasn't reached this tool yet."""
+    if filename in tool_states:
+        return tool_states[filename]
+    if filename == LHM_FILENAME:
+        return TOOL_STATE_CURRENT if os.path.isfile(_lhm_exe_path()) else TOOL_STATE_MISSING
+    return TOOL_STATE_CURRENT if os.path.isfile(_tool_local_path(filename)) else TOOL_STATE_MISSING
+
+
+def _detect_tool_state(filename: str) -> str:
+    """Cheap, download-free check used by the background boot scan: fetches
+    only the tool's main file (not the whole folder) purely to compare
+    version strings, so we can label the button correctly before the user
+    ever clicks it."""
+    if filename == LHM_FILENAME:
+        return TOOL_STATE_CURRENT if os.path.isfile(_lhm_exe_path()) else TOOL_STATE_MISSING
+
+    dest_path = _tool_local_path(filename)
+    if not os.path.isfile(dest_path):
+        return TOOL_STATE_MISSING
+
+    remote_text, remote_version, _ = _fetch_remote_script(f"{get_github_base_url()}{filename}", timeout=10)
+    if remote_text is None:
+        # Can't reach GitHub — don't falsely flag as needing an update
+        return TOOL_STATE_CURRENT
+
+    try:
+        with open(dest_path, "r", encoding="utf-8") as lf:
+            local_text = lf.read()
+    except OSError:
+        local_text = ""
+
+    local_version = _extract_version_from_source(local_text) or "0.0.0"
+    remote_version = remote_version or "0.0.0"
+    if _parse_version(remote_version) > _parse_version(local_version):
+        return TOOL_STATE_UPDATE
+    return TOOL_STATE_CURRENT
+
+
+def refresh_tool_states_background() -> None:
+    """Runs on a background thread at boot. Only ever reads/compares version
+    strings — never downloads a tool folder. Missing tools stay TOOL_STATE_MISSING
+    (no point checking their remote version yet); present tools get flagged
+    TOOL_STATE_UPDATE or TOOL_STATE_CURRENT so the button label is right
+    before the user ever clicks anything."""
+    for script in MANAGED_SCRIPTS:
+        filename = script["filename"]
+        tool_states[filename] = _detect_tool_state(filename)
+        root.after(0, refresh_button_labels)
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# TOOL FOLDER SYNC — auto-discovers every file under a tool's GitHub folder
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+# Cached recursive file listing of the repo for the current branch, so
+# clicking several tools in one session doesn't burn GitHub's unauthenticated
+# API rate limit (60 requests/hour). One tree fetch covers every tool.
+_repo_tree_cache: dict = {"branch": None, "paths": None}
+
+
+def get_repo_tree(force: bool = False) -> list[str] | None:
+    global _repo_tree_cache
+    if not force and _repo_tree_cache["branch"] == UPDATE_BRANCH and _repo_tree_cache["paths"] is not None:
+        return _repo_tree_cache["paths"]
+
+    url = f"https://api.github.com/repos/CaptainBoots/VRChat-ToolBox/git/trees/{UPDATE_BRANCH}?recursive=1"
+    try:
+        resp = requests.get(url, timeout=15, headers={"Accept": "application/vnd.github+json"})
+        resp.raise_for_status()
+        data = resp.json()
+        paths = [item["path"] for item in data.get("tree", []) if item.get("type") == "blob"]
+        _repo_tree_cache = {"branch": UPDATE_BRANCH, "paths": paths}
+        return paths
+    except Exception as e:
+        print(f"[Tree] Failed to fetch repo file tree: {e}")
+        return None
+
+
+def _tool_remote_files(filename: str) -> list[str] | None:
+    """Every file path (relative to the repo's VRChat-Tools/ folder, e.g.
+    'OSC-Router/ui/app.py') that belongs to this tool's folder, or None if
+    the tree couldn't be fetched at all.
+
+    NOTE: the tree API returns paths relative to the repo ROOT, e.g.
+    'VRChat-Tools/OSC-Router/main.py' — not 'OSC-Router/main.py' — because
+    the tools live inside a VRChat-Tools/ subfolder in the repo (same reason
+    get_github_base_url() below ends in '.../VRChat-Tools/'). So we filter
+    on that full prefix and strip it back off before returning, keeping the
+    returned paths in the same 'OSC-Router/...' shape used everywhere else
+    in this file (TOOLS_ROOT_DIR, get_github_base_url(), etc).
+    """
+    repo_prefix = f"VRChat-Tools/{_tool_folder_name(filename)}/"
+    paths = get_repo_tree()
+    if paths is None:
+        return None
+    return [p[len("VRChat-Tools/"):] for p in paths if p.startswith(repo_prefix)]
+
+
+def ensure_tool_folder(filename: str, show_errors: bool = False) -> bool:
+    """Downloads (or re-syncs) every file GitHub currently has under a tool's
+    folder. Used for both a first-time download AND an update — it always
+    just pulls whatever's on the branch right now, so there's no separate
+    'ensure' vs 'update' code path and no dependency list to maintain."""
+    if filename == LHM_FILENAME:
+        return ensure_lhm(show_errors=show_errors)
+
+    dest_path = _tool_local_path(filename)
+    remote_files = _tool_remote_files(filename)
+
+    if remote_files is None:
+        # Couldn't reach GitHub at all
+        if os.path.isfile(dest_path):
+            return True
+        if show_errors:
+            messagebox.showerror(
+                f"{filename} Error",
+                f"Could not prepare {filename}.\nCheck your internet connection and try again.",
+            )
         return False
-    return os.path.isabs(filename) or ("/" in filename) or ("\\" in filename)
 
+    if not remote_files:
+        print(f"[{filename}] No files found under '{_tool_folder_name(filename)}/' on branch '{UPDATE_BRANCH}'.")
+        return os.path.isfile(dest_path)
 
-def _script_remote_urls(filename: str) -> list[str]:
-    if filename in SUBFOLDER_SCRIPT_MAP:
-        remote_path = SUBFOLDER_SCRIPT_MAP[filename]["remote_path"]
-        return [f"{get_github_base_url()}{remote_path}"]
-    if _is_path_like(filename):
-        return []
-    script_name = os.path.basename(filename)
-    urls: list[str] = []
-    folder = SCRIPT_FOLDER_MAP.get(script_name)
-    if folder:
-        urls.append(f"{get_github_base_url()}{folder}/{script_name}")
-    urls.append(f"{get_github_base_url()}{script_name}")
-    return list(dict.fromkeys(urls))
+    success = True
+    for rel_path in remote_files:
+        file_dest = os.path.join(TOOLS_ROOT_DIR, rel_path.replace("/", os.sep))
+        try:
+            os.makedirs(os.path.dirname(file_dest), exist_ok=True)
+            resp = requests.get(
+                f"{get_github_base_url()}{rel_path}", timeout=15, params={"_": int(time.time())},
+                headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
+            )
+            resp.raise_for_status()
+            with open(file_dest, "wb") as df:
+                df.write(resp.content)
+            print(f"[{filename}] Synced: {rel_path}")
+        except Exception as e:
+            print(f"[{filename}] Failed to sync {rel_path}: {e}")
+            success = False
 
+    if not success and show_errors:
+        messagebox.showerror(
+            f"{filename} Error",
+            f"Some files for {filename} failed to download.\nCheck your internet connection and try again.",
+        )
 
-def _script_bundle_candidates(filename: str) -> list[str]:
-    if filename in SUBFOLDER_SCRIPT_MAP:
-        local_path = SUBFOLDER_SCRIPT_MAP[filename]["local_path"]
-        return [os.path.join(TOOLS_ROOT_DIR, local_path)]
-    if _is_path_like(filename):
-        resolved = filename if os.path.isabs(filename) else os.path.join(SCRIPT_DIR, filename)
-        return [os.path.normpath(resolved)]
-    script_name = os.path.basename(filename)
-    candidates: list[str] = []
-    folder = SCRIPT_FOLDER_MAP.get(script_name)
-    if folder:
-        candidates.append(os.path.join(SCRIPT_DIR, "VRChat-Tools", folder, script_name))
-    candidates.append(os.path.join(SCRIPT_DIR, "VRChat-Tools", script_name))
-    candidates.append(os.path.join(SCRIPT_DIR, script_name))
-    return list(dict.fromkeys(candidates))
+    return success and os.path.isfile(dest_path)
 
 
 def launch_script(filename: str) -> None:
-    """Ensures the target script exists/is updated, then launches it in a separate process."""
+    """Downloads/updates the tool's folder if needed (based on its current
+    state), then launches it in a separate process."""
     # Route LHM to its dedicated launcher
     if filename == LHM_FILENAME:
         launch_lhm()
+        # launch_lhm() downloads LHM internally if missing — re-check the
+        # exe on disk afterward so the button flips from Download to Run.
+        tool_states[filename] = TOOL_STATE_CURRENT if os.path.isfile(_lhm_exe_path()) else TOOL_STATE_MISSING
+        refresh_button_labels()
         return
 
-    footer_label.config(text=f"Starting up {filename}...")
+    state = get_tool_state(filename)
+    if state == TOOL_STATE_MISSING:
+        footer_label.config(text=f"Downloading {filename}...")
+    elif state == TOOL_STATE_UPDATE:
+        footer_label.config(text=f"Updating {filename}...")
+    else:
+        footer_label.config(text=f"Starting up {filename}...")
     root.update_idletasks()
 
-    # 1. Make sure the script and its dependencies exist locally
-    if not ensure_script(filename, show_errors=True):
-        footer_label.config(text="Error preparing script")
-        return
+    # 1. Sync the tool's folder from GitHub only if it's missing or outdated —
+    #    an already-current tool launches instantly with no network call.
+    if state in (TOOL_STATE_MISSING, TOOL_STATE_UPDATE):
+        if not ensure_tool_folder(filename, show_errors=True):
+            footer_label.config(text="Error preparing script")
+            return
+        tool_states[filename] = TOOL_STATE_CURRENT
+        refresh_button_labels()
 
-    # 2. Resolve local execution paths
-    _, dest_path = _script_paths(filename)
+    # 2. Resolve local execution path
+    dest_path = _tool_local_path(filename)
     script_dir = os.path.dirname(dest_path)
 
     try:
-        # 3. Launch script via current Python interpreter in a detached environment
-        # Uses sys.executable to ensure it runs on the exact same Python env (like virtual envs)
+        # 3. Launch script via the configured Python interpreter (falls back to
+        # the ToolBox's own interpreter if none is set) in a detached environment
         p = subprocess.Popen(
-            [sys.executable, os.path.basename(dest_path)],
+            [get_active_python(), os.path.basename(dest_path)],
             cwd=script_dir,
             creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
         )
-        _processes.append(p)  # Keep track of the process handle
 
         print(f"[Launcher] Successfully started {filename} (PID: {p.pid})")
         footer_label.config(text="Ready")
@@ -665,181 +750,8 @@ def launch_script(filename: str) -> None:
         )
 
 
-def _script_paths(filename: str) -> tuple[str, str]:
-    if filename in SUBFOLDER_SCRIPT_MAP:
-        local_path = SUBFOLDER_SCRIPT_MAP[filename]["local_path"]
-        dest_path = os.path.join(TOOLS_ROOT_DIR, local_path)
-        return dest_path, dest_path
-    if _is_path_like(filename):
-        dest_path = filename if os.path.isabs(filename) else os.path.join(SCRIPT_DIR, filename)
-        dest_path = os.path.normpath(dest_path)
-        return dest_path, dest_path
-    script_name = os.path.basename(filename)
-    folder = SCRIPT_FOLDER_MAP.get(script_name)
-    if folder:
-        dest_path = os.path.join(TOOLS_ROOT_DIR, folder, script_name)
-    else:
-        dest_path = os.path.join(TOOLS_ROOT_DIR, script_name)
-    bundle_candidates = _script_bundle_candidates(script_name)
-    bundled_path = next((p for p in bundle_candidates if os.path.isfile(p)), bundle_candidates[0])
-    return bundled_path, dest_path
-
-
 _ensure_layout_dirs()
 _migrate_legacy_layout()
-
-
-def ensure_script(filename: str, show_errors: bool = False) -> bool:
-    # LHM is an exe tool — handled by ensure_lhm, not this function
-    if filename == LHM_FILENAME:
-        return ensure_lhm(show_errors=show_errors)
-
-    bundled_path, dest_path = _script_paths(filename)
-    dependencies = TOOL_DEPENDENCIES_MAP.get(filename, [])
-
-    # Check if the main file and all of its dependency files exist locally
-    main_file_exists = os.path.isfile(dest_path)
-    deps_exist = all(os.path.isfile(os.path.join(TOOLS_ROOT_DIR, dep.replace("/", os.sep))) for dep in dependencies)
-
-    if main_file_exists and deps_exist:
-        return True
-
-    try:
-        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-    except OSError as e:
-        print(f"[{filename}] Could not create destination directory: {e}")
-        if show_errors:
-            messagebox.showerror(f"{filename} Error", f"Could not create target layout directory:\n{e}")
-        return False
-
-    # Try downloading from remote repository first
-    download_success = False
-    for url in _script_remote_urls(filename):
-        print(f"[{filename}] Target asset broken or missing. Pulling from Github: {url}")
-        try:
-            resp = requests.get(
-                url, timeout=15, params={"_": int(time.time())},
-                headers={"Cache-Control": "no-cache", "Pragma": "no-cache"}
-            )
-            resp.raise_for_status()
-
-            with open(dest_path, "w", encoding="utf-8") as lf:
-                lf.write(resp.text)
-
-            # Download sub-dependencies concurrently if any are registered
-            for dep in dependencies:
-                dep_url = f"{get_github_base_url()}{dep}"
-                dep_dest = os.path.join(TOOLS_ROOT_DIR, dep.replace("/", os.sep))
-                os.makedirs(os.path.dirname(dep_dest), exist_ok=True)
-
-                dep_resp = requests.get(
-                    dep_url, timeout=15, params={"_": int(time.time())},
-                    headers={"Cache-Control": "no-cache", "Pragma": "no-cache"}
-                )
-                dep_resp.raise_for_status()
-                with open(dep_dest, "wb") as df:
-                    df.write(dep_resp.content)
-                print(f"[{filename}] Dependency added: {dep}")
-
-            download_success = True
-            print(f"[{filename}] Application code stack prepared successfully.")
-            break
-        except Exception as e:
-            print(f"[{filename}] Remote connection vector faulted: {e}")
-
-    if download_success:
-        return True
-
-    # Check for local bundled fallback assets
-    if os.path.isfile(bundled_path) and bundled_path != dest_path:
-        print(f"[{filename}] Defaulting to local bundle mirror fallback asset.")
-        try:
-            with open(bundled_path, "r", encoding="utf-8") as sf, open(dest_path, "w", encoding="utf-8") as df:
-                df.write(sf.read())
-            return True
-        except OSError as e:
-            print(f"[{filename}] Could not copy bundled fallback: {e}")
-            if show_errors:
-                messagebox.showerror(
-                    f"{filename} Error",
-                    f"Could not prepare {filename}.\nCheck your internet connection and try again.",
-                )
-            return False
-    else:
-        if show_errors:
-            messagebox.showerror(
-                f"{filename} Error",
-                f"Could not prepare {filename}.\nCheck your internet connection and try again.",
-            )
-        return False
-
-
-def check_for_script_updates(filename: str, silent: bool = False) -> bool:
-    # LHM is an exe tool — no update check, just ensure it's present
-    if filename == LHM_FILENAME:
-        ensure_lhm(show_errors=not silent)
-        return False
-
-    if not ensure_script(filename, show_errors=not silent):
-        return False
-
-    _, dest_path = _script_paths(filename)
-    remote_text = None
-    remote_version = None
-
-    for url in _script_remote_urls(filename):
-        remote_text, remote_version, _ = _fetch_remote_script(url, timeout=10)
-        if remote_text is not None:
-            break
-
-    if remote_text is None:
-        if not silent:
-            messagebox.showinfo(
-                f"{filename} Update",
-                f"Could not reach GitHub to check updates for {filename}."
-            )
-        return False
-
-    remote_version = remote_version or "0.0.0"
-    try:
-        with open(dest_path, "r", encoding="utf-8") as lf:
-            local_text = lf.read()
-    except OSError:
-        local_text = ""
-
-    local_version = _extract_version_from_source(local_text) or "0.0.0"
-    print(f"[{filename}] Checking... (local: {local_version} remote: {remote_version})")
-
-    if _parse_version(remote_version) <= _parse_version(local_version):
-        print(f"[{filename}] Up to date ({local_version})")
-        return False
-
-    try:
-        with open(dest_path, "w", encoding="utf-8") as lf:
-            lf.write(remote_text)
-        print(f"[{filename}] Updated: {local_version} -> {remote_version}")
-
-        # Update dependency submodules as well
-        dependencies = TOOL_DEPENDENCIES_MAP.get(filename, [])
-        for dep in dependencies:
-            dep_url = f"{get_github_base_url()}{dep}"
-            dep_dest = os.path.join(TOOLS_ROOT_DIR, dep.replace("/", os.sep))
-            os.makedirs(os.path.dirname(dep_dest), exist_ok=True)
-            try:
-                dep_resp = requests.get(
-                    dep_url, timeout=10, params={"_": int(time.time())},
-                    headers={"Cache-Control": "no-cache", "Pragma": "no-cache"},
-                )
-                dep_resp.raise_for_status()
-                with open(dep_dest, "wb") as df:
-                    df.write(dep_resp.content)
-            except Exception as e:
-                print(f"[{filename}] Dependency update error ({dep}): {e}")
-
-        return True
-    except OSError as e:
-        print(f"[{filename}] Failed writing updated local source tree context: {e}")
-        return False
 
 
 def _parse_version(v_str: str) -> tuple[int, ...]:
@@ -904,13 +816,6 @@ def get_remote_script_info() -> dict[str, str] | None:
 
 def perform_update(remote_text=None, source_url=None):
     try:
-        if getattr(sys, 'frozen', False):
-            messagebox.showinfo(
-                "Update Disabled",
-                "Automatic EXE self-update has been disabled. Please update the executable manually from GitHub."
-            )
-            return
-
         if remote_text is None:
             info = get_remote_script_info()
             if not info:
@@ -990,7 +895,8 @@ def check_for_main_updates(silent: bool = True):
     content_differs = remote_norm != local_norm
     main_update_available = remote_newer or content_differs
 
-    print(f"[VRChat-Tools] Checking... (local: {VERSION} remote: {remote_version} Branch: {UPDATE_BRANCH})")
+    print(f"[VRChat-Tools] Checking... (local: {VERSION} remote: {remote_version}")
+    print(f"[VRChat-Tools] Tools Branch: {UPDATE_BRANCH})")
 
     if main_update_available:
         if remote_newer:
@@ -1001,13 +907,13 @@ def check_for_main_updates(silent: bool = True):
                 except Exception:
                     pass
             prompt = (
-                f"New version {remote_version} is available on branch '{UPDATE_BRANCH}' (you have {VERSION}).\n\n"
+                f"New version {remote_version} is available (you have {VERSION}).\n\n"
                 "Update and restart now?"
             )
         else:
             print(f"[VRChat-Tools] Remote content differs (version string unchanged at {VERSION})")
             prompt = (
-                f"A remote script update is available on branch '{UPDATE_BRANCH}' (content changed,\n"
+                f"A remote script update is available (content changed,\n"
                 "but version string may not have been bumped).\n\n"
                 "Update and restart now?"
             )
@@ -1019,49 +925,48 @@ def check_for_main_updates(silent: bool = True):
     else:
         print(f"[VRChat-Tools] Up to date ({VERSION})")
 
-    any_tool_updated = False
-    for script_entry in MANAGED_SCRIPTS:
-        if check_for_script_updates(script_entry["filename"], silent=silent):
-            any_tool_updated = True
+    # Tool downloads/updates no longer happen at boot — just re-run the
+    # lightweight version scan so button labels stay accurate.
+    threading.Thread(target=refresh_tool_states_background, daemon=True).start()
 
-    if not silent and not main_update_available and not any_tool_updated:
+    if not silent and not main_update_available:
         messagebox.showinfo(
             "Up to Date", f"You're on the latest version ({VERSION}) for branch '{UPDATE_BRANCH}'."
         )
 
 
 def force_update_all_scripts():
-    """Wipes the cached/downloaded files and force-downloads them from the current branch live."""
+    """Wipes the cached/downloaded tool folders and force re-downloads them
+    fresh from the newly selected branch. This is the one place tools are
+    still eagerly re-synced immediately, since switching branches is an
+    explicit user action in Settings rather than something happening at boot."""
 
     def _update_task():
         footer_label.config(text=f"Switching branch to '{UPDATE_BRANCH}' & updating...")
         root.update_idletasks()
 
+        get_repo_tree(force=True)  # branch changed — the cached file listing is stale
+
         success = True
-        # Wiping local script cache and force-downloading afresh from the newly assigned branch context
         for script in MANAGED_SCRIPTS:
             filename = script["filename"]
             if filename == LHM_FILENAME:
                 continue
 
-            bundled_path, dest_path = _script_paths(filename)
-            if os.path.isfile(dest_path):
+            folder_path = os.path.join(TOOLS_ROOT_DIR, _tool_folder_name(filename))
+            if os.path.isdir(folder_path):
                 try:
-                    os.remove(dest_path)
-                except Exception:
-                    pass
+                    shutil.rmtree(folder_path)
+                except Exception as e:
+                    print(f"[{filename}] Could not clear old folder before re-sync: {e}")
 
-            dependencies = TOOL_DEPENDENCIES_MAP.get(filename, [])
-            for dep in dependencies:
-                dep_path = os.path.join(TOOLS_ROOT_DIR, dep.replace("/", os.sep))
-                if os.path.isfile(dep_path):
-                    try:
-                        os.remove(dep_path)
-                    except Exception:
-                        pass
-
-            if not ensure_script(filename, show_errors=False):
+            if ensure_tool_folder(filename, show_errors=False):
+                tool_states[filename] = TOOL_STATE_CURRENT
+            else:
+                tool_states[filename] = TOOL_STATE_MISSING
                 success = False
+
+        root.after(0, refresh_button_labels)
 
         if success:
             footer_label.config(text=f"Successfully switched to branch '{UPDATE_BRANCH}'!")
@@ -1082,19 +987,7 @@ def force_update_all_scripts():
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # GUI
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-
-FONT = "Consolas"
-TITLE_PREFIX = "◈"  # new (default)
-BG = "#0f0f13"
-PANEL = "#1f102a"
-BORDER = "#2a2a38"
-ACCENT = "#9D00FF"
-ACCENT2 = "#b44bff"
-TEXT = "#e2e0f0"
-TEXT2 = "#ffffff"
-SUBTEXT = "#7e7b9a"
-GREEN = "#00ffcc"
-RED = "#ff4b72"
+# (Theme color constants live in the CONFIGURATION & GLOBAL VARIABLES section above)
 
 root = tk.Tk()
 root.title("VRChat-ToolBox")
@@ -1368,7 +1261,7 @@ def open_help():
 
 # Window View: Core App Preference Management Overlay Window
 def open_settings():
-    global MANAGED_SCRIPTS, UPDATE_BRANCH
+    global MANAGED_SCRIPTS, UPDATE_BRANCH, PYTHON_INTERPRETER
     settings_win = tk.Toplevel(root)
     settings_win.title("Settings")
     settings_win.configure(bg=BG)
@@ -1420,6 +1313,61 @@ def open_settings():
     )
     branch_dropdown["menu"].configure(bg=PANEL, fg=TEXT, font=(FONT, 9), selectcolor=ACCENT)
     branch_dropdown.pack(side="left", padx=(10, 0))
+
+    # --- Python Interpreter Selection Area ---
+    python_frame = tk.Frame(body_frame, bg=BG)
+    python_frame.pack(fill="x", pady=(0, 10))
+
+    tk.Label(python_frame, text="Python Interpreter:", bg=BG, fg=TEXT, font=(FONT, 9, "bold")).pack(
+        side="left"
+    )
+
+    python_path_var = tk.StringVar(
+        value=PYTHON_INTERPRETER if PYTHON_INTERPRETER else f"{sys.executable} (default)"
+    )
+
+    python_entry = tk.Entry(
+        python_frame, textvariable=python_path_var, bg=PANEL, fg=TEXT, insertbackground=ACCENT,
+        relief="flat", font=(FONT, 8), highlightthickness=1, highlightbackground=BORDER,
+        highlightcolor=ACCENT, state="readonly", readonlybackground=PANEL,
+    )
+    python_entry.pack(side="left", fill="x", expand=True, padx=(10, 6))
+
+    def browse_python():
+        global PYTHON_INTERPRETER
+        exe_filter = [("Python executable", "*.exe")] if sys.platform == "win32" else [("All files", "*")]
+        chosen = filedialog.askopenfilename(
+            parent=settings_win,
+            title="Select Python Interpreter",
+            filetypes=exe_filter,
+        )
+        if not chosen:
+            return
+        PYTHON_INTERPRETER = chosen
+        python_path_var.set(PYTHON_INTERPRETER)
+        save_managed_scripts(MANAGED_SCRIPTS)
+        print(f"[Config] Python interpreter for launched scripts set to: {PYTHON_INTERPRETER}")
+
+    def reset_python():
+        global PYTHON_INTERPRETER
+        PYTHON_INTERPRETER = ""
+        python_path_var.set(f"{sys.executable} (default)")
+        save_managed_scripts(MANAGED_SCRIPTS)
+        print("[Config] Python interpreter reset to default (ToolBox's own interpreter).")
+
+    browse_python_btn = tk.Button(
+        python_frame, text="Browse...", bg=PANEL, fg=TEXT, relief="flat", font=(FONT, 8, "bold"),
+        cursor="hand2", command=browse_python,
+    )
+    browse_python_btn.pack(side="left")
+    browse_python_btn.configure(activebackground=BORDER, activeforeground=TEXT)
+
+    reset_python_btn = tk.Button(
+        python_frame, text="Reset", bg=PANEL, fg=SUBTEXT, relief="flat", font=(FONT, 8, "bold"),
+        cursor="hand2", command=reset_python,
+    )
+    reset_python_btn.pack(side="left", padx=(6, 0))
+    reset_python_btn.configure(activebackground=BORDER, activeforeground=TEXT)
 
     # Scrollable Canvas List Container Layout Control Set
     list_panel = tk.Frame(body_frame, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
@@ -1570,6 +1518,16 @@ buttons_container.columnconfigure(0, weight=1)
 script_buttons = {}
 
 
+def _tool_button_label(script: dict) -> str:
+    base = script["label"]
+    state = get_tool_state(script["filename"])
+    if state == TOOL_STATE_MISSING:
+        return f"Download {base}"
+    elif state == TOOL_STATE_UPDATE:
+        return f"Update {base}"
+    return f"Run {base}"
+
+
 def refresh_main_buttons():
     for widget in buttons_container.winfo_children():
         widget.destroy()
@@ -1578,7 +1536,7 @@ def refresh_main_buttons():
 
     for i, script in enumerate(MANAGED_SCRIPTS):
         btn = tk.Button(
-            buttons_container, text=script["label"], command=lambda f=script["filename"]: launch_script(f),
+            buttons_container, text=_tool_button_label(script), command=lambda f=script["filename"]: launch_script(f),
             bg=PANEL, fg=TEXT, relief="flat", borderwidth=0, highlightthickness=1, highlightbackground=BORDER,
             activebackground=ACCENT, activeforeground=TEXT2, cursor="hand2", font=(FONT, 10, "bold"), padx=20, pady=8,
         )
@@ -1588,6 +1546,16 @@ def refresh_main_buttons():
     btn_count = len(MANAGED_SCRIPTS)
     root.geometry(f"580x{440 + btn_count * 52}")
     root.minsize(0, 0)
+
+
+def refresh_button_labels():
+    """Lightweight label-only refresh (no widget rebuild/resize) — used
+    whenever a tool's state changes, e.g. after the background version
+    scan checks one more tool, so there's no flicker during boot."""
+    for i, script in enumerate(MANAGED_SCRIPTS):
+        btn = script_buttons.get(i)
+        if btn is not None:
+            btn.config(text=_tool_button_label(script))
 
 
 refresh_main_buttons()
