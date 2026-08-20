@@ -2,18 +2,20 @@
 ui/app.py
 ─────────
 Root window for OSC-Gamepad.
-Same structure and theme as OSC-Chatbox / OSC-Router:
-header bar with title + version, dark notebook, single tab.
+Same structure and theme as OSC-Chatbox: header bar with title +
+version, dark tab widget, single tab.
 """
 
-import tkinter as tk
-from tkinter import ttk, messagebox
+from PySide6.QtWidgets import (
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTabWidget,
+    QApplication,
+)
 
 from config import load_config, save_config, get_defaults
 from ui.gamepad_tab import GamepadTab
 from ui.help_dialog import open_help
 from ui.settings_dialog import open_settings
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, TITLE_PREFIX
+from ui import theme
 
 try:
     from main import VERSION
@@ -21,77 +23,66 @@ except ImportError:
     VERSION = "version error"
 
 
-class App:
+class App(QMainWindow):
     def __init__(self):
-        self._cfg      = load_config()
+        super().__init__()
+        self._cfg = load_config()
 
         self._build_root()
         self._build_tabs()
         self._gamepad_tab.load_pads()
 
-        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
-
     # ── Root window ───────────────────────────────────────────────────────────
 
     def _build_root(self):
-        self.root = tk.Tk()
-        self.root.title(f"{TITLE_PREFIX} OSC-Gamepad")
-        self.root.configure(bg=BG)
-        self.root.geometry("680x640")
-        self.root.minsize(520, 420)
+        self.setWindowTitle(f"{theme.TITLE_PREFIX} OSC-Gamepad")
+        self.resize(680, 640)
+        self.setMinimumSize(520, 420)
 
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure(
-            "Dark.TNotebook",
-            background=BG, borderwidth=0, tabmargins=(0, 0, 0, 0),
-            bordercolor=BG, lightcolor=BG, darkcolor=BG,
-        )
-        # Clam draws a separate border around the notebook's client area
-        # using its own layout element; remove that element entirely so
-        # no light-coloured border shows around the tab content.
-        style.layout("Dark.TNotebook", [
-            ("Notebook.client", {"sticky": "nswe"})
-        ])
-        style.configure(
-            "Dark.TNotebook.Tab",
-            background=PANEL, foreground=SUBTEXT,
-            font=(FONT, 10), padding=(16, 6), borderwidth=0,
-            bordercolor=BG, lightcolor=PANEL, darkcolor=PANEL,
-        )
-        style.map(
-            "Dark.TNotebook.Tab",
-            background=[("selected", BG)],
-            foreground=[("selected", ACCENT2)],
-            lightcolor=[("selected", BG)],
-            darkcolor=[("selected", BG)],
-        )
+        central = theme.StripeBackground()
+        root_layout = QVBoxLayout(central)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
 
-        header = tk.Frame(self.root, bg=PANEL, pady=8)
-        header.pack(fill="x")
-        tk.Label(
-            header, text=f"{TITLE_PREFIX} OSC-Gamepad",
-            bg=PANEL, fg=ACCENT2, font=(FONT, 13, "bold"),
-        ).pack(side="left", padx=14)
-        tk.Label(
-            header, text=f"v{VERSION}",
-            bg=PANEL, fg=SUBTEXT, font=(FONT, 9),
-        ).pack(side="right", padx=14)
-        tk.Frame(self.root, bg=BORDER, height=1).pack(fill="x")
+        header = QWidget()
+        header.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(14, 8, 14, 8)
+
+        title_lbl = QLabel(f"{theme.TITLE_PREFIX} OSC-Gamepad")
+        title_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
+        title_lbl.setFont(theme.qt_font(13, bold=True))
+        header_layout.addWidget(title_lbl)
+        header_layout.addStretch(1)
+
+        version_lbl = QLabel(f"v{VERSION}")
+        version_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        version_lbl.setFont(theme.qt_font(9))
+        header_layout.addWidget(version_lbl)
+
+        root_layout.addWidget(header)
+
+        divider = QWidget()
+        divider.setFixedHeight(1)
+        divider.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
+        root_layout.addWidget(divider)
+
+        self._notebook = QTabWidget()
+        self._notebook.setDocumentMode(True)
+        root_layout.addWidget(self._notebook, 1)
+
+        self.setCentralWidget(central)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
 
     def _build_tabs(self):
-        self._notebook = ttk.Notebook(self.root, style="Dark.TNotebook")
-        self._notebook.pack(fill="both", expand=True)
-
         self._gamepad_tab = GamepadTab(
-            self._notebook, self._cfg,
+            self._cfg,
             save_cb     = self._save,
             help_cb     = self._open_help,
             settings_cb = self._open_settings,
         )
-        self._notebook.add(self._gamepad_tab, text="  Pads  ")
+        self._notebook.addTab(self._gamepad_tab, "  Pads  ")
 
     # ── Config ────────────────────────────────────────────────────────────────
 
@@ -114,7 +105,7 @@ class App:
 
     def _open_settings(self):
         open_settings(
-            root     = self.root,
+            parent   = self,
             cfg      = self._cfg,
             save_cb  = self._save,
             reset_cb = self._reset_to_defaults,
@@ -122,24 +113,44 @@ class App:
         )
 
     def _open_help(self):
-        open_help(self.root)
+        open_help(self)
 
     # ── Theme ─────────────────────────────────────────────────────────────────
 
     def _set_theme(self, mode: str):
         self._cfg["theme_mode"] = mode
         self._save()
-        messagebox.showinfo(
-            "Theme Changed",
-            "Theme will apply after restarting OSC-Gamepad."
-        )
+        theme.set_theme(mode)
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            app_instance.setStyleSheet(theme.qss())
+        self._rebuild_ui()
+
+    def _rebuild_ui(self):
+        """Tear down and reconstruct the central widget + tab with whatever
+        the current theme.* colours now are. Any pads that were actively
+        connected get cleanly disconnected first (their OSC threads
+        stopped) rather than left running orphaned behind destroyed
+        widgets — the rebuilt tab reloads pad configs from cfg the same
+        way a fresh launch would, just without needing to relaunch."""
+        self._gamepad_tab.destroy_all()
+
+        old_central = self.takeCentralWidget()
+        if old_central is not None:
+            old_central.deleteLater()
+
+        self._build_root()
+        self._build_tabs()
+        self._gamepad_tab.load_pads()
+
+        self.show()
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            app_instance.processEvents()
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
-    def _on_close(self):
+    def closeEvent(self, event):
         self._save()
         self._gamepad_tab.destroy_all()
-        self.root.destroy()
-
-    def run(self):
-        self.root.mainloop()
+        super().closeEvent(event)

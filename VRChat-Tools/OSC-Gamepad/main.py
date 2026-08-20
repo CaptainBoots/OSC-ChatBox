@@ -9,10 +9,11 @@ import os
 import subprocess
 import sys
 
-VERSION = "1.1.5"
+VERSION = "1.2.0"
 
 REQUIRED = [
     ("python-osc==1.9.3", "pythonosc"),
+    ("PySide6", "PySide6"),
 ]
 
 
@@ -50,5 +51,11 @@ if __name__ == "__main__":
     from ui import theme
     theme.set_theme(load_config().get("theme_mode", "rich_purple"))
 
+    from PySide6.QtWidgets import QApplication
+    qt_app = QApplication(sys.argv)
+    qt_app.setStyleSheet(theme.qss())
+
     from ui.app import App
-    App().run()
+    win = App()
+    win.show()
+    sys.exit(qt_app.exec())
