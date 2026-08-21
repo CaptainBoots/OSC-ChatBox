@@ -10,7 +10,7 @@ import os
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR  = os.path.dirname(SCRIPT_DIR)
 CONFIG_DIR  = os.path.join(PARENT_DIR, "configs")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "osc_browser_config.json")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "parameter_browser_config.json")
 
 
 def get_defaults() -> dict:
