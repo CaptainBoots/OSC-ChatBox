@@ -85,7 +85,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.7.0"
+VERSION = "9.7.1"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -178,13 +178,13 @@ tool_states: dict[str, str] = {}
 
 # ─── Default managed tools list (used if no saved config exists yet) ─────────
 DEFAULT_MANAGED_SCRIPTS = [
-    {"filename": "VRChat-Launcher/main.py", "label": "VRChat Launcher(Beta)"},
+    {"filename": "VRChat-Launcher/main.py", "label": "VRChat Launcher"},
     {"filename": "LibreHardwareMonitor/LibreHardwareMonitor.exe", "label": "Libre Hardware Monitor"},
     {"filename": "OSC-Router/main.py", "label": "Router"},
     {"filename": "OSC-Chatbox/main.py", "label": "ChatBox"},
     {"filename": "OSC-Gamepad/main.py", "label": "Gamepad"},
-    {"filename": "OSC-FaceTrackingController/main.py", "label": "Face Tracking Controller(Beta)"},
-    {"filename": "OSC-ParameterBrowser/main.py", "label": "Parameter Browser(Beta)"},
+    {"filename": "OSC-FaceTrackingController/main.py", "label": "Face Tracking Controller"},
+    {"filename": "OSC-ParameterBrowser/main.py", "label": "Parameter Browser"},
     {"filename": "OSC-ScriptMaker/main.py", "label": "Script Maker(Placeholder)"},
     {"filename": "VRChat-LocalFavorites/main.py", "label": "VRChat Local Favorites(Placeholder)"},
     {"filename": "VRChat-SocialLogger/main.py", "label": "VRChat SocialLogger(Placeholder)"},
@@ -1537,13 +1537,13 @@ HELP_PAGES = [
     {
         "title": "Available Scripts",
         "content": (
-            "▶ Router(Beta) — Manages OSC routing\n"
+            "▶ Router — Manages OSC routing\n"
             " Forwards OSC messages between sources\n"
             " and destinations.\n\n"
             "▶ ChatBox — Sends data to VRChat over OSC\n"
             " Displays system info, weather, music,\n"
             " and custom messages.\n\n"
-            "▶ Face Tracking Controller(Beta) — Control\n"
+            "▶ Face Tracking Controller — Control\n"
             " face tracking features in VRChat ."
         ),
     },
