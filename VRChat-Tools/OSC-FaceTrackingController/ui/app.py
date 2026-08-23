@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from config import load_config, save_config, get_defaults
 from ui.face_tab import FaceTab
+from ui.stretch_tab import StretchTab
 from ui.help_dialog import open_help
 from ui.settings_dialog import open_settings
 from ui import theme
@@ -82,6 +83,13 @@ class App(QMainWindow):
             settings_cb = self._open_settings,
         )
         self._notebook.addTab(self._face_tab, "  Face Tracking  ")
+
+        self._stretch_tab = StretchTab(self._face_tab)
+        self._notebook.addTab(self._stretch_tab, "  Stretch Face  ")
+
+        # Keep the Stretch tab's "sending live" / "not connected" chip in
+        # sync with Start/Stop/Restart on the Face Tracking tab.
+        self._face_tab.add_status_listener(self._stretch_tab.refresh_status)
 
     # ── Config ────────────────────────────────────────────────────────────────
 
