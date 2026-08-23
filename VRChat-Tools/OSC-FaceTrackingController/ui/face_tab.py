@@ -40,6 +40,7 @@ class FaceTab(StripeBackground):
         self._client = OscFaceClient()
         self._sliders: dict[str, dict] = {}
         self._chips = []
+        self._status_listeners = []
 
         self._build()
         self._set_stopped()
@@ -343,10 +344,30 @@ class FaceTab(StripeBackground):
     def _update_connection_buttons(self):
         self._start_btn.setEnabled(not self._client.connected)
         self._stop_btn.setEnabled(self._client.connected)
+        for listener in self._status_listeners:
+            listener()
+
+    def add_status_listener(self, callback):
+        """Register a callback (no args) to be invoked whenever the
+        connection status changes — used by the Stretch Face tab to
+        keep its own "sending live" / "not connected" chip in sync."""
+        self._status_listeners.append(callback)
 
     def _reset_all(self):
         for name, info in self._sliders.items():
             info["slider"].setValue(_pos_for_value(info["default"], info["lo"], info["hi"]))
+
+    # ── Public API (used by StretchTab) ──────────────────────────────────────
+
+    def is_connected(self) -> bool:
+        return self._client.connected
+
+    def send_param(self, param: str, value: float):
+        """Send a single parameter through this tab's OSC connection.
+        Used by StretchTab so dragging a face handle sends through the
+        same client Start/Stop already controls, instead of opening a
+        second one."""
+        self._send(param, value)
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
