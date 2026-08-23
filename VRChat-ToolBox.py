@@ -3,6 +3,16 @@
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Hi :3
 # Welcome to my code
+#
+# Qt port note: this file's *logic* (config I/O, GitHub tree sync,
+# self-update, tool state tracking, LHM download/patch/launch) is
+# unchanged from the Tkinter version — only the UI layer was rewritten,
+# plus a couple of spots that touch widgets from a background thread
+# were adapted to route through Qt-safe signals (see "_Bridge" below);
+# Tkinter tolerated that, Qt does not. Kept as one file per request,
+# with the shared multi-theme/flag-stripe system embedded directly
+# (see "THEME SYSTEM" section) instead of split into ui/theme.py like
+# the other tools.
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Imports
@@ -18,12 +28,9 @@ import site
 import subprocess
 import sys
 import time
-import tkinter as tk
-import tkinter.font as font
 import zipfile
 import webbrowser
 import threading
-from tkinter import messagebox, filedialog
 
 
 def install_if_missing(package, import_name=None):
@@ -61,15 +68,24 @@ def install_if_missing(package, import_name=None):
 
 
 install_if_missing("requests==2.32.5", "requests")
+install_if_missing("PySide6", "PySide6")
 
 import requests
+
+from PySide6.QtCore import Qt, QObject, Signal, Slot, QPointF, QTimer
+from PySide6.QtGui import QPainter, QColor, QPolygonF, QFont, QFontDatabase
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QDialog, QWidget, QLabel, QPushButton,
+    QLineEdit, QComboBox, QScrollArea, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QFrame, QMessageBox, QFileDialog, QSizePolicy,
+)
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # CONFIGURATION & GLOBAL VARIABLES
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.6.0"
+VERSION = "9.7.0"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -160,20 +176,6 @@ TOOL_STATE_CURRENT = "current"
 # download/update triggered by a click.
 tool_states: dict[str, str] = {}
 
-# ─── Theme ────────────────────────────────────────────────────────────────
-FONT = "Consolas"
-TITLE_PREFIX = "◈"  # new (default)
-BG = "#0f0f13"
-PANEL = "#1f102a"
-BORDER = "#2a2a38"
-ACCENT = "#9D00FF"
-ACCENT2 = "#b44bff"
-TEXT = "#e2e0f0"
-TEXT2 = "#ffffff"
-SUBTEXT = "#7e7b9a"
-GREEN = "#00ffcc"
-RED = "#ff4b72"
-
 # ─── Default managed tools list (used if no saved config exists yet) ─────────
 DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "VRChat-Launcher/main.py", "label": "VRChat Launcher(Beta)"},
@@ -187,6 +189,436 @@ DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "VRChat-LocalFavorites/main.py", "label": "VRChat Local Favorites(Placeholder)"},
     {"filename": "VRChat-SocialLogger/main.py", "label": "VRChat SocialLogger(Placeholder)"},
 ]
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# THEME SYSTEM (embedded — same palette/stripe engine used across the rest of
+# VRChat-Tools, normally split into ui/theme.py, kept inline here since this
+# tool has to stay a single file). Colours are plain module globals exactly
+# like the tool already used (BG, PANEL, ACCENT, ...) — set_theme() just
+# reassigns them, and every widget is rebuilt from scratch on a theme change
+# (see ToolBoxWindow._rebuild_ui), so nothing ever holds a stale colour.
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+
+colour_mode = "rich_purple"
+
+FONT = "Consolas"
+TITLE_PREFIX = "◈"
+
+THEMES: dict[str, dict] = {
+    "dark": {
+        "BG": "#0f0f13", "PANEL": "#17171f", "BORDER": "#2a2a38", "ACCENT": "#7c5cfc",
+        "ACCENT2": "#a78bfa", "TAB": "#4ade80", "TEXT": "#e2e0f0", "TEXT2": "#E0E0E0",
+        "SUBTEXT": "#7e7b9a", "GREEN": "#4ade80", "RED": "#f87171", "YELLOW": "#facc15",
+        "CYAN": "#67e8f9", "ORANGE": "#fb923c", "STRIPE_COLOURS": None,
+    },
+    "rich_purple": {
+        "BG": "#0f0f13", "PANEL": "#1f102a", "BORDER": "#2a2a38", "ACCENT": "#9D00FF",
+        "ACCENT2": "#b44bff", "TAB": "#4ade80", "TEXT": "#e2e0f0", "TEXT2": "#E0E0E0",
+        "SUBTEXT": "#7e7b9a", "GREEN": "#00ffcc", "RED": "#ff4b72", "YELLOW": "#facc15",
+        "CYAN": "#67e8f9", "ORANGE": "#fb923c", "STRIPE_COLOURS": None,
+    },
+    "dark_sand": {
+        "BG": "#1C1D26", "PANEL": "#1f232d", "BORDER": "#353333", "ACCENT": "#FFAC8B",
+        "ACCENT2": "#FFC695", "TAB": "#FFC695", "TEXT": "#F5EFE9", "TEXT2": "#E3D8D0",
+        "SUBTEXT": "#AE9281", "GREEN": "#4ade80", "RED": "#f87171", "YELLOW": "#facc15",
+        "CYAN": "#67e8f9", "ORANGE": "#FFAC8B", "STRIPE_COLOURS": None,
+    },
+    "absolute_zero": {
+        "BG": "#000D21", "PANEL": "#002154", "BORDER": "#003487", "ACCENT": "#005CED",
+        "ACCENT2": "#5496FF", "TAB": "#2177FF", "TEXT": "#EAF3FF", "TEXT2": "#D6E8FF",
+        "SUBTEXT": "#A8C4F2", "GREEN": "#4ade80", "RED": "#f87171", "YELLOW": "#facc15",
+        "CYAN": "#67e8f9", "ORANGE": "#fb923c", "STRIPE_COLOURS": None,
+    },
+    "light_purple": {
+        "BG": "#F6E6FA", "PANEL": "#ffffff", "BORDER": "#DDCAE3", "ACCENT": "#9D00FF",
+        "ACCENT2": "#b44bff", "TAB": "#000000", "TEXT": "#1a1829", "TEXT2": "#1a1829",
+        "SUBTEXT": "#1a1829", "GREEN": "#4ade80", "RED": "#f87171", "YELLOW": "#facc15",
+        "CYAN": "#67e8f9", "ORANGE": "#fb923c", "STRIPE_COLOURS": None,
+    },
+    "light_sand": {
+        "BG": "#fdfbf7", "PANEL": "#f4f1ea", "BORDER": "#e4dfd3", "ACCENT": "#2b5c43",
+        "ACCENT2": "#3d7a5a", "TAB": "#000000", "TEXT": "#1c1b18", "TEXT2": "#383630",
+        "SUBTEXT": "#706e64", "GREEN": "#15803d", "RED": "#b91c1c", "YELLOW": "#b45309",
+        "CYAN": "#0369a1", "ORANGE": "#c2410c", "STRIPE_COLOURS": None,
+    },
+    "mint": {
+        "BG": "#F5FFFA", "PANEL": "#FFFFFF", "BORDER": "#D6F0E4", "ACCENT": "#2EC4B6",
+        "ACCENT2": "#6EE7D8", "TAB": "#1F2937", "TEXT": "#1A2A2A", "TEXT2": "#334155",
+        "SUBTEXT": "#64748B", "GREEN": "#22C55E", "RED": "#EF4444", "YELLOW": "#EAB308",
+        "CYAN": "#06B6D4", "ORANGE": "#F97316", "STRIPE_COLOURS": None,
+    },
+    "dark_mint": {
+        "BG": "#0F1C18", "PANEL": "#163129", "BORDER": "#295247", "ACCENT": "#2EC4B6",
+        "ACCENT2": "#6EE7D8", "TAB": "#6EE7D8", "TEXT": "#E8FFF9", "TEXT2": "#D3F5EE",
+        "SUBTEXT": "#8AB5AB", "GREEN": "#4ADE80", "RED": "#F87171", "YELLOW": "#FACC15",
+        "CYAN": "#67E8F9", "ORANGE": "#FB923C", "STRIPE_COLOURS": None,
+    },
+    "dark_red": {
+        "BG": "#1A0B0B", "PANEL": "#2C1111", "BORDER": "#512121", "ACCENT": "#DC2626",
+        "ACCENT2": "#F87171", "TAB": "#F87171", "TEXT": "#FFF1F1", "TEXT2": "#F8DADA",
+        "SUBTEXT": "#B48D8D", "GREEN": "#4ADE80", "RED": "#F87171", "YELLOW": "#FACC15",
+        "CYAN": "#67E8F9", "ORANGE": "#FB923C", "STRIPE_COLOURS": None,
+    },
+    "light_red": {
+        "BG": "#FFF5F5", "PANEL": "#FFFFFF", "BORDER": "#F4CACA", "ACCENT": "#DC2626",
+        "ACCENT2": "#F87171", "TAB": "#000000", "TEXT": "#2A1111", "TEXT2": "#472020",
+        "SUBTEXT": "#735353", "GREEN": "#16A34A", "RED": "#DC2626", "YELLOW": "#CA8A04",
+        "CYAN": "#0284C7", "ORANGE": "#EA580C", "STRIPE_COLOURS": None,
+    },
+    "light_blue": {
+        "BG": "#F2F9FF", "PANEL": "#FFFFFF", "BORDER": "#D2E8F8", "ACCENT": "#3B82F6",
+        "ACCENT2": "#60A5FA", "TAB": "#000000", "TEXT": "#172033", "TEXT2": "#2E4468",
+        "SUBTEXT": "#6A82A8", "GREEN": "#22C55E", "RED": "#EF4444", "YELLOW": "#EAB308",
+        "CYAN": "#06B6D4", "ORANGE": "#F97316", "STRIPE_COLOURS": None,
+    },
+    "dark_rainbow": {
+        "BG": "#1A1A1A", "PANEL": "#252525", "BORDER": "#444444", "ACCENT": "#E40303",
+        "ACCENT2": "#FF8C00", "TAB": "#732982", "TEXT": "#FFFFFF", "TEXT2": "#F0F0F0",
+        "SUBTEXT": "#BBBBBB", "GREEN": "#008026", "RED": "#E40303", "YELLOW": "#FFED00",
+        "CYAN": "#004DFF", "ORANGE": "#FF8C00",
+        "STRIPE_COLOURS": ["#FF0000", "#FF4400", "#FF8900", "#FFCE00", "#F9FF00", "#ADFF00",
+                           "#60FF00", "#14FF00", "#00FF38", "#00FF84", "#00FFD1", "#00E8FF",
+                           "#00AAFF", "#0056FF", "#0002FF", "#4900FF", "#9600FF", "#E200FF",
+                           "#FF00DD", "#FF0089", "#FF0035"],
+    },
+    "light_rainbow": {
+        "BG": "#FFF5F5", "PANEL": "#FFFFFF", "BORDER": "#F4CACA", "ACCENT": "#E40303",
+        "ACCENT2": "#FF8C00", "TAB": "#732982", "TEXT": "#2A1111", "TEXT2": "#472020",
+        "SUBTEXT": "#757575", "GREEN": "#008026", "RED": "#E40303", "YELLOW": "#FFED00",
+        "CYAN": "#004DFF", "ORANGE": "#FF8C00",
+        "STRIPE_COLOURS": ["#FF0000", "#FF4400", "#FF8900", "#FFCE00", "#F9FF00", "#ADFF00",
+                           "#60FF00", "#14FF00", "#00FF38", "#00FF84", "#00FFD1", "#00E8FF",
+                           "#00AAFF", "#0056FF", "#0002FF", "#4900FF", "#9600FF", "#E200FF",
+                           "#FF00DD", "#FF0089", "#FF0035"],
+    },
+    "pride_flag": {
+        "BG": "#1A1A1A", "PANEL": "#1c1c1c", "BORDER": "#333333", "ACCENT": "#FFED00",
+        "ACCENT2": "#FF8C00", "TAB": "#FFED00", "TEXT": "#FFFFFF", "TEXT2": "#F0F0F0",
+        "SUBTEXT": "#CCCCCC", "GREEN": "#008026", "RED": "#E40303", "YELLOW": "#FFED00",
+        "CYAN": "#004DFF", "ORANGE": "#FF8C00",
+        "STRIPE_COLOURS": ["#E40303", "#FF8C00", "#FFED00", "#008026", "#004DFF", "#750787"],
+    },
+    "trans_flag": {
+        "BG": "#0d1f28", "PANEL": "#1a2e36", "BORDER": "#5BCEFA", "ACCENT": "#F5A9B8",
+        "ACCENT2": "#5BCEFA", "TAB": "#F5A9B8", "TEXT": "#FFFFFF", "TEXT2": "#e0f4ff",
+        "SUBTEXT": "#a8d4e8", "GREEN": "#5BCEFA", "RED": "#F5A9B8", "YELLOW": "#FFFFFF",
+        "CYAN": "#5BCEFA", "ORANGE": "#F5A9B8",
+        "STRIPE_COLOURS": ["#5BCEFA", "#F5A9B8", "#FFFFFF", "#F5A9B8", "#5BCEFA"],
+    },
+    "nonbinary_flag": {
+        "BG": "#1e1230", "PANEL": "#1e1230", "BORDER": "#9C59D1", "ACCENT": "#FFF430",
+        "ACCENT2": "#9C59D1", "TAB": "#FFF430", "TEXT": "#FFFFFF", "TEXT2": "#F0F0F0",
+        "SUBTEXT": "#DDDDDD", "GREEN": "#9C59D1", "RED": "#FFF430", "YELLOW": "#FFF430",
+        "CYAN": "#FFFFFF", "ORANGE": "#FFF430",
+        "STRIPE_COLOURS": ["#FFF430", "#FFFFFF", "#9C59D1", "#2C2C2C"],
+    },
+    "ace_flag": {
+        "BG": "#161616", "PANEL": "#2a002a", "BORDER": "#800080", "ACCENT": "#B05ACD",
+        "ACCENT2": "#CC88EE", "TAB": "#B05ACD", "TEXT": "#FFFFFF", "TEXT2": "#F2F2F2",
+        "SUBTEXT": "#CFCFCF", "GREEN": "#B05ACD", "RED": "#f87171", "YELLOW": "#FFFFFF",
+        "CYAN": "#B05ACD", "ORANGE": "#B05ACD",
+        "STRIPE_COLOURS": ["#161616", "#808080", "#FFFFFF", "#800080"],
+    },
+    "bi_flag": {
+        "BG": "#1a0d1a", "PANEL": "#2b1028", "BORDER": "#9B4F96", "ACCENT": "#D60270",
+        "ACCENT2": "#9B4F96", "TAB": "#D60270", "TEXT": "#FFFFFF", "TEXT2": "#F5E6F5",
+        "SUBTEXT": "#C8A0C8", "GREEN": "#9B4F96", "RED": "#D60270", "YELLOW": "#FFFFFF",
+        "CYAN": "#0038A8", "ORANGE": "#D60270",
+        "STRIPE_COLOURS": ["#D60270", "#D60270", "#9B4F96", "#0038A8", "#0038A8"],
+    },
+    "gay_flag": {
+        "BG": "#00150f", "PANEL": "#002018", "BORDER": "#3D9970", "ACCENT": "#3D9970",
+        "ACCENT2": "#70C9A0", "TAB": "#3D9970", "TEXT": "#FFFFFF", "TEXT2": "#E0FFF5",
+        "SUBTEXT": "#7ABBA0", "GREEN": "#3D9970", "RED": "#006B54", "YELLOW": "#FFFFFF",
+        "CYAN": "#7BADE2", "ORANGE": "#3D9970",
+        "STRIPE_COLOURS": ["#078D70", "#26CEA8", "#98E8C1", "#FFFFFF", "#7BADE2", "#5049CC", "#3D1A8E"],
+    },
+    "lesbian_flag": {
+        "BG": "#1f0d00", "PANEL": "#2e1500", "BORDER": "#D52D00", "ACCENT": "#FF9A56",
+        "ACCENT2": "#FF6D4A", "TAB": "#FF9A56", "TEXT": "#FFFFFF", "TEXT2": "#FFE8DC",
+        "SUBTEXT": "#D4907A", "GREEN": "#FF9A56", "RED": "#D52D00", "YELLOW": "#FF9A56",
+        "CYAN": "#A50062", "ORANGE": "#FF9A56",
+        "STRIPE_COLOURS": ["#D52D00", "#FF9A56", "#FFFFFF", "#D362A4", "#A50062"],
+    },
+    "pan_flag": {
+        "BG": "#0f0f1a", "PANEL": "#1a1a2e", "BORDER": "#FFD800", "ACCENT": "#FF218C",
+        "ACCENT2": "#FFD800", "TAB": "#FF218C", "TEXT": "#FFFFFF", "TEXT2": "#F5F5FF",
+        "SUBTEXT": "#BBBBDD", "GREEN": "#21B1FF", "RED": "#FF218C", "YELLOW": "#FFD800",
+        "CYAN": "#21B1FF", "ORANGE": "#FF218C",
+        "STRIPE_COLOURS": ["#FF218C", "#FF218C", "#FFD800", "#FFD800", "#21B1FF", "#21B1FF"],
+    },
+    "genderqueer_flag": {
+        "BG": "#141020", "PANEL": "#1e1630", "BORDER": "#B57EDC", "ACCENT": "#B57EDC",
+        "ACCENT2": "#CCAAEE", "TAB": "#B57EDC", "TEXT": "#FFFFFF", "TEXT2": "#F0EAFF",
+        "SUBTEXT": "#BBA8D8", "GREEN": "#498019", "RED": "#B57EDC", "YELLOW": "#FFFFFF",
+        "CYAN": "#498019", "ORANGE": "#B57EDC",
+        "STRIPE_COLOURS": ["#B57EDC", "#B57EDC", "#FFFFFF", "#FFFFFF", "#498019", "#498019"],
+    },
+    "aro_flag": {
+        "BG": "#0a120a", "PANEL": "#101e10", "BORDER": "#3DA542", "ACCENT": "#3DA542",
+        "ACCENT2": "#A8D379", "TAB": "#3DA542", "TEXT": "#FFFFFF", "TEXT2": "#E8F5E8",
+        "SUBTEXT": "#8CB88C", "GREEN": "#3DA542", "RED": "#A8D379", "YELLOW": "#FFFFFF",
+        "CYAN": "#3DA542", "ORANGE": "#A8D379",
+        "STRIPE_COLOURS": ["#3DA542", "#A8D379", "#FFFFFF", "#A9A9A9", "#000000"],
+    },
+    "genderfluid_flag": {
+        "BG": "#0d0014", "PANEL": "#170020", "BORDER": "#BE18D6", "ACCENT": "#FF76A4",
+        "ACCENT2": "#BE18D6", "TAB": "#FF76A4", "TEXT": "#FFFFFF", "TEXT2": "#F8E8FF",
+        "SUBTEXT": "#C099CC", "GREEN": "#BE18D6", "RED": "#FF76A4", "YELLOW": "#FFFFFF",
+        "CYAN": "#3300BE", "ORANGE": "#FF76A4",
+        "STRIPE_COLOURS": ["#FF76A4", "#FFFFFF", "#BE18D6", "#000000", "#3300BE"],
+    },
+    "intersex_flag": {
+        "BG": "#1a1400", "PANEL": "#2b2200", "BORDER": "#FFD800", "ACCENT": "#FFD800",
+        "ACCENT2": "#FFE84D", "TAB": "#FFD800", "TEXT": "#FFFFFF", "TEXT2": "#FFF8CC",
+        "SUBTEXT": "#CCAA00", "GREEN": "#FFD800", "RED": "#7A00C8", "YELLOW": "#FFD800",
+        "CYAN": "#7A00C8", "ORANGE": "#FFD800",
+        "STRIPE_COLOURS": ["#FFD800", "#FFD800", "#FFD800", "#7A00C8", "#7A00C8", "#FFD800", "#FFD800", "#FFD800"],
+    },
+    "demi_flag": {
+        "BG": "#121212", "PANEL": "#1e1e1e", "BORDER": "#7A7A7A", "ACCENT": "#9966CC",
+        "ACCENT2": "#BB99EE", "TAB": "#9966CC", "TEXT": "#FFFFFF", "TEXT2": "#F0F0F0",
+        "SUBTEXT": "#AAAAAA", "GREEN": "#9966CC", "RED": "#7A7A7A", "YELLOW": "#FFFFFF",
+        "CYAN": "#9966CC", "ORANGE": "#9966CC",
+        "STRIPE_COLOURS": ["#000000", "#7A7A7A", "#FFFFFF", "#9966CC", "#FFFFFF", "#7A7A7A"],
+    },
+}
+
+THEME_LABELS = {
+    "dark": "Dark", "rich_purple": "Rich Purple", "dark_sand": "Dark Sand",
+    "absolute_zero": "Absolute Zero", "light_purple": "Light Purple", "light_sand": "Light Sand",
+    "mint": "Mint", "dark_mint": "Dark Mint", "dark_red": "Dark Red", "light_red": "Light Red",
+    "light_blue": "Light Blue", "dark_rainbow": "Dark Rainbow", "light_rainbow": "Light Rainbow",
+    "pride_flag": "Pride Flag", "trans_flag": "Trans Flag", "nonbinary_flag": "Nonbinary Flag",
+    "ace_flag": "Ace Flag", "bi_flag": "Bi Flag", "gay_flag": "Gay Flag", "lesbian_flag": "Lesbian Flag",
+    "pan_flag": "Pan Flag", "genderqueer_flag": "Genderqueer Flag", "aro_flag": "Aro Flag",
+    "genderfluid_flag": "Genderfluid Flag", "intersex_flag": "Intersex Flag", "demi_flag": "Demi Flag",
+}
+
+STRIPE_COLOURS = None
+STRIPE_WIDTH = 28  # px, same tiling width as the old Tk draw_stripes()
+
+
+def set_theme(mode: str):
+    global colour_mode
+    palette = THEMES.get(mode, THEMES["rich_purple"])
+    colour_mode = mode if mode in THEMES else "rich_purple"
+    g = globals()
+    for key, value in palette.items():
+        g[key] = value
+    if "STRIPE_COLOURS" not in palette:
+        g["STRIPE_COLOURS"] = None
+
+
+set_theme(colour_mode)
+
+
+def qt_font(size: int, bold: bool = False) -> QFont:
+    families = QFontDatabase.families()
+    if FONT in families:
+        f = QFont(FONT, size)
+    else:
+        f = QFont()  # Consolas unavailable — use the OS/Qt default UI font instead
+        f.setPointSize(size)
+    if bold:
+        f.setBold(True)
+    return f
+
+
+def accent_button_qss() -> str:
+    return (
+        f"QPushButton {{ background-color: {ACCENT}; color: {BG}; "
+        f"border: none; border-radius: 3px; padding: 6px 14px; font-weight: bold; }}"
+        f"QPushButton:hover {{ background-color: {ACCENT2}; }}"
+        f"QPushButton:disabled {{ background-color: {BORDER}; color: {SUBTEXT}; }}"
+    )
+
+
+def subtle_button_qss() -> str:
+    return (
+        f"QPushButton {{ background-color: {PANEL}; color: {SUBTEXT}; "
+        f"border: none; border-radius: 3px; padding: 6px 14px; }}"
+        f"QPushButton:hover {{ background-color: {BORDER}; color: {TEXT}; }}"
+    )
+
+
+def line_edit_qss() -> str:
+    return (
+        f"QLineEdit {{ background-color: {PANEL}; color: {TEXT}; "
+        f"border: 1px solid {BORDER}; border-radius: 2px; padding: 3px 6px; "
+        f"selection-background-color: {ACCENT}; }}"
+        f"QLineEdit:focus {{ border: 1px solid {ACCENT}; }}"
+    )
+
+
+def qss() -> str:
+    return f"""
+    QWidget {{
+        background-color: {BG};
+        color: {TEXT};
+        font-family: "{FONT}";
+        border: none;
+    }}
+    QMainWindow, QDialog {{ background-color: {BG}; }}
+    QPushButton {{
+        background-color: {PANEL}; color: {ACCENT}; border: none;
+        border-radius: 3px; padding: 6px 14px; font-weight: bold;
+    }}
+    QPushButton:hover {{ background-color: {BORDER}; color: {TEXT}; }}
+    QPushButton:disabled {{ color: {SUBTEXT}; }}
+    QLineEdit {{
+        background-color: {PANEL}; color: {TEXT}; border: 1px solid {BORDER};
+        border-radius: 2px; padding: 3px 6px; selection-background-color: {ACCENT};
+    }}
+    QLineEdit:focus {{ border: 1px solid {ACCENT}; }}
+    QComboBox {{
+        background-color: {PANEL}; color: {TEXT}; border: 1px solid {BORDER};
+        border-radius: 2px; padding: 3px 6px;
+    }}
+    QComboBox QAbstractItemView {{
+        background-color: {PANEL}; color: {TEXT}; selection-background-color: {ACCENT};
+        border: 1px solid {BORDER};
+    }}
+    QScrollBar:vertical {{ background: {BG}; width: 12px; margin: 0; }}
+    QScrollBar::handle:vertical {{ background: {BORDER}; min-height: 24px; border-radius: 4px; }}
+    QScrollBar::handle:vertical:hover {{ background: {ACCENT2}; }}
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+    QToolTip {{ background-color: {PANEL}; color: {TEXT}; border: 1px solid {BORDER}; }}
+    """
+
+
+class TextChip(QLabel):
+    """QLabel with an opaque background chip painted behind its text —
+    keeps labels readable when they sit directly on a StripeBackground
+    rather than inside an opaque PANEL frame."""
+
+    def __init__(self, text="", *, fg=None, bg=None, radius=3, padding="3px 10px", parent=None):
+        super().__init__(text, parent)
+        self._chip_bg = QColor(bg or PANEL)
+        self._radius = radius
+        self.setStyleSheet(f"color: {fg or ACCENT2}; background: transparent; padding: {padding}; border: none;")
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setBrush(self._chip_bg)
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(self.rect(), self._radius, self._radius)
+        painter.end()
+        super().paintEvent(event)
+
+
+class StripeBackground(QWidget):
+    """Paints repeating ~45° diagonal stripes across the whole widget when
+    a flag theme is active (STRIPE_COLOURS set); otherwise just fills BG.
+    Child widgets sit on top via a normal layout; stripes show through any
+    gap not covered by an opaque widget."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAutoFillBackground(False)
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, False)
+        w, h = self.width(), self.height()
+
+        colours = STRIPE_COLOURS
+        if not colours:
+            painter.fillRect(self.rect(), QColor(BG))
+            return
+
+        painter.fillRect(self.rect(), QColor(BG))
+        stripe_w = STRIPE_WIDTH
+        cycle = stripe_w * len(colours)
+        extent = w + h + cycle * 2
+
+        start = -cycle
+        while start < extent:
+            for i, colour in enumerate(colours):
+                x0 = start + i * stripe_w
+                poly = QPolygonF([
+                    QPointF(x0, 0), QPointF(x0 + stripe_w, 0),
+                    QPointF(x0 + stripe_w + h, h), QPointF(x0 + h, h),
+                ])
+                painter.setBrush(QColor(colour))
+                painter.setPen(Qt.NoPen)
+                painter.drawPolygon(poly)
+            start += cycle
+
+
+class CircleToggle(QWidget):
+    """Filled circle = ON, outline circle = OFF. Used for the theme picker
+    rows in Settings."""
+
+    toggled = Signal(bool)
+
+    def __init__(self, parent=None, *, enabled: bool = True, color: str = None, size: int = 20, pad: int = 3):
+        super().__init__(parent)
+        self._enabled = enabled
+        self._color = QColor(color or ACCENT)
+        self._size = size
+        self._pad = pad
+        self.setFixedSize(size, size)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def paintEvent(self, _event):
+        from PySide6.QtCore import QRectF
+        from PySide6.QtGui import QPen
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        rect = QRectF(self._pad, self._pad, self._size - 2 * self._pad, self._size - 2 * self._pad)
+        if self._enabled:
+            painter.setBrush(self._color)
+            painter.setPen(Qt.NoPen)
+        else:
+            painter.setBrush(Qt.NoBrush)
+            painter.setPen(QPen(self._color, 2))
+        painter.drawEllipse(rect)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._enabled = not self._enabled
+            self.update()
+            self.toggled.emit(self._enabled)
+
+    def set(self, value: bool):
+        self._enabled = bool(value)
+        self.update()
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# QT THREAD-SAFETY BRIDGE
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# Tkinter tolerated touching widgets from a background thread (fragile, but
+# the original code relied on it in a couple of spots — the startup update
+# check and the branch-switch resync both run on a daemon thread and call
+# straight into footer_label.config(...)/messagebox.*). Qt does not allow
+# this at all — it can crash. A QObject's signals are the standard safe
+# hand-off: emitting from any thread auto-queues onto the thread that owns
+# the receiving QObject (main_window, which lives on the GUI thread). Every
+# background-thread call site below emits through this instead of touching
+# a widget directly; the actual widget/dialog code runs in the connected
+# slots on ToolBoxWindow, i.e. on the main thread. The underlying decisions
+# (what to check, what to compare, when an update is "available") are 100%
+# unchanged from the original.
+
+class _Bridge(QObject):
+    footer_text = Signal(str)
+    refresh_labels = Signal()
+    confirm_main_update = Signal(str, str, str)   # prompt, remote_text, remote_url
+    show_info = Signal(str, str)
+    show_error = Signal(str, str)
+
+
+bridge = _Bridge()
+
+# Set once the main window is constructed (see entry point at the bottom).
+# Business-logic functions below reference this by name, resolved at call
+# time — same forward-reference pattern the original script already used
+# with its module-level `root`/`footer_label` globals.
+main_window = None
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -234,7 +666,7 @@ if UPDATE_BRANCH == "beta":
 
 
 def load_managed_scripts():
-    global UPDATE_BRANCH, BETA_POPUP_SHOWN, PYTHON_INTERPRETER
+    global UPDATE_BRANCH, BETA_POPUP_SHOWN, PYTHON_INTERPRETER, colour_mode
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -243,6 +675,7 @@ def load_managed_scripts():
             UPDATE_BRANCH = config.get("update_branch", "main")
             BETA_POPUP_SHOWN = config.get("beta_popup_shown", False)
             PYTHON_INTERPRETER = config.get("python_interpreter", "")
+            set_theme(config.get("theme_mode", "rich_purple"))
 
             # Verify the configuration version matches the current app version
             config_version = config.get("version")
@@ -266,6 +699,7 @@ def save_managed_scripts(scripts):
             "update_branch": UPDATE_BRANCH,
             "beta_popup_shown": BETA_POPUP_SHOWN,
             "python_interpreter": PYTHON_INTERPRETER,
+            "theme_mode": colour_mode,
             "managed_scripts": scripts
         }
         with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -332,8 +766,8 @@ def ensure_lhm(show_errors: bool = False) -> bool:
     except Exception as e:
         print(f"[LHM] Download failed: {e}")
         if show_errors:
-            messagebox.showerror(
-                "Libre Hardware Monitor",
+            QMessageBox.critical(
+                main_window, "Libre Hardware Monitor",
                 f"Could not download LibreHardwareMonitor.\n\nCheck your internet connection and try again.\n\nDetails:\n{e}"
             )
         return False
@@ -361,20 +795,20 @@ def _patch_lhm_config() -> None:
     if os.path.isfile(cfg_path):
         try:
             tree = ET.parse(cfg_path)
-            root = tree.getroot()
+            root_el = tree.getroot()
         except ET.ParseError as e:
             print(f"[LHM] Config parse error ({e}), will recreate.")
-            root = ET.Element("configuration")
-            tree = ET.ElementTree(root)
+            root_el = ET.Element("configuration")
+            tree = ET.ElementTree(root_el)
     else:
         print("[LHM] No config found, creating one.")
-        root = ET.Element("configuration")
-        tree = ET.ElementTree(root)
+        root_el = ET.Element("configuration")
+        tree = ET.ElementTree(root_el)
 
     # ── Find or create <appSettings> ─────────────────────────────────────────
-    app_settings = root.find("appSettings")
+    app_settings = root_el.find("appSettings")
     if app_settings is None:
-        app_settings = ET.SubElement(root, "appSettings")
+        app_settings = ET.SubElement(root_el, "appSettings")
 
     # ── Update / insert each required key ────────────────────────────────────
     for key, value in REQUIRED.items():
@@ -396,65 +830,61 @@ def _patch_lhm_config() -> None:
 
 
 def _show_lhm_started_popup() -> None:
-    """Small non-blocking confirmation that LHM launched successfully."""
+    """Small non-blocking confirmation that LHM launched successfully.
+    Always called from launch_lhm(), which is only ever invoked from a
+    button click (main thread) — no cross-thread hand-off needed here."""
+    dlg = QDialog(main_window)
+    dlg.setWindowTitle("Libre Hardware Monitor")
+    dlg.setStyleSheet(f"background-color: {BG};")
 
-    def _popup():
-        win = tk.Toplevel(root)
-        win.title("Libre Hardware Monitor")
-        win.configure(bg=BG)
-        win.resizable(False, False)
-        win.attributes("-topmost", True)
+    layout = QVBoxLayout(dlg)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(0)
 
-        # Import theme colours (already loaded at this point)
-        try:
-            from ui.theme import PANEL, BORDER, ACCENT2, TEXT, SUBTEXT, FONT as _FONT
-        except Exception:
-            PANEL = "#1f102a"
-            BORDER = "#2a2a38"
-            ACCENT2 = "#b44bff"
-            TEXT = "#e2e0f0"
-            SUBTEXT = "#7e7b9a"
-            _FONT = "Consolas"
+    hdr = QWidget()
+    hdr.setStyleSheet(f"background-color: {PANEL};")
+    hdr_layout = QHBoxLayout(hdr)
+    hdr_layout.setContentsMargins(14, 8, 14, 8)
+    title_lbl = QLabel("Libre Hardware Monitor")
+    title_lbl.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+    title_lbl.setFont(qt_font(11, bold=True))
+    hdr_layout.addWidget(title_lbl)
+    layout.addWidget(hdr)
 
-        hdr = tk.Frame(win, bg=PANEL, pady=8)
-        hdr.pack(fill="x")
-        tk.Label(hdr, text="Libre Hardware Monitor", bg=PANEL, fg=ACCENT2,
-                 font=(_FONT, 11, "bold")).pack(side="left", padx=14)
-        tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
+    divider = QFrame()
+    divider.setFixedHeight(1)
+    divider.setStyleSheet(f"background-color: {BORDER}; border: none;")
+    layout.addWidget(divider)
 
-        body = tk.Frame(win, bg=BG, padx=20, pady=14)
-        body.pack()
-        tk.Label(body,
-                 text="✓  LHM started successfully.\n\nIt will appear in your system tray shortly.\nThe UAC prompt may have appeared behind this window.",
-                 bg=BG, fg=TEXT, font=(_FONT, 9), justify="left").pack()
+    body = QWidget()
+    body_layout = QVBoxLayout(body)
+    body_layout.setContentsMargins(20, 14, 20, 14)
+    body_lbl = QLabel(
+        "✓  LHM started successfully.\n\nIt will appear in your system tray shortly.\n"
+        "The UAC prompt may have appeared behind this window."
+    )
+    body_lbl.setStyleSheet(f"color: {TEXT}; background: transparent; border: none;")
+    body_lbl.setFont(qt_font(9))
+    body_layout.addWidget(body_lbl)
 
-        tk.Button(
-            body, text="OK", bg=ACCENT2, fg=BG, relief="flat",
-            font=(_FONT, 9, "bold"), padx=16, pady=4, cursor="hand2",
-            activebackground=ACCENT2, activeforeground=BG,
-            command=win.destroy,
-        ).pack(pady=(10, 0))
+    ok_btn = QPushButton("OK")
+    ok_btn.setStyleSheet(accent_button_qss())
+    ok_btn.setFont(qt_font(9, bold=True))
+    ok_btn.setCursor(Qt.PointingHandCursor)
+    ok_btn.clicked.connect(dlg.close)
+    body_layout.addWidget(ok_btn, alignment=Qt.AlignHCenter)
 
-        # Centre on screen
-        win.update_idletasks()
-        sw = win.winfo_screenwidth()
-        sh = win.winfo_screenheight()
-        w = win.winfo_reqwidth()
-        h = win.winfo_reqheight()
-        win.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
-        win.after(100, lambda: win.attributes("-topmost", False))
-
-    # Schedule on the main tkinter thread
-    root.after(0, _popup)
+    layout.addWidget(body)
+    dlg.exec()
 
 
 def launch_lhm() -> None:
     """Patch the LHM config, launch the exe with admin elevation, confirm success."""
-    footer_label.config(text="Starting up Libre Hardware Monitor...")
-    root.update_idletasks()
+    main_window.footer_label.setText("Starting up Libre Hardware Monitor...")
+    QApplication.instance().processEvents()
 
     if not ensure_lhm(show_errors=True):
-        footer_label.config(text="Error preparing Libre Hardware Monitor")
+        main_window.footer_label.setText("Error preparing Libre Hardware Monitor")
         return
 
     # Patch config before every launch so the settings are always correct
@@ -475,15 +905,11 @@ def launch_lhm() -> None:
             print(f"[LHM] Launched (PID: {p.pid})")
 
         _show_lhm_started_popup()
-        footer_label.config(text="Ready")
+        main_window.footer_label.setText("Ready")
     except Exception as e:
         print(f"[LHM] Launch failed: {e}")
-        footer_label.config(text="Error launching Libre Hardware Monitor")
-        messagebox.showerror("Launch Error", f"Failed to start LibreHardwareMonitor.\n\nDetails:\n{e}")
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# (SCRIPT_FOLDER_MAP lives in the CONFIGURATION & GLOBAL VARIABLES section above)
+        main_window.footer_label.setText("Error launching Libre Hardware Monitor")
+        QMessageBox.critical(main_window, "Launch Error", f"Failed to start LibreHardwareMonitor.\n\nDetails:\n{e}")
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -529,9 +955,6 @@ def _migrate_legacy_layout() -> None:
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # TOOL STATE (missing / needs update / current) — drives button labels
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# (TOOL_STATE_* constants and the tool_states dict live in the
-# CONFIGURATION & GLOBAL VARIABLES section above)
-
 
 def _tool_folder_name(filename: str) -> str:
     """Top-level repo folder for a tool, e.g. 'OSC-Chatbox/main.py' -> 'OSC-Chatbox'."""
@@ -592,7 +1015,7 @@ def refresh_tool_states_background() -> None:
     for script in MANAGED_SCRIPTS:
         filename = script["filename"]
         tool_states[filename] = _detect_tool_state(filename)
-        root.after(0, refresh_button_labels)
+        bridge.refresh_labels.emit()
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -659,8 +1082,8 @@ def ensure_tool_folder(filename: str, show_errors: bool = False) -> bool:
         if os.path.isfile(dest_path):
             return True
         if show_errors:
-            messagebox.showerror(
-                f"{filename} Error",
+            QMessageBox.critical(
+                main_window, f"{filename} Error",
                 f"Could not prepare {filename}.\nCheck your internet connection and try again.",
             )
         return False
@@ -687,8 +1110,8 @@ def ensure_tool_folder(filename: str, show_errors: bool = False) -> bool:
             success = False
 
     if not success and show_errors:
-        messagebox.showerror(
-            f"{filename} Error",
+        QMessageBox.critical(
+            main_window, f"{filename} Error",
             f"Some files for {filename} failed to download.\nCheck your internet connection and try again.",
         )
 
@@ -697,33 +1120,34 @@ def ensure_tool_folder(filename: str, show_errors: bool = False) -> bool:
 
 def launch_script(filename: str) -> None:
     """Downloads/updates the tool's folder if needed (based on its current
-    state), then launches it in a separate process."""
+    state), then launches it in a separate process. Always called from a
+    button click (main thread) — safe to touch widgets directly here."""
     # Route LHM to its dedicated launcher
     if filename == LHM_FILENAME:
         launch_lhm()
         # launch_lhm() downloads LHM internally if missing — re-check the
         # exe on disk afterward so the button flips from Download to Run.
         tool_states[filename] = TOOL_STATE_CURRENT if os.path.isfile(_lhm_exe_path()) else TOOL_STATE_MISSING
-        refresh_button_labels()
+        main_window.refresh_button_labels()
         return
 
     state = get_tool_state(filename)
     if state == TOOL_STATE_MISSING:
-        footer_label.config(text=f"Downloading {filename}...")
+        main_window.footer_label.setText(f"Downloading {filename}...")
     elif state == TOOL_STATE_UPDATE:
-        footer_label.config(text=f"Updating {filename}...")
+        main_window.footer_label.setText(f"Updating {filename}...")
     else:
-        footer_label.config(text=f"Starting up {filename}...")
-    root.update_idletasks()
+        main_window.footer_label.setText(f"Starting up {filename}...")
+    QApplication.instance().processEvents()
 
     # 1. Sync the tool's folder from GitHub only if it's missing or outdated —
     #    an already-current tool launches instantly with no network call.
     if state in (TOOL_STATE_MISSING, TOOL_STATE_UPDATE):
         if not ensure_tool_folder(filename, show_errors=True):
-            footer_label.config(text="Error preparing script")
+            main_window.footer_label.setText("Error preparing script")
             return
         tool_states[filename] = TOOL_STATE_CURRENT
-        refresh_button_labels()
+        main_window.refresh_button_labels()
 
     # 2. Resolve local execution path
     dest_path = _tool_local_path(filename)
@@ -739,15 +1163,12 @@ def launch_script(filename: str) -> None:
         )
 
         print(f"[Launcher] Successfully started {filename} (PID: {p.pid})")
-        footer_label.config(text="Ready")
+        main_window.footer_label.setText("Ready")
 
     except Exception as e:
         print(f"[Launcher] Failed to execute {filename}: {e}")
-        footer_label.config(text="Error launching script")
-        messagebox.showerror(
-            "Launch Error",
-            f"Failed to start {filename}.\n\nTechnical details:\n{e}"
-        )
+        main_window.footer_label.setText("Error launching script")
+        QMessageBox.critical(main_window, "Launch Error", f"Failed to start {filename}.\n\nTechnical details:\n{e}")
 
 
 _ensure_layout_dirs()
@@ -815,6 +1236,10 @@ def get_remote_script_info() -> dict[str, str] | None:
 
 
 def perform_update(remote_text=None, source_url=None):
+    """Always executed on the main thread — either directly (not currently
+    exercised, since silent=False is never actually passed today, but kept
+    intact for parity/future use) or via the confirm_main_update bridge
+    signal's slot after the person clicks Yes."""
     try:
         if remote_text is None:
             info = get_remote_script_info()
@@ -849,33 +1274,42 @@ def perform_update(remote_text=None, source_url=None):
                     except Exception as ex:
                         print(f"[Updater] Error cleaning target configuration profile: {ex}")
 
-        messagebox.showinfo(
-            "Update Complete",
+        QMessageBox.information(
+            main_window, "Update Complete",
             f"ToolBox updated to the latest available software build on branch '{UPDATE_BRANCH}'.\n\nThe system will now restart automatically."
         )
 
-        root.destroy()
+        main_window.close()
         subprocess.Popen([sys.executable, script_path], cwd=os.path.dirname(script_path))
         sys.exit(0)
 
     except Exception as e:
         print(f"[Updater] Self-update failed catastrophically: {e}")
-        messagebox.showerror(
-            "Update Failed",
-            f"An error occurred during updating processing:\n\n{e}"
-        )
+        QMessageBox.critical(main_window, "Update Failed", f"An error occurred during updating processing:\n\n{e}")
+
+
+@Slot(str, str, str)
+def _on_confirm_main_update(prompt: str, remote_text: str, remote_url: str):
+    """Slot for bridge.confirm_main_update — runs on the main thread."""
+    if QMessageBox.question(main_window, "Update Available", prompt) == QMessageBox.Yes:
+        perform_update(remote_text=remote_text, source_url=remote_url)
+    else:
+        print(f"[VRChat-Tools] Update skipped by user")
 
 
 def check_for_main_updates(silent: bool = True):
+    """Runs on a background daemon thread (see the threading.Thread call at
+    the bottom of this file). All network + version-comparison logic below
+    is unchanged from the original — only the dialog/footer touches were
+    swapped for bridge.*.emit() so they execute safely on the main thread."""
     if not silent:
-        footer_label.config(text="Connecting to repository update server nodes...")
-        root.update_idletasks()
+        bridge.footer_text.emit("Connecting to repository update server nodes...")
 
     info = get_remote_script_info()
     if not info:
         if not silent:
-            messagebox.showerror("Update Connection Fault", "Unable to pull validation info records from GitHub.")
-        footer_label.config(text="Ready")
+            bridge.show_error.emit("Update Connection Fault", "Unable to pull validation info records from GitHub.")
+        bridge.footer_text.emit("Ready")
         return
 
     remote_text = info["text"]
@@ -918,10 +1352,7 @@ def check_for_main_updates(silent: bool = True):
                 "Update and restart now?"
             )
 
-        if messagebox.askyesno("Update Available", prompt):
-            perform_update(remote_text=remote_text, source_url=remote_url)
-        else:
-            print(f"[VRChat-Tools] Update skipped by user")
+        bridge.confirm_main_update.emit(prompt, remote_text, remote_url)
     else:
         print(f"[VRChat-Tools] Up to date ({VERSION})")
 
@@ -930,9 +1361,7 @@ def check_for_main_updates(silent: bool = True):
     threading.Thread(target=refresh_tool_states_background, daemon=True).start()
 
     if not silent and not main_update_available:
-        messagebox.showinfo(
-            "Up to Date", f"You're on the latest version ({VERSION}) for branch '{UPDATE_BRANCH}'."
-        )
+        bridge.show_info.emit("Up to Date", f"You're on the latest version ({VERSION}) for branch '{UPDATE_BRANCH}'.")
 
 
 def force_update_all_scripts():
@@ -942,8 +1371,7 @@ def force_update_all_scripts():
     explicit user action in Settings rather than something happening at boot."""
 
     def _update_task():
-        footer_label.config(text=f"Switching branch to '{UPDATE_BRANCH}' & updating...")
-        root.update_idletasks()
+        bridge.footer_text.emit(f"Switching branch to '{UPDATE_BRANCH}' & updating...")
 
         get_repo_tree(force=True)  # branch changed — the cached file listing is stale
 
@@ -966,17 +1394,17 @@ def force_update_all_scripts():
                 tool_states[filename] = TOOL_STATE_MISSING
                 success = False
 
-        root.after(0, refresh_button_labels)
+        bridge.refresh_labels.emit()
 
         if success:
-            footer_label.config(text=f"Successfully switched to branch '{UPDATE_BRANCH}'!")
-            messagebox.showinfo(
+            bridge.footer_text.emit(f"Successfully switched to branch '{UPDATE_BRANCH}'!")
+            bridge.show_info.emit(
                 "Branch Updated",
                 f"All scripts have been successfully updated to match the '{UPDATE_BRANCH}' branch structure.",
             )
         else:
-            footer_label.config(text="Error updating branch assets")
-            messagebox.showerror(
+            bridge.footer_text.emit("Error updating branch assets")
+            bridge.show_error.emit(
                 "Branch Update Error",
                 "Failed to fully re-download some script assets from the chosen branch.",
             )
@@ -987,535 +1415,676 @@ def force_update_all_scripts():
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # GUI
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-# (Theme color constants live in the CONFIGURATION & GLOBAL VARIABLES section above)
 
-root = tk.Tk()
-root.title("VRChat-ToolBox")
-root.configure(bg=BG)
-root.geometry("580x600")
-root.minsize(0, 0)
+def square_button(text: str, command, base_size: int = 28) -> QPushButton:
+    """Small square icon button (Help/Settings in the footer). The original
+    Tk version had a whole DPI-scaling apparatus (register_scalable /
+    apply_ui_scaling) wrapped around this, but apply_ui_scaling() was never
+    actually called anywhere in that file — dead code — so it's not carried
+    over; Qt also handles DPI scaling natively. Visual result is the same
+    fixed-size square icon button.
 
-# Window Setup Core Sizing Constraints
-root.update_idletasks()
-
-# Context DPI Engine Scaling Configurations
-scale = 1.0
-scalable_widgets = []
-square_widgets = []
-
-
-def register_scalable(widget, base_size, extras=()):
-    scalable_widgets.append((widget, base_size, extras))
-
-
-def apply_ui_scaling(new_scale):
-    global scale
-    scale = new_scale
-    for widget, base_size, extras in scalable_widgets:
-        try:
-            widget.configure(font=(FONT, max(6, int(base_size * scale))) + extras)
-        except tk.TclError:
-            pass
-    for container, base_size, btn_widget in square_widgets:
-        size = int(base_size * scale)
-        container.config(width=size, height=size)
-        btn_widget.config(font=(FONT, max(8, int(12 * scale))))
-
-
-# Factory Function: Standard UI Subtext Label
-def dark_label(text, r, **kwargs):
-    lbl = tk.Label(main_frame, text=text, bg=BG, fg=SUBTEXT, anchor="w", font=(FONT, 9))
-    lbl.grid(row=r, column=0, sticky="w", pady=6, **kwargs)
-    return lbl
-
-
-# Factory Function: Standard Form Input Field
-def dark_entry(r, default=""):
-    e = tk.Entry(
-        main_frame, bg=PANEL, fg=TEXT, insertbackground=ACCENT, relief="flat", font=(FONT, 9),
-        highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
+    Deliberately does NOT use qt_font()/the Consolas code font here — a
+    monospace code font typically doesn't include glyphs for symbols like
+    ⚙ or the full-width ？, so the label would render blank even with
+    Consolas installed. The OS/Qt default UI font has full symbol
+    coverage."""
+    btn = QPushButton(text)
+    btn.setFixedSize(base_size, base_size)
+    btn.setCursor(Qt.PointingHandCursor)
+    icon_font = QFont()
+    icon_font.setPointSize(12)
+    btn.setFont(icon_font)
+    btn.setStyleSheet(
+        f"QPushButton {{ background-color: {PANEL}; color: {SUBTEXT}; "
+        f"border: 1px solid {BORDER}; border-radius: 3px; padding: 0px; }}"
+        f"QPushButton:hover {{ background-color: {BORDER}; color: {TEXT}; }}"
     )
-    e.insert(0, default)
-    e.grid(row=r, column=1, pady=6, sticky="ew", padx=(8, 0))
-    return e
-
-
-# Factory Function: Fixed Aspect-Ratio Square Button
-def square_button(parent, text, command, base_size=32):
-    container = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-    container.pack_propagate(False)
-    button_widget = tk.Button(
-        container, text=text, command=command, bg=PANEL, fg=SUBTEXT, relief="flat", borderwidth=0, font=(FONT, 12),
-        activebackground=BORDER, activeforeground=TEXT, cursor="hand2",
-    )
-    button_widget.pack(fill="both", expand=True)
-    square_widgets.append((container, base_size, button_widget))
-    container.config(width=base_size, height=base_size)
-    return container
+    btn.clicked.connect(command)
+    return btn
 
 
 def _show_beta_popup():
-    win = tk.Toplevel(root)
-    win.title("Beta Branch")
-    win.geometry("420x260")
-    win.configure(bg=BG)
-    win.resizable(False, False)
-    win.transient(root)
-    win.grab_set()
+    win = QDialog(main_window)
+    win.setWindowTitle("Beta Branch")
+    win.setFixedSize(420, 260)
+    win.setStyleSheet(f"background-color: {BG};")
 
-    hdr = tk.Frame(win, bg=PANEL, pady=10)
-    hdr.pack(fill="x")
-    tk.Label(hdr, text="◈ Thanks Beta Tester", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")).pack(side="left", padx=16)
-    tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
+    layout = QVBoxLayout(win)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(0)
 
-    body = tk.Frame(win, bg=BG, padx=20, pady=16)
-    body.pack(fill="both", expand=True)
+    hdr = QWidget()
+    hdr.setStyleSheet(f"background-color: {PANEL};")
+    hdr_layout = QHBoxLayout(hdr)
+    hdr_layout.setContentsMargins(16, 10, 16, 10)
+    title_lbl = QLabel("◈ Thanks Beta Tester")
+    title_lbl.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+    title_lbl.setFont(qt_font(12, bold=True))
+    hdr_layout.addWidget(title_lbl)
+    layout.addWidget(hdr)
+
+    divider = QFrame()
+    divider.setFixedHeight(1)
+    divider.setStyleSheet(f"background-color: {BORDER}; border: none;")
+    layout.addWidget(divider)
+
+    body = QWidget()
+    body_layout = QVBoxLayout(body)
+    body_layout.setContentsMargins(20, 16, 20, 16)
 
     msg = (
         "Thanks for participating in the beta test!\n\n"
         "Your bug reports help optimize these tools for everyone.\n\n"
         "Join our discord server to report issues or suggest modifications!"
     )
-    tk.Label(body, text=msg, bg=BG, fg=TEXT, font=(FONT, 9), justify="left", wraplength=380).pack(anchor="w")
+    msg_lbl = QLabel(msg)
+    msg_lbl.setStyleSheet(f"color: {TEXT}; background: transparent; border: none;")
+    msg_lbl.setFont(qt_font(9))
+    msg_lbl.setWordWrap(True)
+    body_layout.addWidget(msg_lbl)
 
-    btn_row = tk.Frame(body, bg=BG)
-    btn_row.pack(fill="x", pady=(18, 0))
+    btn_row = QHBoxLayout()
+    btn_row.setContentsMargins(0, 18, 0, 0)
 
-    tk.Button(
-        btn_row, text="Join Discord Server", bg=ACCENT, fg=TEXT2, relief="flat", font=(FONT, 9, "bold"),
-        padx=14, pady=6, cursor="hand2", activebackground=ACCENT2, activeforeground=TEXT2,
-        command=lambda: (webbrowser.open("https://discord.gg/VWeTPh3m8Q"), win.destroy()),
-    ).pack(side="left")
+    def _join_discord():
+        webbrowser.open("https://discord.gg/VWeTPh3m8Q")
+        win.close()
 
-    tk.Button(
-        btn_row, text="Dismiss", bg=PANEL, fg=SUBTEXT, relief="flat", font=(FONT, 9, "bold"),
-        padx=14, pady=6, cursor="hand2", activebackground=BORDER, activeforeground=TEXT,
-        command=win.destroy,
-    ).pack(side="right")
+    join_btn = QPushButton("Join Discord Server")
+    join_btn.setStyleSheet(accent_button_qss())
+    join_btn.setFont(qt_font(9, bold=True))
+    join_btn.setCursor(Qt.PointingHandCursor)
+    join_btn.clicked.connect(_join_discord)
+    btn_row.addWidget(join_btn)
+    btn_row.addStretch(1)
 
-    win.update_idletasks()
-    sw = win.winfo_screenwidth()
-    sh = win.winfo_screenheight()
-    win.geometry(f"+{(sw - 420) // 2}+{(sh - 260) // 2}")
+    dismiss_btn = QPushButton("Dismiss")
+    dismiss_btn.setStyleSheet(subtle_button_qss())
+    dismiss_btn.setFont(qt_font(9, bold=True))
+    dismiss_btn.setCursor(Qt.PointingHandCursor)
+    dismiss_btn.clicked.connect(win.close)
+    btn_row.addWidget(dismiss_btn)
+
+    body_layout.addLayout(btn_row)
+    layout.addWidget(body)
+
+    win.exec()
+
+
+HELP_PAGES = [
+    {
+        "title": "Welcome to ToolBox",
+        "content": (
+            "This control center manages and runs various modular optimization tools "
+            "tailored for VRChat OSC network tracking.\n\n"
+            "Features include:\n"
+            "• Automated system update patches on initialization cycles.\n"
+            "• Sandbox virtual execution container environments.\n"
+            "• Fast preference configuration overlays."
+        ),
+    },
+    {
+        "title": "Status Indicator",
+        "content": (
+            "The status shelf located across the footer displays active telemetry feedback:\n"
+            "• 'Ready' — waiting for action\n"
+            "• 'Starting up (ScriptName)' — launching\n"
+            "• 'Up to date' — version check complete\n"
+            "• 'Error' — something went wrong"
+        ),
+    },
+    {
+        "title": "Available Scripts",
+        "content": (
+            "▶ Router(Beta) — Manages OSC routing\n"
+            " Forwards OSC messages between sources\n"
+            " and destinations.\n\n"
+            "▶ ChatBox — Sends data to VRChat over OSC\n"
+            " Displays system info, weather, music,\n"
+            " and custom messages.\n\n"
+            "▶ Face Tracking Controller(Beta) — Control\n"
+            " face tracking features in VRChat ."
+        ),
+    },
+    {
+        "title": "Status Bar",
+        "content": (
+            "The top bar of each script shows:\n\n"
+            "Left: Script name and icon\n"
+            "Center: Version number\n"
+            "Right: Current status\n\n"
+            "Status Examples:\n"
+            "• Status: Running — Script is active\n"
+            "• Status: Stopped — Script is inactive\n"
+            "• Status: Error — Something failed"
+        ),
+    },
+    {
+        "title": "Adding a Script",
+        "content": (
+            "1. Click the ⚙ (gear) button in the footer\n"
+            "2. Click '+ Add Script' button\n"
+            "3. Enter a label (button text)\n"
+            "4. Enter filename or full path\n"
+            "5. Click 'Add' to save\n\n"
+            "Your new script button appears in\n"
+            "'MANAGED SCRIPTS' section immediately!"
+        ),
+    },
+    {
+        "title": "Removing a Script",
+        "content": (
+            "1. Click the ⚙ (gear) button\n"
+            "2. Find the script in the list\n"
+            "3. Click the '✕ Remove' button\n"
+            "4. Script removed from buttons\n\n"
+            "Changes save automatically. Close and\n"
+            "reopen ToolBox to fully refresh if needed."
+        ),
+    },
+    {
+        "title": "Tips",
+        "content": (
+            "• Always start Router first, then ChatBox\n\n"
+            "• Each script remembers its settings\n"
+            " between sessions\n\n"
+            "• Check your internet connection if\n"
+            " scripts fail to start\n\n"
+            "• Run scripts from the ToolBox for\n"
+            " proper management"
+        ),
+    },
+]
 
 
 def open_help():
-    help_win = tk.Toplevel(root)
-    help_win.title("Documentation & Guide")
-    help_win.geometry("520x460")
-    help_win.configure(bg=BG)
-    help_win.resizable(False, False)
+    help_win = QDialog(main_window)
+    help_win.setWindowTitle("Documentation & Guide")
+    help_win.setFixedSize(520, 460)
+    help_win.setStyleSheet(f"background-color: {BG};")
+
+    root_layout = QVBoxLayout(help_win)
+    root_layout.setContentsMargins(0, 0, 0, 0)
+    root_layout.setSpacing(0)
 
     current_page = [0]
-    pages = [
-        {
-            "title": "Welcome to ToolBox",
-            "content": (
-                "This control center manages and runs various modular optimization tools "
-                "tailored for VRChat OSC network tracking.\n\n"
-                "Features include:\n"
-                "• Automated system update patches on initialization cycles.\n"
-                "• Sandbox virtual execution container environments.\n"
-                "• Fast preference configuration overlays."
-            ),
-        },
-        {
-            "title": "Status Indicator",
-            "content": (
-                "The status shelf located across the footer displays active telemetry feedback:\n"
-                "• 'Ready' — waiting for action\n"
-                "• 'Starting up (ScriptName)' — launching\n"
-                "• 'Up to date' — version check complete\n"
-                "• 'Error' — something went wrong"
-            ),
-        },
-        {
-            "title": "Available Scripts",
-            "content": (
-                "▶ Router(Beta) — Manages OSC routing\n"
-                " Forwards OSC messages between sources\n"
-                " and destinations.\n\n"
-                "▶ ChatBox — Sends data to VRChat over OSC\n"
-                " Displays system info, weather, music,\n"
-                " and custom messages.\n\n"
-                "▶ Face Tracking Controller(Beta) — Control\n"
-                " face tracking features in VRChat ."
-            ),
-        },
-        {
-            "title": "Status Bar",
-            "content": (
-                "The top bar of each script shows:\n\n"
-                "Left: Script name and icon\n"
-                "Center: Version number\n"
-                "Right: Current status\n\n"
-                "Status Examples:\n"
-                "• Status: Running — Script is active\n"
-                "• Status: Stopped — Script is inactive\n"
-                "• Status: Error — Something failed"
-            ),
-        },
-        {
-            "title": "Adding a Script",
-            "content": (
-                "1. Click the ⚙ (gear) button in the footer\n"
-                "2. Click '+ Add Script' button\n"
-                "3. Enter a label (button text)\n"
-                "4. Enter filename or full path\n"
-                "5. Click 'Add' to save\n\n"
-                "Your new script button appears in\n"
-                "'MANAGED SCRIPTS' section immediately!"
-            ),
-        },
-        {
-            "title": "Removing a Script",
-            "content": (
-                "1. Click the ⚙ (gear) button\n"
-                "2. Find the script in the list\n"
-                "3. Click the '✕ Remove' button\n"
-                "4. Script removed from buttons\n\n"
-                "Changes save automatically. Close and\n"
-                "reopen ToolBox to fully refresh if needed."
-            ),
-        },
-        {
-            "title": "Tips",
-            "content": (
-                "• Always start Router first, then ChatBox\n\n"
-                "• Each script remembers its settings\n"
-                " between sessions\n\n"
-                "• Check your internet connection if\n"
-                " scripts fail to start\n\n"
-                "• Run scripts from the ToolBox for\n"
-                " proper management"
-            ),
-        },
-    ]
 
-    # Header Panel Layout
-    header_panel = tk.Frame(help_win, bg=PANEL, pady=12)
-    header_panel.pack(fill="x")
-    title_label = tk.Label(header_panel, text="", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold"))
-    title_label.pack(side="left", padx=20)
+    hdr = QWidget()
+    hdr.setStyleSheet(f"background-color: {PANEL};")
+    hdr_layout = QHBoxLayout(hdr)
+    hdr_layout.setContentsMargins(20, 10, 20, 10)
+    title_label = QLabel("")
+    title_label.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+    title_label.setFont(qt_font(12, bold=True))
+    hdr_layout.addWidget(title_label)
+    root_layout.addWidget(hdr)
 
-    tk.Frame(help_win, bg=BORDER, height=1).pack(fill="x")
+    divider = QFrame()
+    divider.setFixedHeight(1)
+    divider.setStyleSheet(f"background-color: {BORDER}; border: none;")
+    root_layout.addWidget(divider)
 
-    # Content Display Panel Block Frame
-    content_panel = tk.Frame(help_win, bg=PANEL)
-    content_panel.pack(fill="both", expand=True, padx=20, pady=16)
+    content_panel = QFrame()
+    content_panel.setStyleSheet(f"background-color: {PANEL}; border: none;")
+    content_layout = QVBoxLayout(content_panel)
+    content_layout.setContentsMargins(14, 14, 14, 14)
+    content_label = QLabel("")
+    content_label.setStyleSheet(f"color: {TEXT}; background: transparent; border: none;")
+    content_label.setFont(qt_font(10))
+    content_label.setWordWrap(True)
+    content_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+    content_layout.addWidget(content_label)
 
-    # Body Label
-    content_label = tk.Label(
-        content_panel, text="", bg=PANEL, fg=TEXT, justify="left", wraplength=460, anchor="nw", font=(FONT, 10)
-    )
-    content_label.pack(padx=14, pady=14, fill="both", expand=True)
+    body_wrap = QWidget()
+    body_wrap_layout = QVBoxLayout(body_wrap)
+    body_wrap_layout.setContentsMargins(20, 16, 20, 0)
+    body_wrap_layout.addWidget(content_panel)
+    root_layout.addWidget(body_wrap, 1)
 
-    # Pagination View Engine Configuration Block
+    nav_frame = QHBoxLayout()
+    nav_frame.setContentsMargins(20, 8, 20, 14)
+
+    prev_btn = QPushButton("← Back")
+    prev_btn.setStyleSheet(subtle_button_qss())
+    prev_btn.setFont(qt_font(9, bold=True))
+    prev_btn.setFixedWidth(100)
+    nav_frame.addWidget(prev_btn)
+    nav_frame.addStretch(1)
+
+    page_indicator = QLabel("")
+    page_indicator.setStyleSheet(f"color: {SUBTEXT}; background: transparent; border: none;")
+    page_indicator.setFont(qt_font(9))
+    nav_frame.addWidget(page_indicator)
+    nav_frame.addStretch(1)
+
+    next_btn = QPushButton("Next →")
+    next_btn.setStyleSheet(accent_button_qss())
+    next_btn.setFont(qt_font(9, bold=True))
+    next_btn.setFixedWidth(100)
+    nav_frame.addWidget(next_btn)
+
+    root_layout.addLayout(nav_frame)
+
     def show_page(idx):
-        p = pages[idx]
-        title_label.config(text=p["title"])
-        content_label.config(text=p["content"])
-        page_indicator.config(text=f"Page {idx + 1} of {len(pages)}")
-        prev_btn.config(state="normal" if idx > 0 else "disabled")
-        is_last = idx == len(pages) - 1
-        next_btn.config(text="Finish" if is_last else "Next →")
+        p = HELP_PAGES[idx]
+        title_label.setText(p["title"])
+        content_label.setText(p["content"])
+        page_indicator.setText(f"Page {idx + 1} of {len(HELP_PAGES)}")
+        prev_btn.setEnabled(idx > 0)
+        is_last = idx == len(HELP_PAGES) - 1
+        next_btn.setText("Finish" if is_last else "Next →")
 
-    # Help Window Lower Navigation Dock Frame
-    nav_frame = tk.Frame(help_win, bg=BG)
-    nav_frame.pack(fill="x", padx=20, pady=(0, 14))
-    nav_frame.columnconfigure(1, weight=1)
+    def go_back():
+        if current_page[0] > 0:
+            current_page[0] -= 1
+            show_page(current_page[0])
 
-    # Help Window Previous Page Pagination Control Button
-    prev_btn = tk.Button(
-        nav_frame, text="← Back", bg=PANEL, fg=TEXT, relief="flat", width=10,
-        command=lambda: (current_page.__setitem__(0, current_page[0] - 1), show_page(current_page[0])),
-    )
-    prev_btn.grid(row=0, column=0, sticky="w")
-    prev_btn.configure(
-        fg=SUBTEXT, activebackground=BORDER, activeforeground=TEXT, cursor="hand2", font=(FONT, 9, "bold")
-    )
-
-    # Execution Link Logic Block for Next/Finish Routines
     def next_or_finish():
-        if current_page[0] < len(pages) - 1:
+        if current_page[0] < len(HELP_PAGES) - 1:
             current_page[0] += 1
             show_page(current_page[0])
         else:
-            help_win.destroy()
+            help_win.close()
 
-    # Help Window Next Page/Finish Progression Action Button
-    next_btn = tk.Button(
-        nav_frame, text="Next →", bg=PANEL, fg=TEXT, relief="flat", width=10, command=next_or_finish
-    )
-    next_btn.grid(row=0, column=2, sticky="e")
-    next_btn.configure(
-        bg=ACCENT, fg=TEXT2, activebackground=ACCENT2, activeforeground=TEXT2, cursor="hand2", font=(FONT, 9, "bold")
-    )
-
-    # Centre Numeric Page Tracker Information Metric Text
-    page_indicator = tk.Label(nav_frame, text="", bg=BG, fg=SUBTEXT, font=(FONT, 9))
-    page_indicator.grid(row=0, column=1, sticky="center")
+    prev_btn.clicked.connect(go_back)
+    next_btn.clicked.connect(next_or_finish)
 
     show_page(0)
+    help_win.exec()
 
 
-# Window View: Core App Preference Management Overlay Window
 def open_settings():
-    global MANAGED_SCRIPTS, UPDATE_BRANCH, PYTHON_INTERPRETER
-    settings_win = tk.Toplevel(root)
-    settings_win.title("Settings")
-    settings_win.configure(bg=BG)
-    settings_win.resizable(True, True)
-    settings_win.geometry("520x460")
+    global MANAGED_SCRIPTS, UPDATE_BRANCH, PYTHON_INTERPRETER, BETA_POPUP_SHOWN
 
-    # Settings Panel Top Header Frame
-    header = tk.Frame(settings_win, bg=PANEL, pady=10)
-    header.pack(fill="x")
+    settings_win = QDialog(main_window)
+    settings_win.setWindowTitle("Settings")
+    settings_win.resize(520, 560)
+    settings_win.setStyleSheet(f"background-color: {BG};")
 
-    # Settings Window Structural Header Text Label
-    title_label = tk.Label(
-        header, text="Manage Scripts & Settings", bg=PANEL, fg=ACCENT2, font=(FONT, 12, "bold")
-    )
+    root_layout = QVBoxLayout(settings_win)
+    root_layout.setContentsMargins(0, 0, 0, 0)
+    root_layout.setSpacing(0)
 
-    tk.Frame(settings_win, bg=BORDER, height=1).pack(fill="x")
+    # ── Header ────────────────────────────────────────────────────────────
+    header = QWidget()
+    header.setStyleSheet(f"background-color: {PANEL};")
+    header_layout = QHBoxLayout(header)
+    header_layout.setContentsMargins(20, 10, 20, 10)
+    title_label = QLabel("Manage Scripts & Settings")
+    title_label.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+    title_label.setFont(qt_font(12, bold=True))
+    header_layout.addWidget(title_label)
+    root_layout.addWidget(header)
 
-    # Lower Form Shell Sub-Block Packaging Layer
-    body_frame = tk.Frame(settings_win, bg=BG, padx=20, pady=14)
-    body_frame.pack(fill="both", expand=True)
+    divider = QFrame()
+    divider.setFixedHeight(1)
+    divider.setStyleSheet(f"background-color: {BORDER}; border: none;")
+    root_layout.addWidget(divider)
 
-    # --- Live Branch Selection Trace Dropdown Area ---
-    branch_frame = tk.Frame(body_frame, bg=BG)
-    branch_frame.pack(fill="x", pady=(0, 10))
+    # ── Scrollable body (everything below the header scrolls as one unit,
+    #    matching the collapsible-Themes-section pattern used across the
+    #    rest of the suite) ───────────────────────────────────────────────
+    outer_scroll = QScrollArea()
+    outer_scroll.setWidgetResizable(True)
+    outer_scroll.setStyleSheet(f"background-color: {BG}; border: none;")
 
-    tk.Label(branch_frame, text="Update Branch Context:", bg=BG, fg=TEXT, font=(FONT, 9, "bold")).pack(side="left")
+    body = QWidget()
+    body.setStyleSheet(f"background-color: {BG};")
+    body_layout = QVBoxLayout(body)
+    body_layout.setContentsMargins(20, 14, 20, 14)
+    body_layout.setSpacing(10)
+    outer_scroll.setWidget(body)
+    root_layout.addWidget(outer_scroll, 1)
 
-    branch_var = tk.StringVar(value=UPDATE_BRANCH)
+    # ── Branch selection ─────────────────────────────────────────────────
+    branch_row = QHBoxLayout()
+    branch_lbl = QLabel("Update Branch Context:")
+    branch_lbl.setStyleSheet(f"color: {TEXT}; background: transparent; border: none;")
+    branch_lbl.setFont(qt_font(9, bold=True))
+    branch_row.addWidget(branch_lbl)
 
-    def on_branch_change(*args):
+    branch_combo = QComboBox()
+    branch_combo.addItems(["main", "stable", "beta"])
+    branch_combo.setCurrentText(UPDATE_BRANCH)
+    branch_combo.setFont(qt_font(9))
+    branch_combo.setCursor(Qt.PointingHandCursor)
+    branch_row.addWidget(branch_combo)
+    branch_row.addStretch(1)
+    body_layout.addLayout(branch_row)
+
+    def on_branch_change(new_branch: str):
         global UPDATE_BRANCH, BETA_POPUP_SHOWN
-        new_branch = branch_var.get()
-        if new_branch != UPDATE_BRANCH:
-            if new_branch == "beta":
-                BETA_POPUP_SHOWN = True
-                root.after(800, _show_beta_popup)
-            else:
-                BETA_POPUP_SHOWN = False
-            UPDATE_BRANCH = new_branch
-            save_managed_scripts(MANAGED_SCRIPTS)  # Commit update_branch string context to storage configurations
-            force_update_all_scripts()  # Instantly fire asynchronous live updates swapping code logic branches
+        if new_branch == UPDATE_BRANCH:
+            return
+        if new_branch == "beta":
+            BETA_POPUP_SHOWN = True
+            QTimer.singleShot(800, _show_beta_popup)
+        else:
+            BETA_POPUP_SHOWN = False
+        UPDATE_BRANCH = new_branch
+        save_managed_scripts(MANAGED_SCRIPTS)  # Commit update_branch string context to storage configurations
+        force_update_all_scripts()  # Instantly fire asynchronous live updates swapping code logic branches
 
-    branch_var.trace_add("write", on_branch_change)
+    branch_combo.currentTextChanged.connect(on_branch_change)
 
-    branch_dropdown = tk.OptionMenu(branch_frame, branch_var, "main", "stable", "beta")
-    branch_dropdown.configure(
-        bg=PANEL, fg=TEXT, relief="flat", highlightthickness=1, highlightbackground=BORDER,
-        font=(FONT, 9), activebackground=BORDER, activeforeground=TEXT, cursor="hand2",
-    )
-    branch_dropdown["menu"].configure(bg=PANEL, fg=TEXT, font=(FONT, 9), selectcolor=ACCENT)
-    branch_dropdown.pack(side="left", padx=(10, 0))
+    # ── Python interpreter ───────────────────────────────────────────────
+    python_row = QHBoxLayout()
+    python_lbl = QLabel("Python Interpreter:")
+    python_lbl.setStyleSheet(f"color: {TEXT}; background: transparent; border: none;")
+    python_lbl.setFont(qt_font(9, bold=True))
+    python_row.addWidget(python_lbl)
 
-    # --- Python Interpreter Selection Area ---
-    python_frame = tk.Frame(body_frame, bg=BG)
-    python_frame.pack(fill="x", pady=(0, 10))
-
-    tk.Label(python_frame, text="Python Interpreter:", bg=BG, fg=TEXT, font=(FONT, 9, "bold")).pack(
-        side="left"
-    )
-
-    python_path_var = tk.StringVar(
-        value=PYTHON_INTERPRETER if PYTHON_INTERPRETER else f"{sys.executable} (default)"
-    )
-
-    python_entry = tk.Entry(
-        python_frame, textvariable=python_path_var, bg=PANEL, fg=TEXT, insertbackground=ACCENT,
-        relief="flat", font=(FONT, 8), highlightthickness=1, highlightbackground=BORDER,
-        highlightcolor=ACCENT, state="readonly", readonlybackground=PANEL,
-    )
-    python_entry.pack(side="left", fill="x", expand=True, padx=(10, 6))
+    python_entry = QLineEdit(PYTHON_INTERPRETER if PYTHON_INTERPRETER else f"{sys.executable} (default)")
+    python_entry.setReadOnly(True)
+    python_entry.setFont(qt_font(8))
+    python_entry.setStyleSheet(line_edit_qss())
+    python_row.addWidget(python_entry, 1)
 
     def browse_python():
         global PYTHON_INTERPRETER
-        exe_filter = [("Python executable", "*.exe")] if sys.platform == "win32" else [("All files", "*")]
-        chosen = filedialog.askopenfilename(
-            parent=settings_win,
-            title="Select Python Interpreter",
-            filetypes=exe_filter,
-        )
+        name_filter = "Python executable (*.exe)" if sys.platform == "win32" else "All files (*)"
+        chosen, _ = QFileDialog.getOpenFileName(settings_win, "Select Python Interpreter", "", name_filter)
         if not chosen:
             return
         PYTHON_INTERPRETER = chosen
-        python_path_var.set(PYTHON_INTERPRETER)
+        python_entry.setText(PYTHON_INTERPRETER)
         save_managed_scripts(MANAGED_SCRIPTS)
         print(f"[Config] Python interpreter for launched scripts set to: {PYTHON_INTERPRETER}")
 
     def reset_python():
         global PYTHON_INTERPRETER
         PYTHON_INTERPRETER = ""
-        python_path_var.set(f"{sys.executable} (default)")
+        python_entry.setText(f"{sys.executable} (default)")
         save_managed_scripts(MANAGED_SCRIPTS)
         print("[Config] Python interpreter reset to default (ToolBox's own interpreter).")
 
-    browse_python_btn = tk.Button(
-        python_frame, text="Browse...", bg=PANEL, fg=TEXT, relief="flat", font=(FONT, 8, "bold"),
-        cursor="hand2", command=browse_python,
-    )
-    browse_python_btn.pack(side="left")
-    browse_python_btn.configure(activebackground=BORDER, activeforeground=TEXT)
+    browse_python_btn = QPushButton("Browse...")
+    browse_python_btn.setStyleSheet(subtle_button_qss())
+    browse_python_btn.setFont(qt_font(8, bold=True))
+    browse_python_btn.setCursor(Qt.PointingHandCursor)
+    browse_python_btn.clicked.connect(browse_python)
+    python_row.addWidget(browse_python_btn)
 
-    reset_python_btn = tk.Button(
-        python_frame, text="Reset", bg=PANEL, fg=SUBTEXT, relief="flat", font=(FONT, 8, "bold"),
-        cursor="hand2", command=reset_python,
-    )
-    reset_python_btn.pack(side="left", padx=(6, 0))
-    reset_python_btn.configure(activebackground=BORDER, activeforeground=TEXT)
+    reset_python_btn = QPushButton("Reset")
+    reset_python_btn.setStyleSheet(subtle_button_qss())
+    reset_python_btn.setFont(qt_font(8, bold=True))
+    reset_python_btn.setCursor(Qt.PointingHandCursor)
+    reset_python_btn.clicked.connect(reset_python)
+    python_row.addWidget(reset_python_btn)
 
-    # Scrollable Canvas List Container Layout Control Set
-    list_panel = tk.Frame(body_frame, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-    list_panel.pack(fill="both", expand=True, pady=(4, 14))
+    body_layout.addLayout(python_row)
 
-    canvas_width = 460
-    inner_canvas = tk.Canvas(list_panel, bg=PANEL, bd=0, highlightthickness=0, width=canvas_width)
-    scrollbar = tk.Scrollbar(list_panel, orient="vertical", command=inner_canvas.yview)
-    inner_canvas.configure(yscrollcommand=scrollbar.set)
+    # ── Themes (collapsible, collapsed by default — matches the pattern
+    #    used in every other VRChat-Tools settings dialog) ────────────────
+    theme_header = QWidget()
+    theme_header.setCursor(Qt.PointingHandCursor)
+    theme_header_layout = QHBoxLayout(theme_header)
+    theme_header_layout.setContentsMargins(0, 8, 0, 0)
 
-    scrollbar.pack(side="right", fill="y")
-    inner_canvas.pack(side="left", fill="both", expand=True)
+    arrow_lbl = QLabel("▶")
+    arrow_lbl.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+    arrow_lbl.setFont(qt_font(12, bold=True))
+    theme_header_layout.addWidget(arrow_lbl)
 
-    # Settings Inner Grid Core Packaging Frame Layout Box
-    inner_frame = tk.Frame(inner_canvas, bg=PANEL)
-    inner_canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+    themes_lbl = QLabel("  Themes")
+    themes_lbl.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+    themes_lbl.setFont(qt_font(12, bold=True))
+    theme_header_layout.addWidget(themes_lbl)
 
-    # Adjust window width dynamically on layout configurations
-    inner_frame.bind("<Configure>", lambda e: inner_canvas.configure(scrollregion=inner_canvas.bbox("all")))
+    preview_lbl = QLabel(f"({THEME_LABELS.get(colour_mode, colour_mode)})")
+    preview_lbl.setStyleSheet(f"color: {SUBTEXT}; background: transparent; border: none;")
+    preview_lbl.setFont(qt_font(9))
+    theme_header_layout.addWidget(preview_lbl)
+    theme_header_layout.addStretch(1)
 
-    # Content Generator Rendering Core Function
+    body_layout.addWidget(theme_header)
+
+    restart_lbl = QLabel("Applies immediately")
+    restart_lbl.setStyleSheet(f"color: {SUBTEXT}; background: transparent; border: none;")
+    restart_lbl.setFont(qt_font(8))
+    body_layout.addWidget(restart_lbl)
+    restart_lbl.hide()
+
+    theme_body = QWidget()
+    theme_body_layout = QVBoxLayout(theme_body)
+    theme_body_layout.setContentsMargins(20, 4, 0, 0)
+    body_layout.addWidget(theme_body)
+    theme_body.hide()
+
+    theme_state = {"selected": colour_mode}
+    theme_rows = []
+
+    def _refresh_theme_rows():
+        for row_data in theme_rows:
+            is_sel = row_data["mode"] == theme_state["selected"]
+            row_data["toggle"].set(is_sel)
+            row_data["label"].setStyleSheet(
+                f"color: {ACCENT2 if is_sel else TEXT}; background: transparent; border: none;"
+            )
+
+    def _select_theme(mode):
+        theme_state["selected"] = mode
+        _refresh_theme_rows()
+        preview_lbl.setText(f"({THEME_LABELS.get(mode, mode)})")
+        main_window.set_theme(mode)
+
+    for mode, label_text in THEME_LABELS.items():
+        row = QWidget()
+        row.setCursor(Qt.PointingHandCursor)
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 3, 0, 3)
+
+        toggle = CircleToggle(enabled=(mode == colour_mode), color=ACCENT)
+        row_layout.addWidget(toggle)
+
+        lbl = QLabel(label_text)
+        lbl.setFont(qt_font(9))
+        row_layout.addWidget(lbl)
+
+        swatch = QWidget()
+        swatch_layout = QHBoxLayout(swatch)
+        swatch_layout.setContentsMargins(4, 0, 0, 0)
+        swatch_layout.setSpacing(1)
+        for colour_key in ("BG", "PANEL", "ACCENT", "ACCENT2"):
+            sw = QFrame()
+            sw.setFixedSize(14, 14)
+            sw.setStyleSheet(f"background-color: {THEMES[mode][colour_key]}; border: 1px solid {BORDER};")
+            swatch_layout.addWidget(sw)
+        row_layout.addWidget(swatch)
+        row_layout.addStretch(1)
+
+        def _mk_click(m):
+            def _handler(_evt):
+                _select_theme(m)
+            return _handler
+
+        row.mousePressEvent = _mk_click(mode)
+        toggle.toggled.connect(lambda _checked, m=mode: _select_theme(m))
+
+        theme_rows.append({"mode": mode, "toggle": toggle, "label": lbl})
+        theme_body_layout.addWidget(row)
+
+    _refresh_theme_rows()
+
+    _theme_open = {"value": False}
+
+    def _toggle_theme_body(_evt=None):
+        _theme_open["value"] = not _theme_open["value"]
+        if _theme_open["value"]:
+            arrow_lbl.setText("▼")
+            restart_lbl.show()
+            theme_body.show()
+        else:
+            arrow_lbl.setText("▶")
+            restart_lbl.hide()
+            theme_body.hide()
+
+    theme_header.mousePressEvent = _toggle_theme_body
+
+    # ── Managed scripts list ─────────────────────────────────────────────
+    scripts_lbl = QLabel("Managed Scripts")
+    scripts_lbl.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+    scripts_lbl.setFont(qt_font(10, bold=True))
+    body_layout.addWidget(scripts_lbl)
+
+    list_panel = QFrame()
+    list_panel.setStyleSheet(f"background-color: {PANEL}; border: 1px solid {BORDER};")
+    list_panel.setMinimumHeight(200)
+    list_panel_layout = QVBoxLayout(list_panel)
+    list_panel_layout.setContentsMargins(0, 4, 0, 4)
+
+    list_scroll = QScrollArea()
+    list_scroll.setWidgetResizable(True)
+    list_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    list_scroll.setStyleSheet(f"background-color: {PANEL}; border: none;")
+    list_inner = QWidget()
+    list_inner.setStyleSheet(f"background-color: {PANEL};")
+    list_inner_layout = QVBoxLayout(list_inner)
+    list_inner_layout.setContentsMargins(0, 0, 0, 0)
+    list_inner_layout.setSpacing(0)
+    list_scroll.setWidget(list_inner)
+    list_panel_layout.addWidget(list_scroll)
+
+    body_layout.addWidget(list_panel, 1)
+
     def refresh_script_list():
-        for widget in inner_frame.winfo_children():
-            widget.destroy()
+        while list_inner_layout.count():
+            item = list_inner_layout.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
 
         for idx, script in enumerate(MANAGED_SCRIPTS):
-            # Row Boundary Segment Wrapper Frame
-            script_row = tk.Frame(inner_frame, bg=BG)
-            script_row.pack(fill="x", padx=10, pady=6)
+            script_row = QWidget()
+            script_row.setStyleSheet(f"background-color: {BG};")
+            row_layout = QHBoxLayout(script_row)
+            row_layout.setContentsMargins(10, 6, 10, 6)
 
-            # Row Entry Display Label Description Header
-            tk.Label(script_row, text=f"{script['label']}", bg=BG, fg=TEXT, font=(FONT, 9, "bold")).pack(
-                side="left", fill="x", expand=True
+            name_lbl = QLabel(script["label"])
+            name_lbl.setStyleSheet(f"color: {TEXT}; background: transparent; border: none;")
+            name_lbl.setFont(qt_font(9, bold=True))
+            row_layout.addWidget(name_lbl)
+            row_layout.addStretch(1)
+
+            from PySide6.QtGui import QFontMetrics
+            file_font = qt_font(8)
+            file_metrics = QFontMetrics(file_font)
+            elided = file_metrics.elidedText(f"({script['filename']})", Qt.ElideMiddle, 170)
+            file_lbl = QLabel(elided)
+            file_lbl.setToolTip(script["filename"])
+            file_lbl.setFixedWidth(170)
+            file_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            file_lbl.setStyleSheet(f"color: {SUBTEXT}; background: transparent; border: none;")
+            file_lbl.setFont(file_font)
+            row_layout.addWidget(file_lbl)
+
+            remove_btn = QPushButton("✕ Remove")
+            remove_btn.setStyleSheet(
+                f"QPushButton {{ background-color: {PANEL}; color: {RED}; border: none; "
+                f"border-radius: 3px; padding: 3px 10px; font-weight: bold; }}"
+                f"QPushButton:hover {{ background-color: {BORDER}; }}"
             )
+            remove_btn.setFont(qt_font(8, bold=True))
+            remove_btn.setCursor(Qt.PointingHandCursor)
+            remove_btn.clicked.connect(lambda _checked=False, i=idx: remove_script(i))
+            row_layout.addWidget(remove_btn)
 
-            # Row Entry Meta-Info Technical String Subtext Label
-            tk.Label(script_row, text=f"({script['filename']})", bg=BG, fg=SUBTEXT, font=(FONT, 8)).pack(
-                side="left", padx=(10, 0)
-            )
+            list_inner_layout.addWidget(script_row)
 
-            # Entry Item Deletion/Removal Management Interceptor Button
-            remove_btn = tk.Button(
-                script_row, text="✕ Remove", bg=PANEL, fg=RED, relief="flat", font=(FONT, 8, "bold"), cursor="hand2",
-                command=lambda i=idx: remove_script(i),
-            )
-            remove_btn.pack(side="right", padx=(10, 0))
-            remove_btn.configure(activebackground=BORDER, activeforeground=RED)
+            row_divider = QFrame()
+            row_divider.setFixedHeight(1)
+            row_divider.setStyleSheet(f"background-color: {BORDER}; border: none;")
+            list_inner_layout.addWidget(row_divider)
 
-    # Entry Erasure Logic Array Mutator
+        list_inner_layout.addStretch(1)
+
     def remove_script(idx):
         MANAGED_SCRIPTS.pop(idx)
         save_managed_scripts(MANAGED_SCRIPTS)
         refresh_script_list()
-        refresh_main_buttons()
+        main_window.refresh_main_buttons()
 
-    # View Component Context: Modal Form Window Container View
     def add_script():
-        add_win = tk.Toplevel(settings_win)
-        add_win.title("Add Script")
-        add_win.configure(bg=BG)
-        add_win.geometry("400x200")
-        add_win.resizable(False, False)
+        add_win = QDialog(settings_win)
+        add_win.setWindowTitle("Add Script")
+        add_win.setFixedSize(400, 200)
+        add_win.setStyleSheet(f"background-color: {BG};")
 
-        tk.Label(add_win, text="Script Display Label:", bg=BG, fg=TEXT, font=(FONT, 9)).grid(
-            row=0, column=0, padx=14, pady=14, sticky="w"
-        )
-        label_entry = tk.Entry(
-            add_win, bg=PANEL, fg=TEXT, insertbackground=ACCENT, relief="flat", font=(FONT, 9),
-            highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
-        )
-        label_entry.grid(row=0, column=1, padx=14, pady=14, sticky="ew")
+        grid = QGridLayout(add_win)
+        grid.setContentsMargins(14, 14, 14, 14)
+        grid.setVerticalSpacing(10)
 
-        tk.Label(add_win, text="Filename / Resource Path:", bg=BG, fg=TEXT, font=(FONT, 9)).grid(
-            row=1, column=0, padx=14, pady=6, sticky="w"
-        )
-        file_entry = tk.Entry(
-            add_win, bg=PANEL, fg=TEXT, insertbackground=ACCENT, relief="flat", font=(FONT, 9),
-            highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT,
-        )
-        file_entry.grid(row=1, column=1, padx=14, pady=6, sticky="ew")
+        label_caption = QLabel("Script Display Label:")
+        label_caption.setStyleSheet(f"color: {TEXT}; background: transparent; border: none;")
+        label_caption.setFont(qt_font(9))
+        grid.addWidget(label_caption, 0, 0)
+
+        label_entry = QLineEdit()
+        label_entry.setFont(qt_font(9))
+        label_entry.setStyleSheet(line_edit_qss())
+        grid.addWidget(label_entry, 0, 1)
+
+        file_caption = QLabel("Filename / Resource Path:")
+        file_caption.setStyleSheet(f"color: {TEXT}; background: transparent; border: none;")
+        file_caption.setFont(qt_font(9))
+        grid.addWidget(file_caption, 1, 0)
+
+        file_entry = QLineEdit()
+        file_entry.setFont(qt_font(9))
+        file_entry.setStyleSheet(line_edit_qss())
+        grid.addWidget(file_entry, 1, 1)
 
         def save_new_script():
-            lbl = label_entry.get().strip()
-            flm = file_entry.get().strip()
+            lbl = label_entry.text().strip()
+            flm = file_entry.text().strip()
             if not lbl or not flm:
-                messagebox.showwarning("Validation Error", "All entry parameters must be populated.")
+                QMessageBox.warning(add_win, "Validation Error", "All entry parameters must be populated.")
                 return
 
             MANAGED_SCRIPTS.append({"filename": flm, "label": lbl})
             save_managed_scripts(MANAGED_SCRIPTS)
             refresh_script_list()
-            refresh_main_buttons()
-            add_win.destroy()
+            main_window.refresh_main_buttons()
+            add_win.close()
 
-        submit_btn = tk.Button(
-            add_win, text="Save Script", bg=ACCENT, fg=TEXT2, relief="flat", font=(FONT, 9, "bold"),
-            command=save_new_script, cursor="hand2", activebackground=ACCENT2, activeforeground=TEXT2,
-        )
-        submit_btn.grid(row=2, column=1, padx=14, pady=14, sticky="e")
+        submit_btn = QPushButton("Save Script")
+        submit_btn.setStyleSheet(accent_button_qss())
+        submit_btn.setFont(qt_font(9, bold=True))
+        submit_btn.setCursor(Qt.PointingHandCursor)
+        submit_btn.clicked.connect(save_new_script)
+        grid.addWidget(submit_btn, 2, 1, alignment=Qt.AlignRight)
 
-    # Settings Control System Bottom Action Row Dock
-    nav_frame = tk.Frame(body_frame, bg=BG)
-    nav_frame.pack(fill="x")
+        grid.setColumnStretch(1, 1)
+        add_win.exec()
 
-    # Application Modal Creation Trigger Action Button
-    add_btn = tk.Button(
-        nav_frame, text="+ Add Script", bg=ACCENT, fg=TEXT2, relief="flat", width=15, command=add_script
-    )
-    add_btn.pack(side="left")
-    add_btn.configure(activebackground=ACCENT2, activeforeground=TEXT2, cursor="hand2", font=(FONT, 9, "bold"))
+    # ── Bottom action row ─────────────────────────────────────────────────
+    nav_frame = QWidget()
+    nav_frame.setStyleSheet(f"background-color: {BG};")
+    nav_layout = QHBoxLayout(nav_frame)
+    nav_layout.setContentsMargins(20, 8, 20, 14)
 
-    # Settings Panel Termination UI Dismiss Command Execution Button
-    close_btn = tk.Button(
-        nav_frame, text="Close", bg=PANEL, fg=SUBTEXT, relief="flat", width=10, command=settings_win.destroy
-    )
-    close_btn.pack(side="right")
-    close_btn.configure(activebackground=BORDER, activeforeground=TEXT, cursor="hand2", font=(FONT, 9, "bold"))
+    add_btn = QPushButton("+ Add Script")
+    add_btn.setStyleSheet(accent_button_qss())
+    add_btn.setFont(qt_font(9, bold=True))
+    add_btn.setCursor(Qt.PointingHandCursor)
+    add_btn.setMinimumWidth(120)
+    add_btn.clicked.connect(add_script)
+    nav_layout.addWidget(add_btn)
+    nav_layout.addStretch(1)
+
+    close_btn = QPushButton("Close")
+    close_btn.setStyleSheet(subtle_button_qss())
+    close_btn.setFont(qt_font(9, bold=True))
+    close_btn.setCursor(Qt.PointingHandCursor)
+    close_btn.setMinimumWidth(90)
+    close_btn.clicked.connect(settings_win.close)
+    nav_layout.addWidget(close_btn)
+
+    root_layout.addWidget(nav_frame)
 
     refresh_script_list()
-
-
-# Main Layout System Workspace Structural Containers
-header_frame = tk.Frame(root, bg=PANEL, pady=12)
-header_frame.pack(fill="x")
-
-title_font = font.Font(family=FONT, size=16, weight="bold")
-title_lbl = tk.Label(header_frame, text=f"{TITLE_PREFIX} VRChat-ToolBox", bg=PANEL, fg=ACCENT2, font=title_font)
-title_lbl.pack(side="left", padx=20)
-
-tk.Frame(root, bg=BORDER, height=1).pack(fill="x")
-
-main_frame = tk.Frame(root, bg=BG, padx=24, pady=16)
-main_frame.pack(fill="both", expand=True)
-main_frame.columnconfigure(0, weight=1)
-
-main_frame.columnconfigure(1, weight=1)
-
-# ── Tool buttons section with label ────────────────────────────────────────
-# Main View Dashboard Content Partition Text Heading Label
-tools_label = tk.Label(main_frame, text="MANAGED SCRIPTS", bg=BG, fg=ACCENT, font=(FONT, 9, "bold"))
-tools_label.grid(row=0, column=0, sticky="w", pady=(0, 10))
-
-# Subview Scrollable Button Container Frame Engine Component Block
-buttons_container = tk.Frame(main_frame, bg=BG)
-buttons_container.grid(row=1, column=0, sticky="nsew", columnspan=2)
-buttons_container.columnconfigure(0, weight=1)
-
-script_buttons = {}
+    settings_win.exec()
 
 
 def _tool_button_label(script: dict) -> str:
@@ -1528,58 +2097,193 @@ def _tool_button_label(script: dict) -> str:
     return f"Run {base}"
 
 
-def refresh_main_buttons():
-    for widget in buttons_container.winfo_children():
-        widget.destroy()
+class ToolBoxWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.script_buttons: dict[int, QPushButton] = {}
 
-    script_buttons.clear()
+        self._build_root()
 
-    for i, script in enumerate(MANAGED_SCRIPTS):
-        btn = tk.Button(
-            buttons_container, text=_tool_button_label(script), command=lambda f=script["filename"]: launch_script(f),
-            bg=PANEL, fg=TEXT, relief="flat", borderwidth=0, highlightthickness=1, highlightbackground=BORDER,
-            activebackground=ACCENT, activeforeground=TEXT2, cursor="hand2", font=(FONT, 10, "bold"), padx=20, pady=8,
-        )
-        btn.grid(row=i, column=0, padx=0, pady=4, sticky="ew")
-        script_buttons[i] = btn
+        # Bridge connections — everything a background thread might trigger
+        # routes through these, all running on this (the GUI) thread.
+        bridge.footer_text.connect(self.footer_label.setText)
+        bridge.refresh_labels.connect(self.refresh_button_labels)
+        bridge.confirm_main_update.connect(_on_confirm_main_update)
+        bridge.show_info.connect(lambda title, msg: QMessageBox.information(self, title, msg))
+        bridge.show_error.connect(lambda title, msg: QMessageBox.critical(self, title, msg))
 
-    btn_count = len(MANAGED_SCRIPTS)
-    root.geometry(f"580x{440 + btn_count * 52}")
-    root.minsize(0, 0)
+        self.refresh_main_buttons()
+
+    # ── Root window ───────────────────────────────────────────────────────
+
+    def _build_root(self):
+        self.setWindowTitle("VRChat-ToolBox")
+        self.resize(580, 600)
+        self.setMinimumSize(480, 380)
+
+        central = StripeBackground()
+        root_layout = QVBoxLayout(central)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        # ── Header ────────────────────────────────────────────────────────
+        header = QWidget()
+        header.setStyleSheet(f"background-color: {PANEL};")
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(20, 12, 20, 12)
+
+        title_lbl = QLabel(f"{TITLE_PREFIX} VRChat-ToolBox")
+        title_lbl.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+        title_lbl.setFont(qt_font(16, bold=True))
+        header_layout.addWidget(title_lbl)
+        header_layout.addStretch(1)
+
+        version_lbl = QLabel(f"v{VERSION}")
+        version_lbl.setStyleSheet(f"color: {SUBTEXT}; background: transparent; border: none;")
+        version_lbl.setFont(qt_font(9))
+        header_layout.addWidget(version_lbl)
+
+        root_layout.addWidget(header)
+
+        divider = QWidget()
+        divider.setFixedHeight(1)
+        divider.setStyleSheet(f"background-color: {BORDER}; border: none;")
+        root_layout.addWidget(divider)
+
+        # ── Main content ──────────────────────────────────────────────────
+        main_area = QWidget()
+        main_area.setStyleSheet("background: transparent;")
+        main_layout = QVBoxLayout(main_area)
+        main_layout.setContentsMargins(24, 16, 24, 16)
+        main_layout.setSpacing(0)
+
+        tools_label = TextChip("MANAGED SCRIPTS", fg=ACCENT, padding="3px 8px")
+        tools_label.setFont(qt_font(9, bold=True))
+        main_layout.addWidget(tools_label)
+        main_layout.addSpacing(10)
+
+        self._buttons_scroll = QScrollArea()
+        self._buttons_scroll.setWidgetResizable(True)
+        self._buttons_scroll.setStyleSheet("background: transparent; border: none;")
+
+        self._buttons_inner = QWidget()
+        self._buttons_inner.setStyleSheet("background: transparent;")
+        self._buttons_layout = QVBoxLayout(self._buttons_inner)
+        self._buttons_layout.setContentsMargins(0, 0, 4, 0)
+        self._buttons_layout.setSpacing(4)
+        self._buttons_layout.addStretch(1)
+
+        self._buttons_scroll.setWidget(self._buttons_inner)
+        main_layout.addWidget(self._buttons_scroll, 1)
+
+        root_layout.addWidget(main_area, 1)
+
+        # ── Footer ────────────────────────────────────────────────────────
+        footer_bar = QWidget()
+        footer_bar.setStyleSheet(f"background-color: {PANEL};")
+        footer_outer = QVBoxLayout(footer_bar)
+        footer_outer.setContentsMargins(0, 6, 0, 4)
+        footer_outer.setSpacing(2)
+
+        footer_row = QHBoxLayout()
+        footer_row.setContentsMargins(8, 0, 8, 0)
+
+        help_btn = square_button("?", open_help, base_size=28)
+        footer_row.addWidget(help_btn)
+        footer_row.addStretch(1)
+
+        settings_btn = square_button("⚙", open_settings, base_size=28)
+        footer_row.addWidget(settings_btn)
+
+        footer_outer.addLayout(footer_row)
+
+        self.footer_label = QLabel("Checking for updates on startup...")
+        self.footer_label.setAlignment(Qt.AlignCenter)
+        self.footer_label.setStyleSheet(f"color: {SUBTEXT}; background: transparent; border: none;")
+        self.footer_label.setFont(qt_font(8))
+        footer_outer.addWidget(self.footer_label)
+
+        root_layout.addWidget(footer_bar)
+
+        self.setCentralWidget(central)
+
+    # ── Tool buttons ──────────────────────────────────────────────────────
+
+    def refresh_main_buttons(self):
+        while self._buttons_layout.count():
+            item = self._buttons_layout.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
+
+        self.script_buttons.clear()
+
+        for i, script in enumerate(MANAGED_SCRIPTS):
+            btn = QPushButton(_tool_button_label(script))
+            btn.setStyleSheet(
+                f"QPushButton {{ background-color: {PANEL}; color: {TEXT}; border: 1px solid {BORDER}; "
+                f"border-radius: 3px; padding: 8px 20px; font-weight: bold; text-align: left; }}"
+                f"QPushButton:hover {{ background-color: {ACCENT}; color: {TEXT2}; }}"
+            )
+            btn.setFont(qt_font(10, bold=True))
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.clicked.connect(lambda _checked=False, f=script["filename"]: launch_script(f))
+            self._buttons_layout.insertWidget(i, btn)
+            self.script_buttons[i] = btn
+
+        self._buttons_layout.addStretch(1)
+
+        btn_count = len(MANAGED_SCRIPTS)
+        self.resize(580, min(440 + btn_count * 52, 820))
+
+    def refresh_button_labels(self):
+        """Lightweight label-only refresh (no widget rebuild/resize) — used
+        whenever a tool's state changes, e.g. after the background version
+        scan checks one more tool, so there's no flicker during boot."""
+        for i, script in enumerate(MANAGED_SCRIPTS):
+            btn = self.script_buttons.get(i)
+            if btn is not None:
+                btn.setText(_tool_button_label(script))
+
+    # ── Theme ─────────────────────────────────────────────────────────────
+
+    def set_theme(self, mode: str):
+        set_theme(mode)
+        save_managed_scripts(MANAGED_SCRIPTS)
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            app_instance.setStyleSheet(qss())
+        self._rebuild_ui()
+
+    def _rebuild_ui(self):
+        old_central = self.takeCentralWidget()
+        if old_central is not None:
+            old_central.deleteLater()
+
+        self._build_root()
+        self.refresh_main_buttons()
+
+        self.show()
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            app_instance.processEvents()
+
+    # ── Lifecycle ─────────────────────────────────────────────────────────
+
+    def closeEvent(self, event):
+        save_managed_scripts(MANAGED_SCRIPTS)
+        super().closeEvent(event)
 
 
-def refresh_button_labels():
-    """Lightweight label-only refresh (no widget rebuild/resize) — used
-    whenever a tool's state changes, e.g. after the background version
-    scan checks one more tool, so there's no flicker during boot."""
-    for i, script in enumerate(MANAGED_SCRIPTS):
-        btn = script_buttons.get(i)
-        if btn is not None:
-            btn.config(text=_tool_button_label(script))
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
+# ENTRY POINT
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
+qt_app = QApplication(sys.argv)
+qt_app.setStyleSheet(qss())
 
-refresh_main_buttons()
-
-# ── Footer with update info ────────────────────────────────────────────────
-# App Window Core Status Shelf Base Layout Frame
-footer_bar = tk.Frame(root, bg=PANEL, pady=8)
-footer_bar.pack(fill="x", side="bottom")
-
-footer_bar.columnconfigure(0, weight=1)
-
-# Status Footer Navigation System Information Callout Entry Utility Button
-help_btn = square_button(footer_bar, "？", open_help, base_size=28)
-help_btn.pack(side="left", padx=(8, 0))
-
-# Status Footer App Preferences Component Settings Navigation Button Entry Widget
-settings_btn = square_button(footer_bar, "⚙", open_settings, base_size=28)
-settings_btn.pack(side="right", padx=(0, 8))
-
-# Status Footer System Operational Message Text Display Feedback Label
-footer_label = tk.Label(
-    footer_bar, text="Checking for updates on startup...", bg=PANEL, fg=SUBTEXT, font=(FONT, 8)
-)
-footer_label.pack(side="bottom", fill="x", pady=(2, 0))
+main_window = ToolBoxWindow()
+main_window.show()
 
 # Automatically kick off startup network validation threads asynchronously
 threading.Thread(target=lambda: check_for_main_updates(silent=True), daemon=True).start()
@@ -1588,6 +2292,6 @@ threading.Thread(target=lambda: check_for_main_updates(silent=True), daemon=True
 if UPDATE_BRANCH == "beta" and not BETA_POPUP_SHOWN:
     BETA_POPUP_SHOWN = True
     save_managed_scripts(MANAGED_SCRIPTS)
-    root.after(800, _show_beta_popup)
+    QTimer.singleShot(800, _show_beta_popup)
 
-root.mainloop()
+sys.exit(qt_app.exec())
