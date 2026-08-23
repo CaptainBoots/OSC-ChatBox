@@ -109,10 +109,8 @@ class PadState:
             pass
 
     def stop(self):
-        self.running = False
-
-    def stop(self):
         """Stops the OSC loop thread cleanly."""
+        self.running = False
         self.btn_held.clear()
         self.axes_held.clear()
         # Allows thread execution loop to finish naturally

@@ -5,8 +5,11 @@ Root window for OSC-Router.
 Same structure and theme as OSC-Chatbox.
 """
 
-import tkinter as tk
-from tkinter import ttk, messagebox
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import (
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTabWidget,
+    QMessageBox, QApplication,
+)
 
 from config import load_config, save_config, get_defaults
 from core.router import OscRouter, OutputTarget
@@ -14,7 +17,7 @@ from core.source import OscSource
 from ui.help_dialog import open_help
 from ui.router_tab import RouterTab
 from ui.settings_dialog import open_settings
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, FONT, TITLE_PREFIX
+from ui import theme
 
 try:
     from main import VERSION
@@ -22,66 +25,65 @@ except ImportError:
     VERSION = "version error"
 
 
-class App:
+class App(QMainWindow):
     def __init__(self):
-        self._cfg      = load_config()
-        self._router   = OscRouter()
+        super().__init__()
+        self._cfg    = load_config()
+        self._router = OscRouter()
 
         self._build_root()
         self._build_tabs()
-        self._tick()
+
+        self._tick_timer = QTimer(self)
+        self._tick_timer.timeout.connect(self._tick)
+        self._tick_timer.start(1000)
 
     # ── Root window ───────────────────────────────────────────────────────────
 
     def _build_root(self):
-        self.root = tk.Tk()
-        self.root.title(f"{TITLE_PREFIX} OSC-Router")
-        self.root.configure(bg=BG)
-        self.root.geometry("640x720")
-        self.root.minsize(500, 460)
+        self.setWindowTitle(f"{theme.TITLE_PREFIX} OSC-Router")
+        self.resize(640, 720)
+        self.setMinimumSize(500, 460)
 
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure(
-            "Dark.TNotebook",
-            background=BG, borderwidth=0, tabmargins=(0, 0, 0, 0),
-            bordercolor=BG, lightcolor=BG, darkcolor=BG,
-        )
-        style.layout("Dark.TNotebook", [
-            ("Notebook.client", {"sticky": "nswe"})
-        ])
-        style.configure(
-            "Dark.TNotebook.Tab",
-            background=PANEL, foreground=SUBTEXT,
-            font=(FONT, 10), padding=(16, 6), borderwidth=0,
-            bordercolor=BG, lightcolor=PANEL, darkcolor=PANEL,
-        )
-        style.map(
-            "Dark.TNotebook.Tab",
-            background=[("selected", BG)],
-            foreground=[("selected", ACCENT2)],
-            lightcolor=[("selected", BG)],
-            darkcolor=[("selected", BG)],
-        )
+        central = theme.StripeBackground()
+        root_layout = QVBoxLayout(central)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
 
-        header = tk.Frame(self.root, bg=PANEL, pady=8)
-        header.pack(fill="x")
-        tk.Label(header, text=f"{TITLE_PREFIX} OSC-Router",
-                 bg=PANEL, fg=ACCENT2, font=(FONT, 13, "bold")).pack(side="left", padx=14)
-        tk.Label(header, text=f"v{VERSION}",
-                 bg=PANEL, fg=SUBTEXT, font=(FONT, 9)).pack(side="right", padx=14)
-        tk.Frame(self.root, bg=BORDER, height=1).pack(fill="x")
+        header = QWidget()
+        header.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(14, 8, 14, 8)
 
-        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        title_lbl = QLabel(f"{theme.TITLE_PREFIX} OSC-Router")
+        title_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
+        title_lbl.setFont(theme.qt_font(13, bold=True))
+        header_layout.addWidget(title_lbl)
+        header_layout.addStretch(1)
+
+        version_lbl = QLabel(f"v{VERSION}")
+        version_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        version_lbl.setFont(theme.qt_font(9))
+        header_layout.addWidget(version_lbl)
+
+        root_layout.addWidget(header)
+
+        divider = QWidget()
+        divider.setFixedHeight(1)
+        divider.setStyleSheet(f"background-color: {theme.BORDER}; border: none;")
+        root_layout.addWidget(divider)
+
+        self._notebook = QTabWidget()
+        self._notebook.setDocumentMode(True)
+        root_layout.addWidget(self._notebook, 1)
+
+        self.setCentralWidget(central)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
 
     def _build_tabs(self):
-        self._notebook = ttk.Notebook(self.root, style="Dark.TNotebook")
-        self._notebook.pack(fill="both", expand=True)
-
         self._router_tab = RouterTab(
-            self._notebook, self._cfg, self._router,
+            self._cfg, self._router,
             save_cb     = self._save,
             start_cb    = self._start,
             stop_cb     = self._stop,
@@ -89,9 +91,8 @@ class App:
             settings_cb = self._open_settings,
             help_cb     = self._open_help,
         )
-        self._notebook.add(self._router_tab, text="  Router  ")
+        self._notebook.addTab(self._router_tab, "  Router  ")
 
-        # Populate rows from config
         for src in self._cfg.get("sources", []):
             self._router_tab.add_source_row(src.get("name", "Source"), src.get("port", 9001))
 
@@ -113,12 +114,10 @@ class App:
         self._cfg.update(cfg)
         self._save()
 
-        # Build source objects
         self._router.sources = [
             OscSource(s["name"], s["port"]) for s in cfg["sources"]
         ]
 
-        # Build output target objects
         self._router.outputs = [
             OutputTarget(
                 name         = o["name"],
@@ -137,7 +136,7 @@ class App:
         if result["outputs"]:
             msgs.append(f"Outputs failed to open: {', '.join(result['outputs'])}")
         if msgs:
-            messagebox.showwarning("Start Issues", "\n".join(msgs))
+            QMessageBox.warning(self, "Start Issues", "\n".join(msgs))
 
         self._router_tab.set_status("Running" if self._router.running else "Failed")
 
@@ -147,7 +146,7 @@ class App:
 
     def _restart(self):
         self._stop()
-        self.root.after(800, self._start)
+        QTimer.singleShot(800, self._start)
 
     # ── Config ────────────────────────────────────────────────────────────────
 
@@ -166,38 +165,53 @@ class App:
 
     def _open_settings(self):
         open_settings(
-            root      = self.root,
-            cfg       = self._cfg,
-            save_cb   = self._save,
-            reset_cb  = self._reset_to_defaults,
-            theme_cb  = self._set_theme,
+            parent   = self,
+            cfg      = self._cfg,
+            save_cb  = self._save,
+            reset_cb = self._reset_to_defaults,
+            theme_cb = self._set_theme,
         )
 
     def _open_help(self):
-        open_help(self.root)
+        open_help(self)
 
     # ── Theme ─────────────────────────────────────────────────────────────────
 
     def _set_theme(self, mode: str):
         self._cfg["theme_mode"] = mode
         self._save()
-        messagebox.showinfo(
-            "Theme Changed",
-            "Theme will apply after restarting OSC-Router."
-        )
+        theme.set_theme(mode)
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            app_instance.setStyleSheet(theme.qss())
+        self._rebuild_ui()
 
-    # ── Stats tick ────────────────────────────────────────────────────────────
+    def _rebuild_ui(self):
+        """Tear down and reconstruct the central widget + tab with whatever
+        the current theme.* colours now are. self._router runs on its own
+        background thread independent of the UI, so a running router
+        keeps routing straight through the rebuild — only the status
+        label needs to be told what's actually going on afterward, since
+        the fresh RouterTab starts out assuming "Stopped"."""
+        old_central = self.takeCentralWidget()
+        if old_central is not None:
+            old_central.deleteLater()
 
-    def _tick(self):
-        self._router_tab.tick()
-        self.root.after(1000, self._tick)
+        self._build_root()
+        self._build_tabs()
+        self._router_tab.set_status("Running" if self._router.running else "Stopped")
+
+        self.show()
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            app_instance.processEvents()
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
-    def _on_close(self):
+    def _tick(self):
+        self._router_tab.tick()
+
+    def closeEvent(self, event):
         self._router.stop()
         self._save()
-        self.root.destroy()
-
-    def run(self):
-        self.root.mainloop()
+        super().closeEvent(event)
