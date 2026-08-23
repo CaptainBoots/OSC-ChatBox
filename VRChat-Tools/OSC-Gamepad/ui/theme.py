@@ -2,8 +2,17 @@
 ui/theme.py
 ───────────
 Colour definitions. The active palette is selected by colour_mode,
-which is set at startup based on the saved config
+which is set at startup based on the saved config.
+
+Also provides the Qt-specific pieces used across the app: qss() builds a
+global stylesheet from the active palette, qt_font() resolves the theme
+font, and StripeBackground paints the diagonal flag-stripe backgrounds
+(this replaced the old Tk-canvas draw_stripes() when the UI moved to Qt).
 """
+
+from PySide6.QtCore import Qt, QPointF
+from PySide6.QtGui import QPainter, QColor, QPolygonF, QFont, QFontDatabase
+from PySide6.QtWidgets import QWidget, QLabel
 
 colour_mode = "new"
 
@@ -501,6 +510,23 @@ THEMES: dict[str, dict] = {
         "ORANGE":  "#9966CC",
         "STRIPE_COLOURS": ["#000000", "#7A7A7A", "#FFFFFF", "#9966CC", "#FFFFFF", "#7A7A7A"],
     },
+    "omni_flag": {
+        "BG":      "#16000B",
+        "PANEL":   "#260014",
+        "BORDER":  "#FF8C69",
+        "ACCENT":  "#FF69B4",
+        "ACCENT2": "#8B00FF",
+        "TAB":     "#FF69B4",
+        "TEXT":    "#FFFFFF",
+        "TEXT2":   "#FFF0F7",
+        "SUBTEXT": "#D5A0B8",
+        "GREEN":   "#57C785",
+        "RED":     "#FF69B4",
+        "YELLOW":  "#FFD166",
+        "CYAN":    "#7B68EE",
+        "ORANGE":  "#FF8C69",
+        "STRIPE_COLOURS": ["#FF69B4", "#FF8C69", "#FF69B4", "#FFFFFF", "#8B00FF"],
+    },
 }
 
 THEME_LABELS = {
@@ -530,6 +556,7 @@ THEME_LABELS = {
     "genderfluid_flag": "Genderfluid Flag",
     "intersex_flag":    "Intersex Flag",
     "demi_flag":        "Demi Flag",
+    "omni_flag":        "Omni Flag",
 }
 
 
@@ -549,28 +576,331 @@ def set_theme(mode: str):
 
 set_theme(colour_mode)
 
-def draw_stripes(canvas, width: int, height: int, colours: list):
+# ── Qt helpers ────────────────────────────────────────────────────────────
+# Everything below this line is the Qt-side addition. The colour constants
+# above (BG, PANEL, ACCENT, etc.) are set as module globals by set_theme()
+# and read directly here — same pattern the rest of the app already uses.
+
+STRIPE_WIDTH = 28  # px, same tiling width as the old Tk draw_stripes()
+
+
+def qt_font(size: int, bold: bool = False) -> QFont:
+    families = QFontDatabase.families()
+    family = FONT if FONT in families else "Consolas"
+    f = QFont(family, size)
+    if bold:
+        f.setBold(True)
+    return f
+
+
+def accent_button_qss() -> str:
+    """Inline stylesheet for the 'accent' button look (bright ACCENT fill,
+    BG text) — e.g. primary actions like Close/Next.
+
+    NOTE: this used to be applied via `button.setObjectName("accentButton")`
+    plus a `QPushButton#accentButton { ... }` rule in qss(). That breaks
+    silently (renders with no visible background at all) whenever the
+    button sits inside ANY ancestor widget that also has its own
+    setStyleSheet() call — which is nearly everywhere in this app, since
+    every panel/frame sets its own background colour that way. Confirmed
+    via isolated testing: the objectName-selector rule gets shadowed by
+    the ancestor's stylesheet, even though the ancestor's rule doesn't
+    mention QPushButton at all. Setting the style directly on the button
+    itself (this function) sidesteps the issue entirely."""
+    return (
+        f"QPushButton {{ background-color: {ACCENT}; color: {BG}; "
+        f"border: none; border-radius: 3px; padding: 6px 14px; font-weight: bold; }}"
+        f"QPushButton:hover {{ background-color: {ACCENT2}; }}"
+    )
+
+
+def subtle_button_qss() -> str:
+    """Inline stylesheet for the 'subtle' button look (PANEL fill, SUBTEXT
+    text) — e.g. secondary actions like Help/Settings/Back. See the note
+    on accent_button_qss() above for why this is applied inline rather
+    than via objectName + global QSS."""
+    return (
+        f"QPushButton {{ background-color: {PANEL}; color: {SUBTEXT}; "
+        f"border: none; border-radius: 3px; padding: 6px 14px; }}"
+        f"QPushButton:hover {{ background-color: {BORDER}; color: {TEXT}; }}"
+    )
+
+
+def section_caption_qss(bg: str = None) -> str:
+    """Small background 'chip' behind section-header captions (e.g.
+    'Live Chatbox Preview', 'Configuration', 'Features'). Without this
+    they're just floating text directly on whatever's behind them, which
+    gets hard to read against busy flag-stripe themes or blends into a
+    same-coloured parent panel.
+
+    Defaults to PANEL (for captions sitting directly on the stripe/BG
+    layer, e.g. in the chatbox tab). Pass bg=BORDER for captions that
+    already sit on a PANEL-coloured parent (settings dialog, dev menu),
+    so the chip doesn't disappear into its own background."""
+    bg = bg or PANEL
+    return (
+        f"color: {ACCENT2}; background-color: {bg}; "
+        f"padding: 3px 10px; border-radius: 3px; border: none;"
+    )
+
+
+def line_edit_qss() -> str:
+    """Inline stylesheet for QLineEdit inputs. Same root cause as
+    accent_button_qss()/subtle_button_qss() above: the global QSS rule
+    for QLineEdit gets silently shadowed whenever the input sits inside
+    any ancestor widget that has its own setStyleSheet() call (which is
+    true for basically every module capsule / row / card in this app),
+    leaving text inputs with no visible background at all."""
+    return (
+        f"QLineEdit {{ background-color: {PANEL}; color: {TEXT}; "
+        f"border: 1px solid {BORDER}; border-radius: 2px; padding: 3px 6px; "
+        f"selection-background-color: {ACCENT}; }}"
+        f"QLineEdit:focus {{ border: 1px solid {ACCENT}; }}"
+    )
+
+
+def qss() -> str:
+    """Global stylesheet approximating the old Tk look: flat buttons, PANEL
+    surfaces, ACCENT highlights, BORDER outlines. Call again (and re-apply
+    via app.setStyleSheet(theme.qss())) any time set_theme() changes the
+    active palette."""
+    return f"""
+    QWidget {{
+        background-color: {BG};
+        color: {TEXT};
+        font-family: "{FONT}";
+        border: none;
+    }}
+
+    QMainWindow, QDialog {{
+        background-color: {BG};
+    }}
+
+    /* ── Tab bar (mirrors ttk Notebook: PANEL tabs, BG when selected) ── */
+    QTabWidget::pane {{
+        border: none;
+        background: {BG};
+    }}
+    QTabBar::tab {{
+        background: {PANEL};
+        color: {SUBTEXT};
+        padding: 6px 16px;
+        border: none;
+        font-weight: bold;
+    }}
+    QTabBar::tab:selected {{
+        background: {BG};
+        color: {TAB};
+    }}
+
+    /* ── Flat buttons (Tk relief="flat") ── */
+    QPushButton {{
+        background-color: {PANEL};
+        color: {ACCENT};
+        border: none;
+        border-radius: 3px;
+        padding: 6px 14px;
+        font-weight: bold;
+    }}
+    QPushButton:hover {{
+        background-color: {BORDER};
+        color: {TEXT};
+    }}
+    QPushButton:disabled {{
+        color: {SUBTEXT};
+    }}
+    /* NOTE: accent/subtle button variants are applied inline via
+       accent_button_qss() / subtle_button_qss() above, not via objectName
+       selectors here — see the docstring on those functions for why. */
+
+    /* ── Line edits (Tk Entry) ── */
+    QLineEdit {{
+        background-color: {PANEL};
+        color: {TEXT};
+        border: 1px solid {BORDER};
+        border-radius: 2px;
+        padding: 3px 6px;
+        selection-background-color: {ACCENT};
+    }}
+    QLineEdit:focus {{
+        border: 1px solid {ACCENT};
+    }}
+
+    /* ── Text preview box (Tk Text) ── */
+    QPlainTextEdit, QTextEdit {{
+        background-color: {PANEL};
+        color: {TEXT};
+        border: none;
+        selection-background-color: {ACCENT};
+    }}
+
+    /* ── Scrollbars (thin, flat) ── */
+    QScrollBar:vertical {{
+        background: {BG};
+        width: 12px;
+        margin: 0;
+    }}
+    QScrollBar::handle:vertical {{
+        background: {BORDER};
+        min-height: 24px;
+        border-radius: 4px;
+    }}
+    QScrollBar::handle:vertical:hover {{
+        background: {ACCENT2};
+    }}
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+        height: 0;
+    }}
+
+    /* ── Slider (opacity) ── */
+    QSlider::groove:horizontal {{
+        background: {BG};
+        height: 6px;
+        border-radius: 3px;
+    }}
+    QSlider::handle:horizontal {{
+        background: {ACCENT};
+        width: 14px;
+        margin: -5px 0;
+        border-radius: 7px;
+    }}
+    QSlider::handle:horizontal:hover {{
+        background: {ACCENT2};
+    }}
+
+    /* ── Checkbox / Radio ── */
+    QCheckBox, QRadioButton {{
+        color: {TEXT};
+        spacing: 8px;
+    }}
+    QCheckBox::indicator, QRadioButton::indicator {{
+        width: 14px;
+        height: 14px;
+        border: 1px solid {BORDER};
+        background: {PANEL};
+    }}
+    QCheckBox::indicator:checked, QRadioButton::indicator:checked {{
+        background: {ACCENT};
+        border: 1px solid {ACCENT};
+    }}
+
+    QMenu {{
+        background-color: {PANEL};
+        color: {TEXT};
+        border: 1px solid {BORDER};
+    }}
+    QMenu::item:selected {{
+        background-color: {ACCENT};
+        color: {BG};
+    }}
+
+    QToolTip {{
+        background-color: {PANEL};
+        color: {TEXT};
+        border: 1px solid {BORDER};
+    }}
     """
-    Fill *canvas* with repeating ~45° diagonal stripes tiling across
-    the full width × height. Import this wherever stripe backgrounds are needed.
-    """
-    canvas.delete("stripe")
-    if not colours or width <= 0 or height <= 0:
-        return
 
-    stripe_w = 28
-    cycle    = stripe_w * len(colours)
-    extent   = width + height + cycle * 2
 
-    for start in range(-cycle, extent, cycle):
-        for i, colour in enumerate(colours):
-            x0 = start + i * stripe_w
-            points = [
-                x0,                      0,
-                x0 + stripe_w,           0,
-                x0 + stripe_w + height,  height,
-                x0            + height,  height,
-                ]
-            canvas.create_polygon(points, fill=colour, outline="", tags="stripe")
+class TextChip(QLabel):
+    """A QLabel with a translucent background 'chip' painted behind its
+    text — used for section captions (Configuration, Live Chatbox
+    Preview) and field labels (OSC IP, etc). A plain stylesheet
+    background-color is always fully opaque and can't respond to the
+    transparency slider; this paints its own background via QPainter
+    (same technique as StripeBackground) so set_bg_alpha() can fade it
+    along with the rest of the window's background."""
 
-    canvas.tag_lower("stripe")
+    def __init__(self, text="", *, fg=None, bg=None, radius=3,
+                 padding="3px 10px", parent=None):
+        super().__init__(text, parent)
+        self._chip_bg = QColor(bg or PANEL)
+        self._bg_alpha = 1.0
+        self._radius = radius
+        self.setStyleSheet(
+            f"color: {fg or ACCENT2}; background: transparent; "
+            f"padding: {padding}; border: none;"
+        )
+
+    def set_bg_alpha(self, alpha: float):
+        self._bg_alpha = max(0.0, min(1.0, alpha))
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        c = QColor(self._chip_bg)
+        c.setAlpha(round(self._bg_alpha * 255))
+        painter.setCompositionMode(QPainter.CompositionMode_Source)
+        painter.setBrush(c)
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(self.rect(), self._radius, self._radius)
+        painter.end()
+        super().paintEvent(event)
+
+
+class StripeBackground(QWidget):
+    """Paints repeating ~45° diagonal stripes across the whole widget when a
+    flag theme is active (STRIPE_COLOURS set); otherwise just fills BG.
+    Direct replacement for the old draw_stripes()-on-a-Tk-canvas approach —
+    child widgets are added on top via a normal layout, and the stripes show
+    through any gap that isn't covered by an opaque PANEL-coloured widget.
+
+    Also supports an adjustable fill alpha (set_bg_alpha) for background-only
+    window transparency — see ui/app.py. Only this fill uses alpha < 255;
+    every other widget in the app stays fully opaque."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAutoFillBackground(False)
+        self._bg_alpha = 1.0  # 0.0-1.0, applied to the background fill only
+
+    def set_bg_alpha(self, alpha: float):
+        self._bg_alpha = max(0.0, min(1.0, alpha))
+        self.update()
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, False)
+        w, h = self.width(), self.height()
+        a = round(self._bg_alpha * 255)
+
+        colours = STRIPE_COLOURS
+        if not colours:
+            c = QColor(BG)
+            c.setAlpha(a)
+            painter.setCompositionMode(QPainter.CompositionMode_Source)
+            painter.fillRect(self.rect(), c)
+            return
+
+        bg = QColor(BG)
+        bg.setAlpha(a)
+        painter.setCompositionMode(QPainter.CompositionMode_Source)
+        painter.fillRect(self.rect(), bg)
+        # Keep Source mode (not SourceOver) for the stripes too — SourceOver
+        # would blend each stripe on top of the already-transparent base,
+        # and stacking two alpha layers like that compounds toward more
+        # opaque than the slider says (e.g. two 50%-alpha layers combine to
+        # ~75%, not 50%). Source just replaces the pixel outright, keeping
+        # a single consistent alpha across the whole background.
+
+        stripe_w = STRIPE_WIDTH
+        cycle = stripe_w * len(colours)
+        extent = w + h + cycle * 2
+
+        start = -cycle
+        while start < extent:
+            for i, colour in enumerate(colours):
+                x0 = start + i * stripe_w
+                poly = QPolygonF([
+                    QPointF(x0, 0),
+                    QPointF(x0 + stripe_w, 0),
+                    QPointF(x0 + stripe_w + h, h),
+                    QPointF(x0 + h, h),
+                ])
+                sc = QColor(colour)
+                sc.setAlpha(a)
+                painter.setBrush(sc)
+                painter.setPen(Qt.NoPen)
+                painter.drawPolygon(poly)
+            start += cycle

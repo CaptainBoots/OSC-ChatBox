@@ -2,20 +2,22 @@
 ui/gamepad_tab.py
 ─────────────────
 Pads tab: toolbar with + Add Pad / ? Help / ⚙ Settings, then a
-scrollable list of PadCards. Mirrors the layout style of
-RouterTab / ChatboxTab (status-row + button-row + scrollable body).
+scrollable list of PadCards.
 """
 
-import tkinter as tk
-from tkinter import ttk
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
+)
 
+from ui import theme
+from ui.theme import StripeBackground
 from ui.pad_card import PadCard
-from ui.theme import BG, PANEL, BORDER, ACCENT, ACCENT2, TEXT, SUBTEXT, GREEN, FONT, STRIPE_COLOURS, draw_stripes
 
 
-class GamepadTab(tk.Frame):
-    def __init__(self, parent, cfg: dict, save_cb, help_cb, settings_cb):
-        super().__init__(parent, bg=BG)
+class GamepadTab(StripeBackground):
+    def __init__(self, cfg: dict, save_cb, help_cb, settings_cb, parent=None):
+        super().__init__(parent)
         self._cfg         = cfg
         self._save_cb     = save_cb
         self._help_cb     = help_cb
@@ -24,81 +26,76 @@ class GamepadTab(tk.Frame):
         self.cards: list[PadCard] = []
         self._pad_counter = 0
 
-        self.columnconfigure(0, weight=1)
-        self.rowconfigure(2, weight=1)
-
-        if STRIPE_COLOURS:
-            self._stripe_canvas = tk.Canvas(self, bg=BG, highlightthickness=0, bd=0)
-            self._stripe_canvas.place(x=0, y=0, relwidth=1, relheight=1)
-            self.bind("<Configure>", self._on_resize)
-
         self._build()
-
-    def _on_resize(self, event):
-        draw_stripes(self._stripe_canvas, event.width, event.height, STRIPE_COLOURS)
-        self._stripe_canvas.tk.call("lower", self._stripe_canvas._w)
 
     # ── Layout ────────────────────────────────────────────────────────────────
 
     def _build(self):
-        # ── Status bar ────────────────────────────────────────────────────────
-        sf = tk.Frame(self, bg=PANEL, pady=6)
-        sf.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
-        sf.columnconfigure(1, weight=1)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(8, 8, 8, 8)
+        outer.setSpacing(4)
 
-        tk.Label(sf, text="Status:", bg=PANEL, fg=SUBTEXT, font=(FONT, 9)).grid(row=0, column=0, padx=(10, 4))
-        self._pad_count_lbl = tk.Label(sf, text="0 pads", bg=PANEL, fg=GREEN, font=(FONT, 9, "bold"))
-        self._pad_count_lbl.grid(row=0, column=1, sticky="w")
+        # ── Status bar ────────────────────────────────────────────────────────
+        status_frame = QWidget()
+        status_frame.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
+        status_layout = QHBoxLayout(status_frame)
+        status_layout.setContentsMargins(10, 6, 10, 6)
+
+        status_caption = QLabel("Status:")
+        status_caption.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        status_caption.setFont(theme.qt_font(9))
+        status_layout.addWidget(status_caption)
+
+        self._pad_count_lbl = QLabel("0 pads")
+        self._pad_count_lbl.setStyleSheet(f"color: {theme.GREEN}; background: transparent; border: none;")
+        self._pad_count_lbl.setFont(theme.qt_font(9, bold=True))
+        status_layout.addWidget(self._pad_count_lbl)
+        status_layout.addStretch(1)
+
+        outer.addWidget(status_frame)
 
         # ── Button row ────────────────────────────────────────────────────────
-        bf = tk.Frame(self, bg=BG)
-        bf.grid(row=1, column=0, sticky="ew", padx=8, pady=4)
+        btn_row = QHBoxLayout()
+        btn_row.setContentsMargins(0, 4, 0, 4)
 
-        tk.Button(
-            bf, text="＋  Add Pad", bg=PANEL, fg=ACCENT, relief="flat", cursor="hand2",
-            font=(FONT, 10, "bold"), activebackground=BORDER, activeforeground=ACCENT2,
-            width=12, pady=6, command=self._add_pad,
-        ).pack(side="left", padx=4)
+        add_btn = QPushButton("＋  Add Pad")
+        add_btn.setFont(theme.qt_font(10, bold=True))
+        add_btn.setCursor(Qt.PointingHandCursor)
+        add_btn.setMinimumWidth(110)
+        add_btn.clicked.connect(self._add_pad)
+        btn_row.addWidget(add_btn)
+        btn_row.addStretch(1)
 
-        tk.Button(
-            bf, text="⚙ Settings", bg=PANEL, fg=SUBTEXT, relief="flat", cursor="hand2",
-            font=(FONT, 9), activebackground=BORDER, activeforeground=TEXT,
-            command=self._settings_cb,
-        ).pack(side="right", padx=4)
+        help_btn = QPushButton("? Help")
+        help_btn.setStyleSheet(theme.subtle_button_qss())
+        help_btn.setFont(theme.qt_font(9))
+        help_btn.setCursor(Qt.PointingHandCursor)
+        help_btn.clicked.connect(self._help_cb)
+        btn_row.addWidget(help_btn)
 
-        tk.Button(
-            bf, text="? Help", bg=PANEL, fg=SUBTEXT, relief="flat", cursor="hand2",
-            font=(FONT, 9), activebackground=BORDER, activeforeground=TEXT,
-            command=self._help_cb,
-        ).pack(side="right", padx=4)
+        settings_btn = QPushButton("⚙ Settings")
+        settings_btn.setStyleSheet(theme.subtle_button_qss())
+        settings_btn.setFont(theme.qt_font(9))
+        settings_btn.setCursor(Qt.PointingHandCursor)
+        settings_btn.clicked.connect(self._settings_cb)
+        btn_row.addWidget(settings_btn)
+
+        outer.addLayout(btn_row)
 
         # ── Scrollable pad list ───────────────────────────────────────────────
-        outer = tk.Frame(self, bg=BG)
-        outer.grid(row=2, column=0, sticky="nsew", padx=8, pady=(0, 8))
-        outer.columnconfigure(0, weight=1)
-        outer.rowconfigure(0, weight=1)
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setStyleSheet("background: transparent; border: none;")
 
-        style = ttk.Style()
-        style.configure(
-            "Dark.Vertical.TScrollbar",
-            background=PANEL, troughcolor=BG,
-            arrowcolor=SUBTEXT, bordercolor=BG,
-            lightcolor=PANEL, darkcolor=PANEL,
-        )
+        self._inner = QWidget()
+        self._inner.setStyleSheet("background: transparent;")
+        self._inner_layout = QVBoxLayout(self._inner)
+        self._inner_layout.setContentsMargins(0, 0, 4, 0)
+        self._inner_layout.setSpacing(6)
+        self._inner_layout.addStretch(1)
 
-        self._canvas = tk.Canvas(outer, bg=BG, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(outer, orient="vertical",
-                                  command=self._canvas.yview, style="Dark.Vertical.TScrollbar")
-        self._canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.grid(row=0, column=1, sticky="ns")
-        self._canvas.grid(row=0, column=0, sticky="nsew")
-
-        self._inner = tk.Frame(self._canvas, bg=BG)
-        self._win_id = self._canvas.create_window((0, 0), window=self._inner, anchor="nw")
-
-        self._inner.bind("<Configure>", lambda e: self._canvas.configure(scrollregion=self._canvas.bbox("all")))
-        self._canvas.bind("<Configure>", lambda e: self._canvas.itemconfig(self._win_id, width=e.width))
-        self._canvas.bind("<MouseWheel>", lambda e: self._canvas.yview_scroll(-1 * (e.delta // 120), "units"))
+        self._scroll.setWidget(self._inner)
+        outer.addWidget(self._scroll, 1)
 
     # ── Pads ──────────────────────────────────────────────────────────────────
 
@@ -117,9 +114,10 @@ class GamepadTab(tk.Frame):
 
     def add_pad(self, host="127.0.0.1", port="9000", style="nes", name=""):
         self._pad_counter += 1
-        card = PadCard(self._inner, self._pad_counter, self._remove_pad,
+        card = PadCard(self._pad_counter, self._remove_pad,
                        host=host, port=str(port), style=style, name=name)
-        card.pack(fill=tk.X, padx=4, pady=6)
+        # Insert before the trailing stretch item
+        self._inner_layout.insertWidget(self._inner_layout.count() - 1, card)
         self.cards.append(card)
         self._update_count()
 
@@ -129,14 +127,16 @@ class GamepadTab(tk.Frame):
 
     def _remove_pad(self, card: PadCard):
         card.destroy_state()
-        card.destroy()
+        self._inner_layout.removeWidget(card)
+        card.setParent(None)
+        card.deleteLater()
         self.cards.remove(card)
         self._update_count()
         self._save_cb()
 
     def _update_count(self):
         n = len(self.cards)
-        self._pad_count_lbl.config(text=f"{n} pad{'s' if n != 1 else ''}")
+        self._pad_count_lbl.setText(f"{n} pad{'s' if n != 1 else ''}")
 
     # ── Config I/O ────────────────────────────────────────────────────────────
 
