@@ -280,8 +280,9 @@ async def fetch() -> dict:
                 info["track_number"] = _safe_int(getattr(props, "track_number", None))
                 info["track_count"]  = _safe_int(getattr(props, "album_track_count", None))
             return info
-        except Exception:
-            pass
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
 
     # ── Linux Platform ────────────────────────────────────────────────────────
     try:

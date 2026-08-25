@@ -7,7 +7,7 @@ DRAM and VRAM individual stat readers.
 import subprocess
 import sys
 
-from hardware.lhm import hw_nodes, is_cpu, is_gpu, numeric
+from hardware.lhm import hw_nodes, is_cpu, numeric
 
 
 def detect_dram_type() -> str:
@@ -24,6 +24,15 @@ def detect_dram_type() -> str:
         return "DDR"
 
 
+def get_vram_type(index: int = 0) -> str:
+    try:
+        from hardware.gpu import detect_gpu, detect_vram_type
+        gpu_name = detect_gpu(index)
+        return detect_vram_type(gpu_name)
+    except Exception:
+        return "GDDR6"
+
+
 def _psutil_ram():
     import psutil
     vm = psutil.virtual_memory()
@@ -31,7 +40,11 @@ def _psutil_ram():
 
 
 def _fmt_gb(gb: float) -> str:
-    return str(int(gb)) if float(gb).is_integer() else f"{gb:.1f}"
+    # Round to standard hardware capacities (e.g. 15.9 -> 16, 4.1 -> 4)
+    rounded_std = round(gb)
+    if abs(gb - rounded_std) < 0.4:
+        return str(rounded_std)
+    return f"{gb:.1f}"
 
 
 def get_dram_used(data) -> float:
@@ -44,7 +57,7 @@ def get_dram_used(data) -> float:
             for cat in hw.get("Children", []):
                 for sensor in cat.get("Children", []):
                     if "memory used" in sensor.get("Text", "").lower() and \
-                       "virtual" not in sensor.get("Text", "").lower():
+                            "virtual" not in sensor.get("Text", "").lower():
                         return round(numeric(sensor.get("Value", 0)), 1)
     except Exception:
         pass
@@ -56,13 +69,13 @@ def get_dram_total(data) -> str:
     return _fmt_gb(psutil.virtual_memory().total / (1024**3))
 
 
-def get_vram_used(data) -> float:
+def get_vram_used(data, index: int = 0) -> float:
     if sys.platform != "win32" or not data:
-        return _linux_vram()[0]
+        return _linux_vram(index)[0]
     try:
-        for hw in hw_nodes(data):
-            if not is_gpu(hw.get("Text", "")):
-                continue
+        from hardware.gpu import _selected_gpu_nodes
+
+        for hw in _selected_gpu_nodes(data, index):
             for cat in hw.get("Children", []):
                 for sensor in cat.get("Children", []):
                     if "gpu memory used" in sensor.get("Text", "").lower():
@@ -74,14 +87,14 @@ def get_vram_used(data) -> float:
     return 0.0
 
 
-def get_vram_total(data) -> str:
+def get_vram_total(data, index: int = 0) -> str:
     if sys.platform != "win32" or not data:
-        total = _linux_vram()[1]
+        total = _linux_vram(index)[1]
         return _fmt_gb(total) if total else "?"
     try:
-        for hw in hw_nodes(data):
-            if not is_gpu(hw.get("Text", "")):
-                continue
+        from hardware.gpu import _selected_gpu_nodes
+
+        for hw in _selected_gpu_nodes(data, index):
             total_mb = used_mb = free_mb = None
             for cat in hw.get("Children", []):
                 for sensor in cat.get("Children", []):
@@ -108,9 +121,11 @@ def get_vram_total(data) -> str:
     return "?"
 
 
-def _linux_vram():
+def _linux_vram(index: int = 0):
     import glob
-    for card in glob.glob("/sys/class/drm/card*/device"):
+    cards = sorted(glob.glob("/sys/class/drm/card*/device"))
+    if 0 <= index < len(cards):
+        card = cards[index]
         try:
             used  = int(open(f"{card}/mem_info_vram_used").read().strip())
             total = int(open(f"{card}/mem_info_vram_total").read().strip())
