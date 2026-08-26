@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-VERSION = "8.5.5"
+VERSION = "8.5.6"
 
 # ── Dependency bootstrap ──────────────────────────────────────────────────────
 
@@ -358,9 +358,10 @@ if __name__ == "__main__":
 
     _handle_lhm_startup(cfg, save_config)
 
-    from monitors import steamvr, vrchat
+    from monitors import steamvr, vrchat, channels
     steamvr.start()
     vrchat.start()
+    channels.start()
 
     from ui.app import App
     app = App()

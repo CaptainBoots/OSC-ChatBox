@@ -46,7 +46,7 @@ from hardware.memory import (
     get_vram_total,
 )
 
-from modules.registry import render_page
+from core.registry import render_page
 
 from monitors import media as media_mod
 from monitors.media import (
@@ -59,8 +59,9 @@ from monitors.network import sample as net_sample
 from monitors.weather import fetch as weather_fetch
 
 from monitors import steamvr, vrchat
+from monitors import channels
 
-from state import (
+from core.state import (
     AppState,
     CHATBOX_MAX_CHARS,
 )
@@ -564,6 +565,10 @@ def _run(
                 vrchat.snapshot()
             )
 
+            snap.update(
+                channels.snapshot()
+            )
+
 
             # Pre-build media title.
 
@@ -577,6 +582,22 @@ def _run(
                 clean_title(raw_title)
                 if state.media_title_trim
                 else raw_title
+            )
+
+            # Pre-build media progress bar string[cite: 3]
+            snap["progress_bar_str"] = media_mod.progress_bar(
+                pos_ms=media_info.get("position_ms", 0),
+                dur_ms=media_info.get("duration_ms", 0),
+                filled="█",
+                border="▒",
+                empty="░",
+                length=15
+            )
+
+            # Pre-build media time string[cite: 3]
+            snap["media_time_str"] = media_mod.fmt_time(
+                media_info.get("position_ms", 0),
+                media_info.get("duration_ms", 0)
             )
 
 

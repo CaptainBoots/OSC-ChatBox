@@ -302,6 +302,32 @@ _TRACKER_MODULES = [
 ]
 
 
+# ── Channels (cross-tool broadcast, e.g. OSC-ScriptMaker's Chatbox Message
+#    action in "Send to Chatbox (channel)" mode) ───────────────────────────────
+
+_NUM_CHANNELS = 10
+
+
+def _make_channel_render(n):
+    def _render(snap, slot):
+        text = snap.get(f"channel_{n}_text", "")
+        return text if text else f"Channel {n}: N/A"
+
+    return _render
+
+
+_CHANNEL_MODULES = [
+    {
+        "id": f"channel_{n}",
+        "label": f"Channel {n}",
+        "category": "Channels",
+        "render": _make_channel_render(n),
+        "has_text": False,
+    }
+    for n in range(1, _NUM_CHANNELS + 1)
+]
+
+
 # ── VRChat ────────────────────────────────────────────────────────────────────
 
 def _render_fps_desktop(snap, slot):
@@ -340,11 +366,13 @@ def _render_net_up(snap, slot):
 # ── Weather ───────────────────────────────────────────────────────────────────
 
 def _render_weather_temp(snap, slot):
-    return snap.get("weather_temp", "?")
+    temp = snap.get("weather_temp", "?")
+    return f"{temp}°C" if temp != "?" else "?"
 
 
 def _render_weather_humidity(snap, slot):
-    return snap.get("weather_humidity", "?")
+    humidity = snap.get("weather_humidity", "?")
+    return f"{humidity}%" if humidity != "?" else "?"
 
 
 def _render_weather_desc(snap, slot):
@@ -352,11 +380,15 @@ def _render_weather_desc(snap, slot):
 
 
 def _render_weather_full(snap, slot):
-    return (
-        f"{snap.get('weather_temp', '?')} "
-        f"{snap.get('weather_desc', 'Unavailable')} "
-        f"{snap.get('weather_humidity', '?')}"
-    )
+    temp = snap.get("weather_temp", "?")
+    temp_str = f"{temp}°C" if temp != "?" else "?"
+
+    humidity = snap.get("weather_humidity", "?")
+    humidity_str = f"{humidity}%" if humidity != "?" else "?"
+
+    desc = snap.get("weather_desc", "Unavailable")
+
+    return f"{temp_str} {desc} {humidity_str}"
 
 
 # ── Media ─────────────────────────────────────────────────────────────────────
@@ -398,23 +430,31 @@ def _render_media_detail(snap, slot):
 # ── Fun ───────────────────────────────────────────────────────────────────────
 
 def _render_ascii_cat(snap, slot):
-    return "ฅ^•ﻌ•^ฅ"
-
+    return "/|_/|\n(＞.＜)\n|     \\\n      | || |ノ"
 
 def _render_ascii_dog_1(snap, slot):
-    return "U・ᴥ・U"
-
+    return "  __      _\no''')}____//\n `_/      )\n (_(_/-(_/"
 
 def _render_ascii_dog_2(snap, slot):
-    return "ᵔᴥᵔ"
-
+    return (
+        f"""
+        __
+   (___()'`;
+    /,    /`
+   \\"--\\"
+"""
+    )
 
 def _render_ascii_fish(snap, slot):
-    return "><(((('>"
-
+    return "<`)))><"
 
 def _render_ascii_bad_dragon(snap, slot):
-    return "𓆩༺🐉༻𓆪"
+    return (
+        f""" 
+      ≥
+ ∠..- 
+"""
+    )
 
 
 # ── Module registry ───────────────────────────────────────────────────────────
@@ -852,6 +892,9 @@ MODULES = [
 
 # Append dynamic tracker modules.
 MODULES.extend(_TRACKER_MODULES)
+
+# Append dynamic channel modules.
+MODULES.extend(_CHANNEL_MODULES)
 
 
 # Fast lookup by id.

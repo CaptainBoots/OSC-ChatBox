@@ -13,7 +13,7 @@ import subprocess
 import sys
 from typing import Optional
 
-from gpu_ids import GPU_ID_MAP, AMBIGUOUS_IDS
+from core.gpu_ids import GPU_ID_MAP, AMBIGUOUS_IDS
 from hardware.lhm import hw_nodes, is_gpu, numeric
 
 

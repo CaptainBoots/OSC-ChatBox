@@ -1,6 +1,4 @@
 """
-ui/builder.py
-──────────────────────
 Qt replacement for ui/builder.py. Same structure: a scrollable list of
 page cards, each with a header (enable toggle, title, duration stepper,
 reorder arrows, copy/paste page, delete) and a list of slot rows (reorder
@@ -15,10 +13,10 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QCursor, QGuiApplication
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QScrollArea, QFrame, QMenu,
+    QScrollArea, QFrame, QMenu, QFileDialog,
 )
 
-from modules.registry import CATEGORIES, MODULE_BY_ID
+from core.registry import CATEGORIES, MODULE_BY_ID
 from ui.circle_toggle import CircleToggle
 from ui import theme
 from ui.theme import StripeBackground
@@ -180,6 +178,24 @@ class BuilderTab(StripeBackground):
 
         header_row.addWidget(title)
         header_row.addStretch(1)
+
+        _label_btn(
+            header_row,
+            "Import All",
+            theme.ACCENT2,
+            self._import_all_pages,
+            font_size=9,
+            padding="4px 10px",
+        )
+
+        _label_btn(
+            header_row,
+            "Export All",
+            theme.ACCENT2,
+            self._export_all_pages,
+            font_size=9,
+            padding="4px 10px",
+        )
 
         page_paste_clr = theme.ACCENT if self._has_clipboard_prefix("page_cfg") else theme.SUBTEXT
         _label_btn(
@@ -957,6 +973,47 @@ class BuilderTab(StripeBackground):
         )
 
         return row
+
+
+    # ── Import/Export All Pages ───────────────────────────────────────────
+
+    def _export_all_pages(self):
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export All Pages",
+            "pages.json",
+            "JSON Files (*.json);;All Files (*)",
+        )
+        if file_path:
+            try:
+                pages_data = self._cfg.get("pages", [])
+                with open(file_path, "w", encoding="utf-8") as f:
+                    json.dump(pages_data, f, indent=4)
+                self._show_toast("Pages exported successfully!")
+            except Exception as e:
+                self._show_toast(f"Export failed: {str(e)}", is_error=True)
+
+    def _import_all_pages(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import All Pages",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+        )
+        if file_path:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    pages_data = json.load(f)
+                if isinstance(pages_data, list):
+                    self._cfg["pages"] = pages_data
+                    self._sel_page = 0
+                    self._save()
+                    self._refresh_pages()
+                    self._show_toast("Pages imported successfully!")
+                else:
+                    self._show_toast("Invalid format: expected a list of pages", is_error=True)
+            except Exception as e:
+                self._show_toast(f"Import failed: {str(e)}", is_error=True)
 
 
     # ── Page Mutators ──────────────────────────────────────────────────────
