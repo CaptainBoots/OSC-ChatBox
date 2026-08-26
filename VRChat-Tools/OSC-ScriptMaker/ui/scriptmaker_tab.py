@@ -1,15 +1,16 @@
 """
 ui/scriptmaker_tab.py
 ────────────────────────
-Scripts tab: connection bar (listen host/port, default out host/port,
-Connect/Disconnect), a live fire-log, a toolbar (+ Add Script / Help /
-Settings), then a scrollable list of ScriptCards.
+Scripts tab: a status bar (Start/Stop/Restart automation — no host/port
+here, every OSC trigger and every OSC-sending action sets its own), a
+live fire-log, a toolbar (+ Add Script / Help / Settings), then a
+scrollable list of ScriptCards.
 """
 
-from PySide6.QtCore import Qt, QObject, Signal
+from PySide6.QtCore import Qt, QObject, Signal, QTimer
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
-    QLineEdit, QPlainTextEdit,
+    QPlainTextEdit,
 )
 
 from core.models import Script, default_script
@@ -22,9 +23,9 @@ MAX_LOG_LINES = 200
 
 
 class _Bridge(QObject):
-    """Background threads (the OSC listener / timer loop / firing script
-    threads) never touch widgets directly — they emit here, and these
-    signals are connected to main-thread slots, per the porting guide's
+    """Background threads (listeners / timer loop / firing script threads)
+    never touch widgets directly — they emit here, and this signal is
+    connected to a main-thread slot, per the porting guide's
     thread-safety rule (Qt auto-queues cross-thread signal emits)."""
     log_line = Signal(str)
 
@@ -45,8 +46,6 @@ class ScriptMakerTab(StripeBackground):
 
         self.engine = ScriptEngine(
             get_scripts_cb=self._collect_scripts_for_engine,
-            default_out_host=cfg.get("out_host", "127.0.0.1"),
-            default_out_port=cfg.get("out_port", "9000"),
             log_cb=lambda msg: self._bridge.log_line.emit(msg),
         )
 
@@ -59,7 +58,7 @@ class ScriptMakerTab(StripeBackground):
         outer.setContentsMargins(8, 8, 8, 8)
         outer.setSpacing(4)
 
-        self._build_connection_bar(outer)
+        self._build_status_bar(outer)
         self._build_toolbar(outer)
         self._build_log(outer)
 
@@ -77,63 +76,42 @@ class ScriptMakerTab(StripeBackground):
         self._scroll.setWidget(self._inner)
         outer.addWidget(self._scroll, 1)
 
-    def _build_connection_bar(self, outer):
+    def _build_status_bar(self, outer):
         frame = QWidget()
         frame.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
         row = QHBoxLayout(frame)
         row.setContentsMargins(10, 6, 10, 6)
 
-        def field(label, cfg_key, width):
-            row.addWidget(self._label(label))
-            e = QLineEdit(str(self._cfg.get(cfg_key, "")))
-            e.setFixedWidth(width)
-            e.setFont(theme.qt_font(9))
-            e.setStyleSheet(theme.line_edit_qss())
-            e.textChanged.connect(lambda t, k=cfg_key: self._cfg.__setitem__(k, t))
-            row.addWidget(e)
-            return e
+        status_caption = QLabel("Status:")
+        status_caption.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        status_caption.setFont(theme.qt_font(9))
+        row.addWidget(status_caption)
 
-        row.addWidget(self._label("Listen:"))
-        self._listen_host = field("Host", "listen_host", 90)
-        self._listen_port = field("Port", "listen_port", 55)
-        row.addSpacing(12)
-        row.addWidget(self._label("Send:"))
-        self._out_host = field("Host", "out_host", 90)
-        self._out_port = field("Port", "out_port", 55)
-        row.addSpacing(12)
-
-        def _on_out_changed(_t=None):
-            self.engine.default_out_host = self._out_host.text().strip() or "127.0.0.1"
-            self.engine.default_out_port = self._out_port.text().strip() or "9000"
-
-        self._out_host.textChanged.connect(_on_out_changed)
-        self._out_port.textChanged.connect(_on_out_changed)
-
-        self._status_dot = QLabel("●")
-        self._status_dot.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
-        self._status_dot.setFont(theme.qt_font(11))
-        row.addWidget(self._status_dot)
-
-        self._conn_btn = QPushButton("Connect")
-        self._conn_btn.setCursor(Qt.PointingHandCursor)
-        self._conn_btn.setFont(theme.qt_font(9, bold=True))
-        self._set_connect_style(False)
-        self._conn_btn.clicked.connect(self._toggle_connect)
-        row.addWidget(self._conn_btn)
+        self._status_label = QLabel("Stopped")
+        self._status_label.setStyleSheet(f"color: {theme.RED}; background: transparent; border: none;")
+        self._status_label.setFont(theme.qt_font(9, bold=True))
+        row.addWidget(self._status_label)
         row.addStretch(1)
 
         outer.addWidget(frame)
 
     def _build_toolbar(self, outer):
+        # ── Control buttons (Start / Stop / Restart / Help / Settings) ─────────
         btn_row = QHBoxLayout()
         btn_row.setContentsMargins(0, 4, 0, 4)
 
-        add_btn = QPushButton("＋  Add Script")
-        add_btn.setFont(theme.qt_font(10, bold=True))
-        add_btn.setCursor(Qt.PointingHandCursor)
-        add_btn.setMinimumWidth(130)
-        add_btn.clicked.connect(self._add_script)
-        btn_row.addWidget(add_btn)
+        for text, cmd in (
+                ("▶  Start",   self.start_engine),
+                ("■  Stop",    self.stop_engine),
+                ("↺  Restart", self.restart_engine),
+        ):
+            b = QPushButton(text)
+            b.setFont(theme.qt_font(10, bold=True))
+            b.setMinimumWidth(110)
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(cmd)
+            btn_row.addWidget(b)
+
         btn_row.addStretch(1)
 
         help_btn = QPushButton("? Help")
@@ -152,6 +130,20 @@ class ScriptMakerTab(StripeBackground):
 
         outer.addLayout(btn_row)
 
+        # ── Add Script (ScriptMaker-specific, Chatbox has no equivalent) ───────
+        add_row = QHBoxLayout()
+        add_row.setContentsMargins(0, 0, 0, 4)
+
+        add_btn = QPushButton("＋  Add Script")
+        add_btn.setFont(theme.qt_font(10, bold=True))
+        add_btn.setCursor(Qt.PointingHandCursor)
+        add_btn.setMinimumWidth(130)
+        add_btn.clicked.connect(self._add_script)
+        add_row.addWidget(add_btn)
+        add_row.addStretch(1)
+
+        outer.addLayout(add_row)
+
     def _build_log(self, outer):
         cap = QLabel("ACTIVITY")
         cap.setStyleSheet(theme.section_caption_qss())
@@ -168,13 +160,6 @@ class ScriptMakerTab(StripeBackground):
         )
         outer.addWidget(self._log)
 
-    @staticmethod
-    def _label(text):
-        l = QLabel(text)
-        l.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
-        l.setFont(theme.qt_font(9))
-        return l
-
     def _append_log(self, msg: str):
         self._log.appendPlainText(msg)
         doc = self._log.document()
@@ -182,45 +167,39 @@ class ScriptMakerTab(StripeBackground):
             cursor = self._log.textCursor()
             cursor.movePosition(cursor.MoveOperation.Start)
             cursor.movePosition(cursor.MoveOperation.Down, cursor.MoveMode.KeepAnchor,
-                                 doc.blockCount() - MAX_LOG_LINES)
+                                doc.blockCount() - MAX_LOG_LINES)
             cursor.removeSelectedText()
 
-    # ── Connection ────────────────────────────────────────────────────────
+    # ── Engine start/stop/restart ────────────────────────────────────────
+    # No host/port here — every OSC trigger listens on its own address and
+    # every OSC-sending action sends to its own address. These just flip
+    # automation on/off; the engine syncs its listener pool to whatever
+    # enabled scripts currently need, automatically.
 
-    def _set_connect_style(self, connected: bool):
-        if connected:
-            self._conn_btn.setText("Disconnect")
-            self._conn_btn.setStyleSheet(
-                f"QPushButton {{ background-color: {theme.RED}; color: {theme.BG}; border: none; padding: 4px 10px; }}"
-            )
+    def _set_status(self, running: bool):
+        if running:
+            self._status_label.setText("Running")
+            self._status_label.setStyleSheet(f"color: {theme.GREEN}; background: transparent; border: none;")
         else:
-            self._conn_btn.setText("Connect")
-            self._conn_btn.setStyleSheet(theme.accent_button_qss())
+            self._status_label.setText("Stopped")
+            self._status_label.setStyleSheet(f"color: {theme.RED}; background: transparent; border: none;")
 
-    def _toggle_connect(self):
-        self.disconnect_engine() if self.engine.is_running else self.connect_engine()
-
-    def connect_engine(self):
-        host = self._listen_host.text().strip() or "127.0.0.1"
-        try:
-            port = int(self._listen_port.text().strip())
-        except ValueError:
-            self._append_log("⚠ Invalid listen port")
+    def start_engine(self):
+        if self.engine.is_running:
             return
-        try:
-            self.engine.start_listener(host, port)
-        except OSError as exc:
-            self._append_log(f"⚠ Could not start listener: {exc}")
-            return
-        self._status_dot.setStyleSheet(f"color: {theme.GREEN}; background: transparent; border: none;")
-        self._set_connect_style(True)
-        self._append_log(f"Listening on {host}:{port}")
+        self.engine.start()
+        self._set_status(True)
+        self._append_log("Automation started")
 
-    def disconnect_engine(self):
-        self.engine.stop_listener()
-        self._status_dot.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
-        self._set_connect_style(False)
-        self._append_log("Disconnected")
+    def stop_engine(self):
+        self.engine.stop()
+        self._set_status(False)
+        self._append_log("Automation stopped")
+
+    def restart_engine(self):
+        self._append_log("Restarting automation\u2026")
+        self.stop_engine()
+        QTimer.singleShot(1200, self.start_engine)
 
     # ── Scripts ──────────────────────────────────────────────────────────
 
@@ -234,7 +213,7 @@ class ScriptMakerTab(StripeBackground):
         else:
             self._add_script()
         if self._cfg.get("auto_start"):
-            self.connect_engine()
+            self.start_engine()
 
     def _add_script(self):
         self._uid_counter += 1

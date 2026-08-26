@@ -31,6 +31,8 @@ CONDITIONS_NEEDING_VALUE2 = ("in_range",)
 @dataclass
 class Trigger:
     kind: str = "osc"            # "osc" | "timer" | "variable"
+    host: str = "127.0.0.1"      # listen host, for kind == "osc" — set per-input, no shared default
+    port: str = "9001"           # listen port, for kind == "osc"
     address: str = ""            # OSC address, for kind == "osc"
     var_name: str = ""           # variable name, for kind == "variable"
     interval_s: float = 5.0      # seconds, for kind == "timer"
@@ -44,7 +46,7 @@ class Trigger:
     @staticmethod
     def from_dict(d: dict) -> "Trigger":
         t = Trigger()
-        for k in ("kind", "address", "var_name", "condition", "value", "value2"):
+        for k in ("kind", "host", "port", "address", "var_name", "condition", "value", "value2"):
             if k in d:
                 setattr(t, k, d[k])
         if "interval_s" in d:
@@ -74,8 +76,8 @@ class Action:
     hold_ms: int = 0                              # 0 = quick tap
 
     # send_osc
-    host: str = ""                                 # blank = use tab default out host
-    port: str = ""                                 # blank = use tab default out port
+    host: str = "127.0.0.1"                        # every action sets its own target, no shared default
+    port: str = "9000"
     address: str = ""
     value_mode: str = "static"                     # static | forward | transform
     static_value: str = ""
@@ -90,6 +92,8 @@ class Action:
     text: str = ""                                  # "{value}" is replaced with trigger value
     send_immediately: bool = True
     play_sfx: bool = False
+    chatbox_target: str = "vrchat"                   # "vrchat" | "channel"
+    chatbox_channel: int = 1                         # 1-10, used when chatbox_target == "channel"
 
     # run_program
     program_path: str = ""

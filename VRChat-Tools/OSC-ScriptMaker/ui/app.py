@@ -28,6 +28,15 @@ class App(QMainWindow):
         super().__init__()
         self._cfg = load_config()
 
+        # Apply the saved theme before building anything — otherwise the
+        # window is built with theme.py's hardcoded default palette and
+        # the saved theme_mode only takes effect the next time the user
+        # opens Settings and picks a theme (even the same one).
+        theme.set_theme(self._cfg.get("theme_mode", "rich_purple"))
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            app_instance.setStyleSheet(theme.qss())
+
         self._build_root()
         self._build_tabs()
         self._script_tab.load_scripts()
@@ -142,7 +151,7 @@ class App(QMainWindow):
         self._build_tabs()
         self._script_tab.load_scripts()
         if was_connected and not self._script_tab.engine.is_running:
-            self._script_tab.connect_engine()
+            self._script_tab.start_engine()
 
         self.show()
         app_instance = QApplication.instance()

@@ -30,10 +30,6 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 def get_defaults() -> dict:
     return {
         "theme_mode": "rich_purple",
-        "listen_host": "127.0.0.1",
-        "listen_port": "9001",
-        "out_host": "127.0.0.1",
-        "out_port": "9000",
         "auto_start": False,
         "scripts": [],
     }
