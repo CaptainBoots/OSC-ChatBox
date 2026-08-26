@@ -2,7 +2,7 @@
 ui/action_row.py
 ─────────────────
 ActionRow: one action within a script's action chain. The kind
-dropdown is populated straight from core.Actions.registry, and
+dropdown is populated straight from core.registry, and
 switching it rebuilds the field panel below for that kind — same
 "swap the body, keep the frame" pattern PadCard uses for NES/Joystick.
 
@@ -17,8 +17,9 @@ from PySide6.QtWidgets import (
     QPushButton, QComboBox, QFileDialog,
 )
 
-from core.Actions.registry import ACTIONS, ACTION_BY_ID, NON_NESTABLE_KINDS
+from core.registry import ACTIONS, ACTION_BY_ID, NON_NESTABLE_KINDS
 from core.models import Action
+from Actions.chatbox_action import CHATBOX_CHANNELS
 from ui import theme
 from ui.circle_toggle import CircleToggle
 
@@ -67,6 +68,26 @@ def _toggle_with_label(text, checked):
     return row, toggle
 
 
+def _clear_layout(layout):
+    """Recursively empties `layout`: deletes every widget it contains and
+    descends into any nested layouts (addLayout(...) rows), deleting those
+    too. QLayout.takeAt()/item.widget() only strips one level — most of
+    this file's field builders nest a QHBoxLayout per row via addLayout,
+    so a shallow clear leaves the previous kind's fields alive underneath
+    (invisible, but still wired to the action object) every time the kind
+    dropdown changes."""
+    while layout.count():
+        item = layout.takeAt(0)
+        w = item.widget()
+        if w is not None:
+            w.setParent(None)
+            w.deleteLater()
+            continue
+        sub_layout = item.layout()
+        if sub_layout is not None:
+            _clear_layout(sub_layout)
+
+
 class ActionRow(QFrame):
     def __init__(self, action: Action, on_remove, on_move_up=None, on_move_down=None,
                  nestable=True, parent=None):
@@ -110,7 +131,7 @@ class ActionRow(QFrame):
             hdr.addWidget(down_btn)
 
         kind_options = [(a["id"], a["label"]) for a in ACTIONS
-                         if self.nestable or a["id"] in NON_NESTABLE_KINDS]
+                        if self.nestable or a["id"] in NON_NESTABLE_KINDS]
         self._kind_combo = _combo(kind_options, self.action.kind)
         self._kind_combo.currentIndexChanged.connect(self._on_kind_changed)
         hdr.addWidget(self._kind_combo)
@@ -138,12 +159,7 @@ class ActionRow(QFrame):
         self._rebuild_fields()
 
     def _clear_body(self):
-        while self._body_layout.count():
-            item = self._body_layout.takeAt(0)
-            w = item.widget()
-            if w is not None:
-                w.setParent(None)
-                w.deleteLater()
+        _clear_layout(self._body_layout)
         self._fields = {}
         self._sub_rows = []
 
@@ -205,12 +221,12 @@ def _build_send_osc(row, layout, action: Action):
     def set_addr(t): action.address = t
 
     hp = QHBoxLayout()
-    hp.addWidget(_row_label("Host:", 50))
-    h = _entry(action.host, 90); h.setPlaceholderText("default out")
+    hp.addWidget(_row_label("Send to:", 50))
+    h = _entry(action.host, 90)
     h.textChanged.connect(set_host)
     hp.addWidget(h)
-    hp.addWidget(_row_label("Port:", 34))
-    p = _entry(action.port, 50); p.setPlaceholderText("default")
+    hp.addWidget(_row_label(":", 6))
+    p = _entry(action.port, 50)
     p.textChanged.connect(set_port)
     hp.addWidget(p)
     hp.addStretch(1)
@@ -293,20 +309,70 @@ def _build_send_osc(row, layout, action: Action):
 
 
 def _build_chatbox(row, layout, action: Action):
+    target_row = QHBoxLayout()
+    target_row.addWidget(_row_label("Target:", 70))
+    target_combo = _combo(
+        [("vrchat", "Send to VRChat"), ("channel", "Send to Chatbox (channel)")],
+        action.chatbox_target,
+    )
+    target_row.addWidget(target_combo)
+    target_row.addStretch(1)
+    layout.addLayout(target_row)
+
     def set_host(t): action.host = t
     def set_port(t): action.port = t
 
-    hp = QHBoxLayout()
-    hp.addWidget(_row_label("Host:", 50))
-    h = _entry(action.host, 90); h.setPlaceholderText("default out")
-    h.textChanged.connect(set_host)
-    hp.addWidget(h)
-    hp.addWidget(_row_label("Port:", 34))
-    p = _entry(action.port, 50); p.setPlaceholderText("default")
-    p.textChanged.connect(set_port)
-    hp.addWidget(p)
-    hp.addStretch(1)
-    layout.addLayout(hp)
+    # VRChat mode: real host:port, normally 127.0.0.1:9000 (VRChat's OSC in)
+    vrchat_wrap = QWidget()
+    vrchat_layout = QVBoxLayout(vrchat_wrap)
+    vrchat_layout.setContentsMargins(0, 0, 0, 0)
+    vhp = QHBoxLayout()
+    vhp.addWidget(_row_label("Send to:", 70))
+    vh = _entry(action.host, 90)
+    vh.textChanged.connect(set_host)
+    vhp.addWidget(vh)
+    vhp.addWidget(_row_label(":", 6))
+    vp = _entry(action.port, 50)
+    vp.textChanged.connect(set_port)
+    vhp.addWidget(vp)
+    vhp.addStretch(1)
+    vrchat_layout.addLayout(vhp)
+
+    # Channel mode: host stays editable (in case a channel listener runs on
+    # another machine), port is picked from the 10 fixed channel ports —
+    # nothing to type, nothing that can collide with real VRChat traffic.
+    channel_wrap = QWidget()
+    channel_layout = QVBoxLayout(channel_wrap)
+    channel_layout.setContentsMargins(0, 0, 0, 0)
+    chp = QHBoxLayout()
+    chp.addWidget(_row_label("Host:", 70))
+    ch_host = _entry(action.host, 90)
+    ch_host.textChanged.connect(set_host)
+    chp.addWidget(ch_host)
+    chp.addWidget(_row_label("Channel:", 55))
+    channel_options = [(n, f"Channel {n}  ({CHATBOX_CHANNELS[n]})") for n in sorted(CHATBOX_CHANNELS)]
+    channel_combo = _combo(channel_options, action.chatbox_channel)
+    channel_combo.currentIndexChanged.connect(
+        lambda _i: setattr(action, "chatbox_channel", channel_combo.currentData())
+    )
+    chp.addWidget(channel_combo)
+    chp.addStretch(1)
+    channel_layout.addLayout(chp)
+
+    layout.addWidget(vrchat_wrap)
+    layout.addWidget(channel_wrap)
+
+    def _refresh_target_visibility():
+        is_channel = action.chatbox_target == "channel"
+        vrchat_wrap.setVisible(not is_channel)
+        channel_wrap.setVisible(is_channel)
+
+    def _on_target_changed(_i):
+        action.chatbox_target = target_combo.currentData()
+        _refresh_target_visibility()
+
+    target_combo.currentIndexChanged.connect(_on_target_changed)
+    _refresh_target_visibility()
 
     def set_text(t): action.text = t
     _line(row, layout, "Text:", action.text, 180, set_text,
@@ -368,7 +434,7 @@ def _build_set_variable(row, layout, action: Action):
     mode_row = QHBoxLayout()
     mode_row.addWidget(_row_label("Value:", 70))
     mode_combo = _combo([("static", "Static"), ("forward", "Forward trigger value")],
-                         action.var_value_mode)
+                        action.var_value_mode)
     mode_row.addWidget(mode_combo)
     mode_row.addStretch(1)
     layout.addLayout(mode_row)
@@ -403,7 +469,7 @@ def _build_play_sound(row, layout, action: Action):
 
     def _browse():
         f, _ = QFileDialog.getOpenFileName(row, "Choose Sound File",
-                                            filter="Audio Files (*.wav *.mp3 *.ogg *.flac);;All Files (*)")
+                                           filter="Audio Files (*.wav *.mp3 *.ogg *.flac);;All Files (*)")
         if f:
             path_edit.setText(f)
 

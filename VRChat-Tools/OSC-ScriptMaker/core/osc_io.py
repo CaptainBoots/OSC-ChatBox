@@ -56,6 +56,10 @@ class OSCListener:
         return self._running
 
     @property
+    def host(self) -> str:
+        return self._server.server_address[0]
+
+    @property
     def port(self) -> int:
         return self._server.server_address[1]
 

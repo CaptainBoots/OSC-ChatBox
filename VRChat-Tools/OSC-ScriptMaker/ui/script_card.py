@@ -2,7 +2,7 @@
 ui/script_card.py
 ───────────────────
 ScriptCard: one script's full editor — enabled toggle, name, a
-collapsible trigger editor (kind dropdown from core.Inputs.registry,
+collapsible trigger editor (kind dropdown from core.registry,
 condition + comparison value boxes), and its ordered chain of
 ActionRows with reorder/add/remove.
 """
@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 
-from core.Inputs.registry import INPUTS
+from core.registry import INPUTS
 from core.models import (
     Script, Action, CONDITIONS, CONDITIONS_NEEDING_VALUE, CONDITIONS_NEEDING_VALUE2,
 )
@@ -131,6 +131,23 @@ class ScriptCard(QFrame):
         key_row.addStretch(1)
         parent_layout.addLayout(key_row)
 
+        # Listen host/port — only relevant for kind == "osc". Each OSC
+        # trigger owns its own listen address; there's no shared default,
+        # so this is where it's set.
+        self._host_port_wrap = QWidget()
+        hp_layout = QHBoxLayout(self._host_port_wrap)
+        hp_layout.setContentsMargins(0, 0, 0, 0)
+        hp_layout.addWidget(_row_label("Listen on:", 60))
+        self._host_edit = _entry(trig.host, 90)
+        self._host_edit.textChanged.connect(lambda t: setattr(trig, "host", t))
+        hp_layout.addWidget(self._host_edit)
+        hp_layout.addWidget(_row_label(":", 6))
+        self._port_edit = _entry(trig.port, 55)
+        self._port_edit.textChanged.connect(lambda t: setattr(trig, "port", t))
+        hp_layout.addWidget(self._port_edit)
+        hp_layout.addStretch(1)
+        parent_layout.addWidget(self._host_port_wrap)
+
         # Condition + comparison value(s) — not applicable to timer triggers
         self._cond_row_wrap = QWidget()
         cond_outer = QVBoxLayout(self._cond_row_wrap)
@@ -212,6 +229,7 @@ class ScriptCard(QFrame):
             self._key_edit.setPlaceholderText("5")
 
         self._cond_row_wrap.setVisible(trig.kind != "timer")
+        self._host_port_wrap.setVisible(trig.kind == "osc")
         cond = trig.condition
         self._value_edit.setVisible(cond in CONDITIONS_NEEDING_VALUE)
         self._value2_label.setVisible(cond in CONDITIONS_NEEDING_VALUE2)
