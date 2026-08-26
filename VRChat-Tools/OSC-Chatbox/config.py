@@ -11,7 +11,7 @@ import json
 import os
 import sys
 
-from state import (
+from core.state import (
     DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY,
 )
 
