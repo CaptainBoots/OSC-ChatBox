@@ -85,7 +85,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.7.2"
+VERSION = "9.7.1"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -185,9 +185,9 @@ DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "OSC-Gamepad/main.py", "label": "Gamepad"},
     {"filename": "OSC-FaceTrackingController/main.py", "label": "Face Tracking Controller"},
     {"filename": "OSC-ParameterBrowser/main.py", "label": "Parameter Browser"},
-    {"filename": "OSC-ScriptMaker/main.py", "label": "Script Maker(Beta)"},
-    {"filename": "VRChat-LocalFavorites/main.py", "label": "VRChat Local Favorites(Beta)"},
-    {"filename": "VRChat-SocialLogger/main.py", "label": "VRChat SocialLogger(Beta)"},
+    {"filename": "OSC-ScriptMaker/main.py", "label": "Script Maker(Placeholder)"},
+    {"filename": "VRChat-LocalFavorites/main.py", "label": "VRChat Local Favorites(Placeholder)"},
+    {"filename": "VRChat-SocialLogger/main.py", "label": "VRChat SocialLogger(Placeholder)"},
 ]
 
 
