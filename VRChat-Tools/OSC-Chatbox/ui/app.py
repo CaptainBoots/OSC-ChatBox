@@ -22,8 +22,8 @@ from PySide6.QtWidgets import (
 )
 
 from config import load_config, save_config, get_defaults
-from osc_loop import start_loop, stop_loop
-from state import AppState
+from core.osc_loop import start_loop, stop_loop
+from core.state import AppState
 from ui.builder import BuilderTab
 from ui.chatbox_tab import ChatboxTab
 from ui.help_dialog import open_help

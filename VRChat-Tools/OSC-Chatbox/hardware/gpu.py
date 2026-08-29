@@ -1,239 +1,948 @@
 """
 hardware/gpu.py
 ───────────────
-GPU name detection (via gpu_ids.py) and individual sensor readers.
+GPU discovery and per-GPU sensor readers.
+
+GPU index is zero-based. The same index is used by the UI GPU modules and
+by the per-GPU telemetry list in AppState.
 """
 
+import json
 import re
 import subprocess
 import sys
 from typing import Optional
 
-from gpu_ids import GPU_ID_MAP, AMBIGUOUS_IDS
+from core.gpu_ids import GPU_ID_MAP, AMBIGUOUS_IDS
 from hardware.lhm import hw_nodes, is_gpu, numeric
 
 
-# ── Detection ─────────────────────────────────────────────────────────────────
+_AMD_IGPU_KEYWORDS = (
+    "radeon graphics",
+    "vega",
+    "raphael",
+    "rembrandt",
+    "phoenix",
+    "hawk point",
+)
 
-_AMD_IGPU_KEYWORDS = ("radeon graphics", "vega", "raphael", "rembrandt", "phoenix", "hawk point")
-_AMD_DGPU_KEYWORDS = ("radeon rx", "rx ")
+_AMD_DGPU_KEYWORDS = (
+    "radeon rx",
+    "rx ",
+)
 
 
-# Priority tiers (lower = better):
-#   0 = discrete NVIDIA or AMD discrete
-#   1 = unknown AMD (no name match, assume discrete)
-#   2 = AMD iGPU (APU)
-#   3 = Intel iGPU or unknown
 def _vendor_priority(vid: str, name: str = "") -> int:
+    """
+    Lower is better for the legacy single-GPU fallback.
+    """
     n = name.lower()
+
     if vid == "10de":
         return 0
+
     if vid == "1002":
-        if any(k in n for k in _AMD_DGPU_KEYWORDS):
+        if any(
+                k in n
+                for k in _AMD_DGPU_KEYWORDS
+        ):
             return 0
-        if any(k in n for k in _AMD_IGPU_KEYWORDS):
+
+        if any(
+                k in n
+                for k in _AMD_IGPU_KEYWORDS
+        ):
             return 2
+
         return 1
+
     return 3
 
 
-def _pci_id() -> Optional[str]:
-    if sys.platform == "win32":
-        try:
-            out = subprocess.check_output(
-                ["powershell", "-NoProfile", "-Command",
-                 "Get-CimInstance Win32_VideoController | Select-Object -First 100 PNPDeviceID,Name"
-                 " | Format-List"],
-                encoding="utf-8", stderr=subprocess.DEVNULL, timeout=5,
-            )
-            # Parse blocks of "PNPDeviceID : ...\nName         : ..."
-            best_pid, best_pri = None, 99
-            blocks = re.split(r"\n\s*\n", out.strip())
-            for block in blocks:
-                id_m = re.search(r"VEN_([0-9A-Fa-f]{4}).*DEV_([0-9A-Fa-f]{4})", block)
-                name_m = re.search(r"Name\s*:\s*(.+)", block)
-                if not id_m:
-                    continue
-                vid, did = id_m.group(1).lower(), id_m.group(2).lower()
-                name = name_m.group(1).strip() if name_m else ""
-                pri = _vendor_priority(vid, name)
-                if pri < best_pri:
-                    best_pri, best_pid = pri, f"{vid}:{did}"
-            return best_pid
-        except Exception:
-            return None
+def _command_lines(
+        command: list[str],
+        timeout: float = 5.0,
+) -> list[str]:
+    """
+    Run a command safely and return non-empty output lines.
+
+    This is deliberately best-effort: missing utilities such as lspci or
+    nvidia-smi must never stop the application from running.
+    """
     try:
         out = subprocess.check_output(
-            ["lspci", "-nn"], encoding="utf-8", stderr=subprocess.DEVNULL
+            command,
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=timeout,
         )
-        best_pid, best_pri = None, 99
-        for line in out.splitlines():
-            if "VGA" not in line and "3D controller" not in line:
-                continue
-            m = re.search(r"\[(\w{4}):(\w{4})\]", line)
-            if not m:
-                continue
-            vid, did = m.group(1).lower(), m.group(2).lower()
-            pri = _vendor_priority(vid, line)
-            if pri < best_pri:
-                best_pri, best_pid = pri, f"{vid}:{did}"
-        return best_pid
+
+        return [
+            line.strip()
+            for line in out.splitlines()
+            if line.strip()
+        ]
+
+    except (
+            OSError,
+            subprocess.SubprocessError,
+            UnicodeError,
+    ):
+        return []
+
+
+def _windows_gpu_records() -> list[dict]:
+    """
+    Discover GPUs using Windows WMI/CIM.
+
+    Returns dictionaries containing Name and PNPDeviceID.
+    """
+    command = (
+        "Get-CimInstance Win32_VideoController | "
+        "Select-Object Name,PNPDeviceID | "
+        "ConvertTo-Json -Compress"
+    )
+
+    try:
+        out = subprocess.check_output(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                command,
+            ],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        ).strip()
+
+        raw = (
+            json.loads(out)
+            if out
+            else []
+        )
+
+        if isinstance(raw, dict):
+            raw = [raw]
+
+        return (
+            raw
+            if isinstance(raw, list)
+            else []
+        )
+
     except Exception:
+        return []
+
+
+def _linux_display_lines() -> list[str]:
+    """
+    Discover display adapters through lspci.
+
+    Supports VGA, 3D-controller and Display-controller devices.
+    """
+    return [
+        line
+        for line in _command_lines(
+            ["lspci", "-Dnn"]
+        )
+        if (
+                "VGA compatible controller" in line
+                or "3D controller" in line
+                or "Display controller" in line
+        )
+    ]
+
+
+def _pci_devices() -> list[tuple[str, str, str]]:
+    """
+    Return:
+
+        (vendor_id, device_id, OS_display_name)
+
+    in OS discovery order.
+    """
+    devices: list[tuple[str, str, str]] = []
+
+
+    # ── Windows ───────────────────────────────────────────────────────────
+
+    if sys.platform == "win32":
+        for item in _windows_gpu_records():
+            pid = str(
+                item.get(
+                    "PNPDeviceID",
+                    "",
+                )
+                or ""
+            )
+
+            match = re.search(
+                r"VEN_([0-9A-Fa-f]{4}).*DEV_([0-9A-Fa-f]{4})",
+                pid,
+            )
+
+            if not match:
+                continue
+
+            devices.append(
+                (
+                    match.group(1).lower(),
+                    match.group(2).lower(),
+                    str(
+                        item.get(
+                            "Name",
+                            "",
+                        )
+                        or ""
+                    ).strip(),
+                )
+            )
+
+        return devices
+
+
+    # ── Linux ─────────────────────────────────────────────────────────────
+
+    for line in _linux_display_lines():
+        match = re.search(
+            r"\[([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\]",
+            line,
+        )
+
+        if not match:
+            continue
+
+        name = line.split(
+            ": ",
+            1,
+        )[-1]
+
+        name = re.sub(
+            r"\s*\[[0-9A-Fa-f]{4}:[0-9A-Fa-f]{4}\]",
+            "",
+            name,
+        ).strip()
+
+        devices.append(
+            (
+                match.group(1).lower(),
+                match.group(2).lower(),
+                name,
+            )
+        )
+
+    return devices
+
+
+def _command_gpu_names() -> list[str]:
+    """
+    Best-effort command-line discovery for GPUs unknown to gpu_ids.py.
+
+    Windows:
+        PowerShell / Win32_VideoController
+
+    Linux:
+        lspci
+        then nvidia-smi as a fallback
+    """
+
+    # ── Windows ───────────────────────────────────────────────────────────
+
+    if sys.platform == "win32":
+        names = []
+
+        for item in _windows_gpu_records():
+            name = str(
+                item.get(
+                    "Name",
+                    "",
+                )
+                or ""
+            ).strip()
+
+            if name and name not in names:
+                names.append(name)
+
+        return names
+
+
+    # ── Linux ─────────────────────────────────────────────────────────────
+
+    names = []
+
+    for line in _linux_display_lines():
+        name = line.split(
+            ": ",
+            1,
+        )[-1]
+
+        name = re.sub(
+            r"\s*\[[0-9A-Fa-f]{4}:[0-9A-Fa-f]{4}\]",
+            "",
+            name,
+        ).strip()
+
+        if name and name not in names:
+            names.append(name)
+
+    if names:
+        return names
+
+
+    # NVIDIA fallback.
+    return _command_lines(
+        [
+            "nvidia-smi",
+            "--query-gpu=name",
+            "--format=csv,noheader",
+        ]
+    )
+
+
+def _gpu_name_from_os(
+        pid: str,
+) -> Optional[str]:
+    """
+    Ask the OS for the display name of a GPU with a PCI ID.
+    """
+    if not pid or ":" not in pid:
         return None
 
+    vid, did = pid.split(
+        ":",
+        1,
+    )
 
-def _gpu_name_from_os(pid: str) -> Optional[str]:
-    """Ask the OS for the display name of the GPU with the given PCI ID."""
-    vid, did = pid.split(":")
+
+    # ── Windows ───────────────────────────────────────────────────────────
+
     if sys.platform == "win32":
-        try:
-            out = subprocess.check_output(
-                ["powershell", "-NoProfile", "-Command",
-                 f"Get-CimInstance Win32_VideoController | Where-Object {{"
-                 f" $_.PNPDeviceID -match 'VEN_{vid.upper()}.*DEV_{did.upper()}' }}"
-                 f" | Select-Object -ExpandProperty Name"],
-                encoding="utf-8", stderr=subprocess.DEVNULL, timeout=5,
-            ).strip()
-            return out or None
-        except Exception:
-            return None
-    # Linux: name is already in the lspci line, extract the human-readable part
-    try:
-        out = subprocess.check_output(
-            ["lspci", "-nn"], encoding="utf-8", stderr=subprocess.DEVNULL
+        command = (
+            "Get-CimInstance Win32_VideoController | "
+            f"Where-Object {{ "
+            f"$_ .PNPDeviceID -match "
+            f"'VEN_{vid.upper()}.*DEV_{did.upper()}' "
+            f"}} | "
+            "Select-Object -ExpandProperty Name"
         )
-        for line in out.splitlines():
-            if f"[{vid}:{did}]" in line.lower():
-                # Strip the address and class prefix, keep everything before the [id] tag
-                m = re.match(r"[^:]+:\s+[^:]+:\s+(.+?)\s+\[[\w:]+\]", line)
-                if m:
-                    return m.group(1).strip()
-    except Exception:
-        pass
+
+        command = command.replace(
+            "$_ .PNPDeviceID",
+            "$_.PNPDeviceID",
+        )
+
+        lines = _command_lines(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                command,
+            ]
+        )
+
+        return (
+            lines[0]
+            if lines
+            else None
+        )
+
+
+    # ── Linux ─────────────────────────────────────────────────────────────
+
+    for line in _linux_display_lines():
+        if (
+                f"[{vid}:{did}]"
+                not in line.lower()
+        ):
+            continue
+
+        name = line.split(
+            ": ",
+            1,
+        )[-1]
+
+        name = re.sub(
+            r"\s*\[[0-9A-Fa-f]{4}:[0-9A-Fa-f]{4}\]",
+            "",
+            name,
+        ).strip()
+
+        return name or None
+
     return None
 
 
-def detect_gpu() -> str:
-    pid = _pci_id()
-    if not pid:
-        name = _gpu_name_from_os(pid)
-        if name:
-            return name
-    if pid in AMBIGUOUS_IDS:
-        name = _gpu_name_from_os(pid)
-        if name:
-            return name
-    if pid in GPU_ID_MAP:
-        return GPU_ID_MAP[pid]
-    return f"Unknown GPU ({pid})"
+def detect_gpus(data=None) -> list[str]:
+    """
+    Return all detected GPU names in the same order as the display devices.
+
+    When LHM data is supplied, its GPU-node order is preferred because the
+    Windows sensor readers use that same node list. This keeps names and
+    sensor indexes aligned.
+
+    If LHM does not provide GPU nodes, detection falls back to:
+
+        Windows PowerShell
+        Linux lspci
+        NVIDIA nvidia-smi
+    """
+
+    # ── Prefer LHM GPU node ordering ──────────────────────────────────────
+
+    if data:
+        names = []
+
+        try:
+            for hw in hw_nodes(data):
+                if is_gpu(
+                        hw.get(
+                            "Text",
+                            "",
+                        )
+                ):
+                    text = str(
+                        hw.get(
+                            "Text",
+                            "",
+                        )
+                    ).strip()
+
+                    if text:
+                        names.append(text)
+
+        except Exception:
+            names = []
+
+        if names:
+            return names
 
 
-def detect_vram_type(gpu_name: str) -> str:
+    # ── OS/command discovery ─────────────────────────────────────────────
+
+    devices = _pci_devices()
+
+    if devices:
+        result = []
+
+        for vid, did, os_name in devices:
+            pid = f"{vid}:{did}"
+
+            if pid in AMBIGUOUS_IDS:
+                name = (
+                        _gpu_name_from_os(pid)
+                        or os_name
+                )
+            else:
+                name = (
+                        GPU_ID_MAP.get(pid)
+                        or os_name
+                        or _gpu_name_from_os(pid)
+                )
+
+            result.append(
+                name
+                or f"Unknown GPU ({pid})"
+            )
+
+        return result
+
+
+    return _command_gpu_names()
+
+
+def _pci_id(
+        index: int = 0,
+) -> Optional[str]:
+    """
+    Return a PCI ID for the requested GPU index.
+
+    Indexes other than zero preserve OS discovery order. Index zero keeps
+    the old vendor-priority behaviour for compatibility with detect_gpu().
+    """
+    devices = _pci_devices()
+
+    if not devices:
+        return None
+
+
+    if index != 0:
+        if not (
+                0 <= index < len(devices)
+        ):
+            return None
+
+        return (
+            f"{devices[index][0]}:"
+            f"{devices[index][1]}"
+        )
+
+
+    ranked = [
+        (
+            _vendor_priority(
+                vid,
+                name,
+            ),
+            f"{vid}:{did}",
+        )
+        for vid, did, name in devices
+    ]
+
+    ranked.sort(
+        key=lambda item: item[0]
+    )
+
+    return (
+        ranked[0][1]
+        if ranked
+        else None
+    )
+
+
+def detect_gpu(
+        index: int = 0,
+) -> str:
+    """
+    Return one GPU name.
+
+    index is zero-based.
+    """
+    names = detect_gpus()
+
+    if 0 <= index < len(names):
+        return names[index]
+
+
+    pid = _pci_id(index)
+
+    if pid:
+        name = _gpu_name_from_os(pid)
+
+        if name:
+            return name
+
+        if pid in GPU_ID_MAP:
+            return GPU_ID_MAP[pid]
+
+        return f"Unknown GPU ({pid})"
+
+
+    return f"Unknown GPU ({index})"
+
+
+def detect_vram_type(
+        gpu_name: str,
+) -> str:
     n = gpu_name.lower()
-    if any(x in n for x in ["5090", "5080", "5070", "5060"]):
+
+    if any(
+            x in n
+            for x in [
+                "5090",
+                "5080",
+                "5070",
+                "5060",
+            ]
+    ):
         return "GDDR7"
-    if any(x in n for x in ["4090", "4080", "3090", "3080"]):
+
+    if any(
+            x in n
+            for x in [
+                "4090",
+                "4080",
+                "3090",
+                "3080",
+            ]
+    ):
         return "GDDR6X"
-    if any(x in n for x in ["rx 9", "rx9", "rx 7", "rx7", "rx 6", "rx6", "rx 5", "rx5"]):
-        return "GDDR6"
-    if any(x in n for x in ["1080"]):
+
+    if any(
+            x in n
+            for x in [
+                "1080 ti",
+                "1080",
+            ]
+    ):
         return "GDDR5X"
+
+    if any(
+            x in n
+            for x in [
+                "1070",
+                "1060",
+                "1050",
+                "1650",
+                "1660",
+                "980",
+                "970",
+                "960",
+                "rx 580",
+                "rx 570",
+                "rx 480",
+            ]
+    ):
+        return "GDDR5"
+
+    if any(
+            x in n
+            for x in [
+                "rx 9",
+                "rx9",
+                "rx 7",
+                "rx7",
+                "rx 6",
+                "rx6",
+                "rx 5",
+                "rx5",
+                "rtx",
+            ]
+    ):
+        return "GDDR6"
+
     return "GDDR6"
 
 
 # ── LHM readers ───────────────────────────────────────────────────────────────
 
-def get_gpu_temp(data) -> int:
-    if sys.platform != "win32":
-        return _linux_gpu_stat("temp")
-    best = None
+def _gpu_nodes(data) -> list[dict]:
     try:
-        for hw in hw_nodes(data):
-            if not is_gpu(hw.get("Text", "")):
-                continue
-            for cat in hw.get("Children", []):
-                if "temperature" not in cat.get("Text", "").lower():
+        return [
+            hw
+            for hw in hw_nodes(data)
+            if is_gpu(
+                hw.get(
+                    "Text",
+                    "",
+                )
+            )
+        ]
+    except Exception:
+        return []
+
+
+def _selected_gpu_nodes(
+        data,
+        index: int,
+) -> list[dict]:
+    nodes = _gpu_nodes(data)
+
+    if 0 <= index < len(nodes):
+        return [nodes[index]]
+
+    return []
+
+
+def get_gpu_temp(
+        data,
+        index: int = 0,
+) -> int:
+    if sys.platform != "win32":
+        return _linux_gpu_stat(
+            "temp",
+            index,
+        )
+
+    try:
+        for hw in _selected_gpu_nodes(
+                data,
+                index,
+        ):
+            for cat in hw.get(
+                    "Children",
+                    [],
+            ):
+                if (
+                        "temperature"
+                        not in cat.get(
+                    "Text",
+                    "",
+                ).lower()
+                ):
                     continue
-                for sensor in cat.get("Children", []):
-                    st = sensor.get("Text", "").lower()
-                    if "distance" in st or "memory" in st:
+
+                for sensor in cat.get(
+                        "Children",
+                        [],
+                ):
+                    st = sensor.get(
+                        "Text",
+                        "",
+                    ).lower()
+
+                    if (
+                            "distance" in st
+                            or "memory" in st
+                    ):
                         continue
-                    if "gpu core" in st or "gpu temperature" in st:
+
+                    if (
+                            "gpu core" in st
+                            or "gpu temperature" in st
+                    ):
                         try:
-                            best = numeric(sensor.get("Value", 0))
+                            return int(
+                                numeric(
+                                    sensor.get(
+                                        "Value",
+                                        0,
+                                    )
+                                )
+                            )
                         except ValueError:
                             pass
+
     except Exception:
         pass
-    return int(best) if best is not None else 0
 
-
-def get_gpu_power(data) -> int:
-    if sys.platform != "win32":
-        return _linux_gpu_stat("power")
-    try:
-        for hw in hw_nodes(data):
-            if not is_gpu(hw.get("Text", "")):
-                continue
-            for cat in hw.get("Children", []):
-                if "power" not in cat.get("Text", "").lower():
-                    continue
-                for sensor in cat.get("Children", []):
-                    st = sensor.get("Text", "").lower()
-                    if any(x in st for x in ("gpu package", "gpu total", "board power")):
-                        try:
-                            return int(numeric(sensor.get("Value", 0)))
-                        except ValueError:
-                            pass
-    except Exception:
-        pass
     return 0
 
 
-def get_gpu_load(data) -> int:
+def get_gpu_power(
+        data,
+        index: int = 0,
+) -> int:
     if sys.platform != "win32":
-        return _linux_gpu_stat("load")
+        return _linux_gpu_stat(
+            "power",
+            index,
+        )
+
     try:
-        for hw in hw_nodes(data):
-            if not is_gpu(hw.get("Text", "")):
-                continue
-            for cat in hw.get("Children", []):
-                if "load" not in cat.get("Text", "").lower():
+        for hw in _selected_gpu_nodes(
+                data,
+                index,
+        ):
+            for cat in hw.get(
+                    "Children",
+                    [],
+            ):
+                if (
+                        "power"
+                        not in cat.get(
+                    "Text",
+                    "",
+                ).lower()
+                ):
                     continue
-                for sensor in cat.get("Children", []):
-                    if "gpu core" in sensor.get("Text", "").lower():
+
+                for sensor in cat.get(
+                        "Children",
+                        [],
+                ):
+                    st = sensor.get(
+                        "Text",
+                        "",
+                    ).lower()
+
+                    if any(
+                            x in st
+                            for x in (
+                                    "gpu package",
+                                    "gpu total",
+                                    "board power",
+                                    "gpu power",
+                                    "power",
+                            )
+                    ):
                         try:
-                            return int(numeric(sensor.get("Value", 0)))
+                            val = numeric(
+                                sensor.get(
+                                    "Value",
+                                    0,
+                                )
+                            )
+                            if val > 0:
+                                return int(val)
                         except ValueError:
                             pass
+
     except Exception:
         pass
+
+    return _nvidia_smi_stat("power", index)
+
+
+def get_gpu_load(
+        data,
+        index: int = 0,
+) -> int:
+    if sys.platform != "win32":
+        return _linux_gpu_stat(
+            "load",
+            index,
+        )
+
+    try:
+        for hw in _selected_gpu_nodes(
+                data,
+                index,
+        ):
+            for cat in hw.get(
+                    "Children",
+                    [],
+            ):
+                if (
+                        "load"
+                        not in cat.get(
+                    "Text",
+                    "",
+                ).lower()
+                ):
+                    continue
+
+                for sensor in cat.get(
+                        "Children",
+                        [],
+                ):
+                    if (
+                            "gpu core"
+                            in sensor.get(
+                        "Text",
+                        "",
+                    ).lower()
+                    ):
+                        try:
+                            return int(
+                                numeric(
+                                    sensor.get(
+                                        "Value",
+                                        0,
+                                    )
+                                )
+                            )
+                        except ValueError:
+                            pass
+
+    except Exception:
+        pass
+
     return 0
 
 
-# ── Linux fallback ────────────────────────────────────────────────────────────
+# ── Linux / command fallbacks ─────────────────────────────────────────────────
 
-def _linux_gpu_stat(kind: str) -> int:
+def _nvidia_smi_stat(
+        kind: str,
+        index: int,
+) -> int:
+    query = {
+        "temp": "temperature.gpu",
+        "power": "power.draw",
+        "load": "utilization.gpu",
+    }.get(kind)
+
+    if not query:
+        return 0
+
+    rows = _command_lines(
+        [
+            "nvidia-smi",
+            f"--query-gpu={query}",
+            "--format=csv,noheader,nounits",
+        ]
+    )
+
+    if not (
+            0 <= index < len(rows)
+    ):
+        return 0
+
+    try:
+        cleaned = re.sub(
+            r"[^0-9.+-]",
+            "",
+            rows[index],
+        )
+
+        return int(
+            float(cleaned)
+        )
+
+    except ValueError:
+        return 0
+
+
+def _linux_gpu_stat(
+        kind: str,
+        index: int = 0,
+) -> int:
     import glob
-    for card in glob.glob("/sys/class/drm/card*/device"):
+
+    cards = sorted(
+        glob.glob(
+            "/sys/class/drm/card*/device"
+        )
+    )
+
+
+    if 0 <= index < len(cards):
+        card = cards[index]
+
+
         if kind == "temp":
-            for hwmon in glob.glob(f"{card}/hwmon/hwmon*"):
+            for hwmon in glob.glob(
+                    f"{card}/hwmon/hwmon*"
+            ):
                 try:
-                    v = int(open(f"{hwmon}/temp1_input").read().strip())
-                    return v // 1000
-                except (OSError, ValueError):
+                    return (
+                            int(
+                                open(
+                                    f"{hwmon}/temp1_input"
+                                ).read().strip()
+                            )
+                            // 1000
+                    )
+
+                except (
+                        OSError,
+                        ValueError,
+                ):
                     pass
+
+
         elif kind == "power":
-            for hwmon in glob.glob(f"{card}/hwmon/hwmon*"):
-                for pf in ("power1_average", "power1_input"):
+            for hwmon in glob.glob(
+                    f"{card}/hwmon/hwmon*"
+            ):
+                for power_file in (
+                        "power1_average",
+                        "power1_input",
+                ):
                     try:
-                        v = int(open(f"{hwmon}/{pf}").read().strip())
-                        return v // 1_000_000
-                    except (OSError, ValueError):
+                        return (
+                                int(
+                                    open(
+                                        f"{hwmon}/{power_file}"
+                                    ).read().strip()
+                                )
+                                // 1_000_000
+                        )
+
+                    except (
+                            OSError,
+                            ValueError,
+                    ):
                         pass
+
+
         elif kind == "load":
             try:
-                return int(open(f"{card}/gpu_busy_percent").read().strip())
-            except (OSError, ValueError):
+                return int(
+                    open(
+                        f"{card}/gpu_busy_percent"
+                    ).read().strip()
+                )
+
+            except (
+                    OSError,
+                    ValueError,
+            ):
                 pass
-    return 0
+
+
+    return _nvidia_smi_stat(
+        kind,
+        index,
+    )

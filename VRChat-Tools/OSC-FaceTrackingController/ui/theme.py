@@ -590,7 +590,7 @@ def accent_button_qss() -> str:
     mention QPushButton at all. Setting the style directly on the button
     itself (this function) sidesteps the issue entirely."""
     return (
-        f"QPushButton {{ background-color: {ACCENT}; color: {BG}; "
+        f"QPushButton {{ background-color: {PANEL}; color: {ACCENT}; "
         f"border: none; border-radius: 3px; padding: 6px 14px; font-weight: bold; }}"
         f"QPushButton:hover {{ background-color: {ACCENT2}; }}"
     )

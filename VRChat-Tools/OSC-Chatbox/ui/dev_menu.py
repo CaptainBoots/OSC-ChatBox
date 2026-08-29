@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QFrame,
 )
 
-from state import AppState
+from core.state import AppState
 from ui import theme
 from ui.theme import qt_font, accent_button_qss
 

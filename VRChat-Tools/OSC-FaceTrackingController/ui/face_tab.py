@@ -5,7 +5,7 @@ Main content tab: connection config, action buttons, and category
 sub-tabs of facial-parameter sliders.
 """
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QComboBox, QSlider, QTabWidget, QScrollArea,
@@ -101,31 +101,29 @@ class FaceTab(StripeBackground):
         outer.addLayout(conn_row)
 
         # ── Action row ────────────────────────────────────────────────────────
+        # Start/Stop/Restart styled identically across the whole suite: the
+        # app-wide default QPushButton look (no accent override), consistent
+        # 110px minimum width, and the same ▶ ■ ↺ icon set as OSC-Chatbox.
         btn_row = QHBoxLayout()
 
-        self._start_btn = QPushButton("Start")
-        self._start_btn.setStyleSheet(theme.accent_button_qss())
-        self._start_btn.setFont(theme.qt_font(9, bold=True))
-        self._start_btn.setCursor(Qt.PointingHandCursor)
-        self._start_btn.clicked.connect(self._start_connection)
-        btn_row.addWidget(self._start_btn)
+        for text, cmd in (
+                ("▶  Start",   self._start_connection),
+                ("■  Stop",    lambda: self._stop_connection()),
+                ("↺  Restart", self._restart_connection),
+        ):
+            b = QPushButton(text)
+            b.setFont(theme.qt_font(10, bold=True))
+            b.setMinimumWidth(110)
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(cmd)
+            btn_row.addWidget(b)
 
-        self._stop_btn = QPushButton("Stop")
-        self._stop_btn.setStyleSheet(theme.subtle_button_qss())
-        self._stop_btn.setFont(theme.qt_font(9, bold=True))
-        self._stop_btn.setCursor(Qt.PointingHandCursor)
-        self._stop_btn.clicked.connect(self._stop_connection)
-        btn_row.addWidget(self._stop_btn)
-
-        self._restart_btn = QPushButton("Restart")
-        self._restart_btn.setStyleSheet(theme.subtle_button_qss())
-        self._restart_btn.setFont(theme.qt_font(9, bold=True))
-        self._restart_btn.setCursor(Qt.PointingHandCursor)
-        self._restart_btn.clicked.connect(self._restart_connection)
-        btn_row.addWidget(self._restart_btn)
+        self._start_btn = btn_row.itemAt(0).widget()
+        self._stop_btn = btn_row.itemAt(1).widget()
+        self._restart_btn = btn_row.itemAt(2).widget()
 
         reset_btn = QPushButton("Reset All")
-        reset_btn.setStyleSheet(theme.subtle_button_qss())
+        reset_btn.setStyleSheet(theme.accent_button_qss())
         reset_btn.setFont(theme.qt_font(9, bold=True))
         reset_btn.setCursor(Qt.PointingHandCursor)
         reset_btn.clicked.connect(self._reset_all)
@@ -315,11 +313,11 @@ class FaceTab(StripeBackground):
         if set_status:
             self._set_stopped()
         else:
-            self._update_connection_buttons()
+            self._notify_status_listeners()
 
     def _restart_connection(self):
         self._stop_connection(set_status=False)
-        self._start_connection()
+        QTimer.singleShot(1200, self._start_connection)
 
     def _send(self, param: str, value: float):
         self._client.send(self._prefix_entry.text(), param, value)
@@ -333,17 +331,19 @@ class FaceTab(StripeBackground):
             self._status_lbl.setText("Status: Error")
             self._status_lbl.setStyleSheet(f"color: {theme.RED}; background: transparent; border: none;")
             self._footer_detail.setText(f"Error: {detail}" if detail else "Error")
-        self._update_connection_buttons()
+        self._notify_status_listeners()
 
     def _set_stopped(self):
         self._status_lbl.setText("Status: Stopped")
         self._status_lbl.setStyleSheet(f"color: {theme.RED}; background: transparent; border: none;")
         self._footer_detail.setText("Stopped")
-        self._update_connection_buttons()
+        self._notify_status_listeners()
 
-    def _update_connection_buttons(self):
-        self._start_btn.setEnabled(not self._client.connected)
-        self._stop_btn.setEnabled(self._client.connected)
+    def _notify_status_listeners(self):
+        """Start/Stop/Restart are always clickable — clicking Start while
+        already connected, or Stop while already stopped, is a harmless
+        no-op, same as every other tool in the suite. This just fans the
+        status change out to listeners (the Stretch Face tab's chip)."""
         for listener in self._status_listeners:
             listener()
 

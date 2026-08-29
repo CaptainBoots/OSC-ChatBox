@@ -11,7 +11,7 @@ import json
 import os
 import sys
 
-from state import (
+from core.state import (
     DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY,
 )
 
@@ -55,12 +55,12 @@ DEFAULT_PAGES = [
                 {"module": "cpu_power"},
             ]},
             {"modules": [
-                {"module": "gpu_name"},
-                {"module": "gpu_load"},
+                {"module": "gpu_name", "text": "0"},
+                {"module": "gpu_load", "text": "0"},
             ]},
             {"modules": [
-                {"module": "gpu_temp"},
-                {"module": "gpu_power"},
+                {"module": "gpu_temp", "text": "0"},
+                {"module": "gpu_power", "text": "0"},
             ]},
         ],
     },
@@ -71,7 +71,7 @@ DEFAULT_PAGES = [
             {"module": "custom_text", "text": "Memory"},
             {"module": "time"},
             {"module": "ram_used_of_total"},
-            {"module": "vram_used_of_total"},
+            {"module": "vram_used_of_total", "text": "0"},
             {"module": "media_progress"},
             {"module": "media_title"},
         ],
@@ -163,15 +163,15 @@ def get_defaults() -> dict:
         "temp_var1":       "space block",
         "lhm_api":         "http://localhost:8085/data.json",
         "location":        "0,0",
-        "slow_mode":       False,
+        "slow_mode":      False,
         "speed_mode":      False,
         "media_title_trim": True,
-        "cat_mode":        False,
+        "cat_mode":       False,
         "progress_filled": DEFAULT_PROGRESS_FILLED,
         "progress_border": DEFAULT_PROGRESS_BORDER,
         "progress_empty":  DEFAULT_PROGRESS_EMPTY,
         "theme_mode":      "new",
-        "lhm_prompt":      "ask",   # "ask" | "always" | "never"
+        "lhm_prompt":      "ask",
         "pages":           DEFAULT_PAGES,
     }
 
@@ -196,22 +196,52 @@ def _default_interface() -> str:
 
 def load_config() -> dict:
     defaults = get_defaults()
+
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             loaded = json.load(f)
+
         merged = {**defaults, **loaded}
-        # Ensure pages list always exists and has duration on each page
+
         if not isinstance(merged.get("pages"), list) or not merged["pages"]:
             merged["pages"] = DEFAULT_PAGES
         else:
             for page in merged["pages"]:
                 if "duration" not in page:
                     page["duration"] = 20
+
                 if "slots" not in page:
                     page["slots"] = []
+
                 if "enabled" not in page:
                     page["enabled"] = True
+
+                # GPU and VRAM modules use their inline text field as a
+                # zero-based GPU index.
+                for slot in page.get("slots", []):
+                    if not isinstance(slot, dict):
+                        continue
+
+                    modules = slot.get("modules")
+
+                    if modules is None:
+                        modules = [slot]
+
+                    for sub_slot in modules or []:
+                        if not isinstance(sub_slot, dict):
+                            continue
+
+                        module_id = str(sub_slot.get("module", ""))
+
+                        if (
+                                module_id.startswith("gpu_")
+                                or module_id.startswith("vram_")
+                        ):
+                            if not str(sub_slot.get("text", "")).strip():
+                                sub_slot["text"] = "0"
+
         return merged
+
     except (FileNotFoundError, json.JSONDecodeError):
         return defaults
 
