@@ -96,30 +96,22 @@ class BrowserTab(StripeBackground):
         outer.addLayout(cfg_row)
 
         # ── Button row (actions + Help/Settings) ─────────────────────────────
-        # Matching the other tools: control buttons on the left, Help/Settings
-        # right-aligned on their own row — not crammed into the config row,
-        # and not tucked away as small icons in a bottom footer.
+        # Matching the other tools exactly: Start / Stop / Restart using the
+        # app-wide default QPushButton style (no per-button background
+        # override), Help/Settings right-aligned on the same row.
         btn_row = QHBoxLayout()
 
-        listen_btn = QPushButton("▶  Listen")
-        listen_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {theme.ACCENT}; color: {theme.BG}; border: none; padding: 6px 14px; }}"
-            f"QPushButton:hover {{ background-color: {theme.ACCENT2}; }}"
-        )
-        listen_btn.setFont(theme.qt_font(10, bold=True))
-        listen_btn.setCursor(Qt.PointingHandCursor)
-        listen_btn.clicked.connect(self._start)
-        btn_row.addWidget(listen_btn)
-
-        stop_btn = QPushButton("■  Stop")
-        stop_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {theme.PANEL}; color: {theme.TEXT}; border: none; padding: 6px 14px; }}"
-            f"QPushButton:hover {{ background-color: {theme.BORDER}; }}"
-        )
-        stop_btn.setFont(theme.qt_font(10, bold=True))
-        stop_btn.setCursor(Qt.PointingHandCursor)
-        stop_btn.clicked.connect(self._stop)
-        btn_row.addWidget(stop_btn)
+        for text, cmd in (
+                ("▶  Start",   self._start),
+                ("■  Stop",    self._stop),
+                ("↺  Restart", self._restart),
+        ):
+            b = QPushButton(text)
+            b.setFont(theme.qt_font(10, bold=True))
+            b.setMinimumWidth(110)
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(cmd)
+            btn_row.addWidget(b)
 
         clear_btn = QPushButton("Clear Data")
         clear_btn.setStyleSheet(theme.subtle_button_qss())
@@ -294,6 +286,13 @@ class BrowserTab(StripeBackground):
         self._dot.setStyleSheet(f"color: {theme.RED}; background: transparent; border: none;")
         self._status_lbl.setText("Status: Stopped")
         self._status_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+
+    def _restart(self):
+        self._status_lbl.setText("Status: Restarting...")
+        self._status_lbl.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+        self._stop()
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(1200, self._start)
 
     def _clear(self):
         self._params.clear()

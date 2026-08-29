@@ -14,8 +14,8 @@ from PySide6.QtWidgets import (
 )
 
 from config import normalize_char
-from state import DEFAULT_SLEEP, SLOW_SLEEP, SPEED_SLEEP
-from state import DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY
+from core.state import SLOW_SLEEP, SPEED_SLEEP
+from core.state import DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY
 from ui.circle_toggle import CircleToggle
 from ui.dev_menu import open_dev_menu
 from ui import theme

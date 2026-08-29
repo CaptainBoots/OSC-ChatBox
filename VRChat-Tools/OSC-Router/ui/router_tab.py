@@ -67,9 +67,9 @@ class RouterTab(StripeBackground):
         bf.setContentsMargins(0, 4, 0, 4)
 
         for text, cmd, fg in (
-                ("▶  Start",   self._start_cb,   theme.GREEN),
-                ("■  Stop",    self._stop_cb,    theme.RED),
-                ("↺  Restart", self._restart_cb, theme.ACCENT2),
+                ("▶  Start",   self._start_cb,   theme.ACCENT),
+                ("■  Stop",    self._stop_cb,    theme.ACCENT),
+                ("↺  Restart", self._restart_cb, theme.ACCENT),
         ):
             b = QPushButton(text)
             b.setFont(theme.qt_font(10, bold=True))

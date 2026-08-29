@@ -1,4 +1,28 @@
+"""
+main.py
+───────
+Entry point for OSC-ScriptMaker.
+"""
 
-VERSION = "0.0.0"
+import sys
 
-print("placeholder")
+from PySide6.QtWidgets import QApplication
+
+VERSION = "0.2.0"
+
+
+def main():
+    app = QApplication(sys.argv)
+
+    from ui import theme
+    app.setStyleSheet(theme.qss())
+
+    from ui.app import App
+    window = App()
+    window.show()
+
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
