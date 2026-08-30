@@ -18,6 +18,8 @@ from core.state import SLOW_SLEEP, SPEED_SLEEP
 from core.state import DEFAULT_PROGRESS_FILLED, DEFAULT_PROGRESS_BORDER, DEFAULT_PROGRESS_EMPTY
 from ui.circle_toggle import CircleToggle
 from ui.dev_menu import open_dev_menu
+from ui.media_priority_section import build_priority_list
+from ui.spotify_section import build_spotify_section
 from ui import theme
 from ui.theme import THEMES, THEME_LABELS, colour_mode
 
@@ -38,7 +40,7 @@ def _hline(parent_layout):
     parent_layout.addWidget(line)
 
 
-def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity_cb):
+def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity_cb, spotify_ctx):
     dlg = QDialog(parent)
     dlg.setWindowTitle("Settings")
     dlg.resize(parent.size())
@@ -179,6 +181,63 @@ def open_settings(parent, state, cfg: dict, save_cb, reset_cb, theme_cb, opacity
             theme_body.hide()
 
     theme_header.mousePressEvent = _toggle_theme_body
+
+    # ── Media (collapsible) ───────────────────────────────────────────────
+    # Same collapsed-by-default pattern as Themes above — Player Priority
+    # (reorderable list) and Spotify (connect/disconnect) both live inside
+    # this one section since they're both "how media info gets picked",
+    # not two separate concerns.
+    media_header = QWidget()
+    media_header.setCursor(Qt.PointingHandCursor)
+    media_header_layout = QHBoxLayout(media_header)
+    media_header_layout.setContentsMargins(0, 8, 0, 0)
+
+    media_arrow_lbl = QLabel("▶")
+    media_arrow_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
+    media_arrow_lbl.setFont(theme.qt_font(12, bold=True))
+    media_header_layout.addWidget(media_arrow_lbl)
+
+    media_lbl = QLabel("  Media")
+    media_lbl.setStyleSheet(f"color: {theme.ACCENT2}; background: transparent; border: none;")
+    media_lbl.setFont(theme.qt_font(12, bold=True))
+    media_header_layout.addWidget(media_lbl)
+    media_header_layout.addStretch(1)
+
+    inner_layout.addWidget(media_header)
+
+    media_body = QWidget()
+    media_body_layout = QVBoxLayout(media_body)
+    media_body_layout.setContentsMargins(20, 4, 0, 0)
+    inner_layout.addWidget(media_body)
+    media_body.hide()
+
+    priority_heading = QLabel("Player Priority")
+    priority_heading.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
+    priority_heading.setFont(theme.qt_font(9, bold=True))
+    media_body_layout.addWidget(priority_heading)
+
+    build_priority_list(media_body_layout, cfg, save_cb)
+
+    media_body_layout.addSpacing(16)
+    _hline(media_body_layout)
+    media_body_layout.addSpacing(8)
+
+    spotify_heading = QLabel("Spotify")
+    spotify_heading.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
+    spotify_heading.setFont(theme.qt_font(9, bold=True))
+    media_body_layout.addWidget(spotify_heading)
+
+    build_spotify_section(media_body_layout, dlg, cfg, save_cb, spotify_ctx)
+
+    def _toggle_media_body(_evt=None):
+        if media_body.isVisible():
+            media_arrow_lbl.setText("▶")
+            media_body.hide()
+        else:
+            media_arrow_lbl.setText("▼")
+            media_body.show()
+
+    media_header.mousePressEvent = _toggle_media_body
 
     # ── Background Transparency slider ───────────────────────────────────
     inner_layout.addSpacing(20)  # was a spacing-only _section_label("") call

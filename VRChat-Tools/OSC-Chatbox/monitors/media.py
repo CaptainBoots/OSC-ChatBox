@@ -5,6 +5,7 @@ import subprocess
 import sys
 from typing import Optional
 
+from core import media_registry
 
 # ── Platform import ───────────────────────────────────────────────────────────
 if sys.platform == "win32":
@@ -23,34 +24,71 @@ _LAST_PLAYING_SOURCE: Optional[str] = None
 
 # ── Priority Configuration ────────────────────────────────────────────────────
 # Apps ordered by strict preference. If multiple items are playing simultaneously,
-# items appearing earlier in this list will take precedence.
-PRIORITY_ORDER = [
-    # 1. Dedicated Music Apps
-    "spotify", "itunes", "applemusic", "tidal", "deezer", "foobar2000", "winamp", "musicbee", "aimp",
+# items appearing earlier in this list take precedence.
+#
+# Defaults to core/media_registry.py's built-in order; Settings -> Media lets
+# the person drag this into any order they want, via set_priority_order()
+# below. Anything in the registry that's missing from a custom order (e.g.
+# a newly-added registry entry the person's saved order predates) is appended
+# at the end automatically, so old saved orders never silently drop entries.
+_PRIORITY_ORDER: list[str] = media_registry.default_order()
 
-    # 2. Web Browsers
-    "firefox", "308046b0", "chrome", "googlechrome", "msedge", "edge", "brave", "opera", "vivaldi", "waterfox", "librewolf",
 
-    # 3. Video & Media Players
-    "vlc", "mpc-hc", "mpchc", "mpv", "potplayer", "plex", "netflix", "primevideo",
+def set_priority_order(order: list[str] | None):
+    """Called once at Start (reading cfg["media_priority_order"]) and again
+    live whenever the person reorders the list in Settings — no restart
+    needed, fetch() reads _PRIORITY_ORDER fresh on every call."""
+    global _PRIORITY_ORDER
+    if not order:
+        _PRIORITY_ORDER = media_registry.default_order()
+        return
+    known = set(media_registry.default_order())
+    ordered = [k for k in order if k in known]
+    missing = [k for k in media_registry.default_order() if k not in ordered]
+    _PRIORITY_ORDER = ordered + missing
 
-    # 4. Communication Utilities
-    "discord", "telegram", "whatsapp",
 
-    # 5. Native OS Players
-    "zune", "microsoft.windows.music", "microsoft.zunevideo",
-]
+def get_priority_order() -> list[str]:
+    return list(_PRIORITY_ORDER)
+
+
+# ── Spotify Web API integration ──────────────────────────────────────────────
+# Optional — only used once the person connects Spotify in Settings -> Media
+# -> Spotify. Provides "now playing" data straight from Spotify's own API,
+# which works identically on every OS and doesn't depend on Spotify (or a
+# browser tab) registering an SMTC/MPRIS session at all — see the Settings
+# section's docstring for why that matters.
+_spotify_session_provider = None  # callable -> core.spotify_api.SpotifySession | None
+
+
+def set_spotify_session_provider(provider):
+    global _spotify_session_provider
+    _spotify_session_provider = provider
+
+
+def _spotify_candidate() -> Optional[dict]:
+    if _spotify_session_provider is None:
+        return None
+    session = _spotify_session_provider()
+    if session is None:
+        return None
+    info = session.get_currently_playing_cached()
+    if info is None:
+        return None
+    return info
 
 
 def _get_priority_score(raw_id: str) -> int:
     """Returns an integer representing priority. Lower numbers = Higher priority."""
     if not raw_id:
-        return len(PRIORITY_ORDER) + 1
-    raw_lower = raw_id.lower()
-    for index, key in enumerate(PRIORITY_ORDER):
-        if key in raw_lower:
-            return index
-    return len(PRIORITY_ORDER)  # Default fallback priority
+        return len(_PRIORITY_ORDER) + 1
+    entry_id = media_registry.id_for_raw(raw_id)
+    if entry_id is None:
+        return len(_PRIORITY_ORDER)  # Default fallback priority
+    try:
+        return _PRIORITY_ORDER.index(entry_id)
+    except ValueError:
+        return len(_PRIORITY_ORDER)
 
 
 def empty() -> dict:
@@ -83,23 +121,9 @@ def clean_title(raw: str) -> str:
 def source_name(raw: str) -> str:
     if not raw:
         return ""
-
-    raw_lower = raw.lower()
-
-    # Explicit human-readable conversions
-    mappings = {
-        "firefox": "Firefox", "308046b0": "Firefox",
-        "chrome": "Chrome", "googlechrome": "Chrome",
-        "msedge": "Edge", "edge": "Edge", "brave": "Brave", "opera": "Opera", "vivaldi": "Vivaldi", "waterfox": "Waterfox", "librewolf": "LibreWolf",
-        "spotify": "Spotify", "itunes": "iTunes", "applemusic": "Apple Music", "tidal": "Tidal", "deezer": "Deezer", "foobar2000": "foobar2000", "winamp": "Winamp", "musicbee": "MusicBee", "aimp": "AIMP",
-        "vlc": "VLC", "mpc-hc": "MPC-HC", "mpchc": "MPC-HC", "mpv": "mpv", "potplayer": "PotPlayer", "plex": "Plex", "netflix": "Netflix", "primevideo": "Prime Video",
-        "discord": "Discord", "telegram": "Telegram", "whatsapp": "WhatsApp",
-        "zune": "Windows Media Player", "microsoft.windows.music": "Media Player", "microsoft.zunevideo": "Movies & TV",
-    }
-
-    for key, label in mappings.items():
-        if key in raw_lower:
-            return label
+    entry_id = media_registry.id_for_raw(raw)
+    if entry_id:
+        return media_registry.label_for(entry_id)
 
     # Advanced Regex Cleanup Fallback
     name = raw.split("!")[-1]
@@ -210,87 +234,87 @@ def detail_line(info: dict) -> str:
     return " | ".join(parts)
 
 
-async def fetch() -> dict:
-    global _LAST_PLAYING_SOURCE
-    info = empty()
+async def _windows_candidate() -> Optional[tuple[str, bool, dict]]:
+    """Returns (raw_id, is_playing, info) for whatever SMTC session wins
+    Windows-side priority among ITSELF (not yet compared against Spotify's
+    Web API result — that merge happens in fetch()), or None if nothing's
+    available at all."""
+    if wmc is None:
+        return None
+    try:
+        mgr = await wmc.GlobalSystemMediaTransportControlsSessionManager.request_async()
+        sessions = mgr.get_sessions()
+        if not sessions:
+            return None
 
-    # ── Windows Platform ──────────────────────────────────────────────────────
-    if sys.platform == "win32" and wmc is not None:
-        try:
-            mgr = await wmc.GlobalSystemMediaTransportControlsSessionManager.request_async()
-            sessions = mgr.get_sessions()
-            if not sessions:
-                return info
+        playing_sessions = []
+        paused_sessions = []
 
-            playing_sessions = []
-            paused_sessions = []
+        for s in sessions:
+            raw_id = getattr(s, "source_app_user_model_id", "") or ""
+            playback = s.get_playback_info()
+            status = playback.playback_status if playback else None
 
-            for s in sessions:
-                raw_id = getattr(s, "source_app_user_model_id", "") or ""
-                playback = s.get_playback_info()
-                status = playback.playback_status if playback else None
+            if status == wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PLAYING:
+                playing_sessions.append((s, raw_id))
+            else:
+                paused_sessions.append((s, raw_id))
 
-                if status == wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PLAYING:
-                    playing_sessions.append((s, raw_id))
-                else:
-                    paused_sessions.append((s, raw_id))
+        target_session = None
+        target_raw_id = ""
+        is_playing = False
 
-            target_session = None
+        if playing_sessions:
+            playing_sessions.sort(key=lambda item: _get_priority_score(item[1]))
+            target_session, target_raw_id = playing_sessions[0]
+            is_playing = True
+        elif paused_sessions:
+            for s, raw_id in paused_sessions:
+                if raw_id == _LAST_PLAYING_SOURCE:
+                    target_session, target_raw_id = s, raw_id
+                    break
+            if target_session is None:
+                paused_sessions.sort(key=lambda item: _get_priority_score(item[1]))
+                target_session, target_raw_id = paused_sessions[0]
 
-            # 1. If multiple are playing: Pick the highest priority matching the dictionary list
-            if playing_sessions:
-                playing_sessions.sort(key=lambda item: _get_priority_score(item[1]))
-                target_session = playing_sessions[0][0]
-                # Keep historical record of what was just active
-                _LAST_PLAYING_SOURCE = playing_sessions[0][1]
+        if target_session is None:
+            return None
 
-            # 2. If all are paused: Try to find the one that matches our historical record
-            elif paused_sessions:
-                if _LAST_PLAYING_SOURCE:
-                    for s, raw_id in paused_sessions:
-                        if raw_id == _LAST_PLAYING_SOURCE:
-                            target_session = s
-                            break
+        props    = await target_session.try_get_media_properties_async()
+        timeline = target_session.get_timeline_properties()
+        playback = target_session.get_playback_info()
 
-                # If history doesn't exist or app was closed, fall back to dictionary priority ranking
-                if not target_session:
-                    paused_sessions.sort(key=lambda item: _get_priority_score(item[1]))
-                    target_session = paused_sessions[0][0]
+        info = empty()
+        info["position_ms"] = timeline.position.total_seconds() * 1000
+        info["duration_ms"] = timeline.end_time.total_seconds() * 1000
+        info["is_paused"]   = (
+                playback.playback_status ==
+                wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PAUSED
+        )
+        info["source"] = source_name(target_raw_id)
 
-            if not target_session:
-                return info
+        if props:
+            info["title"]        = clean_value(getattr(props, "title", ""))
+            info["artist"]       = clean_value(getattr(props, "artist", ""))
+            info["album"]        = clean_value(getattr(props, "album_title", ""))
+            info["album_artist"] = clean_value(getattr(props, "album_artist", ""))
+            info["track_number"] = _safe_int(getattr(props, "track_number", None))
+            info["track_count"]  = _safe_int(getattr(props, "album_track_count", None))
 
-            props    = await target_session.try_get_media_properties_async()
-            timeline = target_session.get_timeline_properties()
-            playback = target_session.get_playback_info()
+        return target_raw_id, is_playing, info
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        return None
 
-            info["position_ms"] = timeline.position.total_seconds() * 1000
-            info["duration_ms"] = timeline.end_time.total_seconds() * 1000
-            info["is_paused"]   = (
-                    playback.playback_status ==
-                    wmc.GlobalSystemMediaTransportControlsSessionPlaybackStatus.PAUSED
-            )
-            info["source"] = source_name(getattr(target_session, "source_app_user_model_id", "") or "")
 
-            if props:
-                info["title"]        = clean_value(getattr(props, "title", ""))
-                info["artist"]       = clean_value(getattr(props, "artist", ""))
-                info["album"]        = clean_value(getattr(props, "album_title", ""))
-                info["album_artist"] = clean_value(getattr(props, "album_artist", ""))
-                info["track_number"] = _safe_int(getattr(props, "track_number", None))
-                info["track_count"]  = _safe_int(getattr(props, "album_track_count", None))
-            return info
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-
-    # ── Linux Platform ────────────────────────────────────────────────────────
+def _linux_candidate() -> Optional[tuple[str, bool, dict]]:
     try:
         players = subprocess.check_output(
             ["playerctl", "-l"], encoding="utf-8", stderr=subprocess.DEVNULL, timeout=2
         ).splitlines()
         if not players:
-            return info
+            return None
 
         playing_players = []
         paused_players = []
@@ -307,14 +331,12 @@ async def fetch() -> dict:
                 paused_players.append(p)
 
         player = None
+        is_playing = False
 
-        # 1. If multiple are playing: Pick the highest priority matching the dictionary list
         if playing_players:
             playing_players.sort(key=_get_priority_score)
             player = playing_players[0]
-            _LAST_PLAYING_SOURCE = player
-
-        # 2. If all are paused: Fall back to our last playing history tracker
+            is_playing = True
         elif paused_players:
             if _LAST_PLAYING_SOURCE and _LAST_PLAYING_SOURCE in paused_players:
                 player = _LAST_PLAYING_SOURCE
@@ -323,7 +345,7 @@ async def fetch() -> dict:
                 player = paused_players[0]
 
         if not player:
-            return info
+            return None
 
         out = subprocess.check_output(
             ["playerctl", "-p", player, "metadata", "--format",
@@ -331,23 +353,73 @@ async def fetch() -> dict:
             encoding="utf-8", stderr=subprocess.DEVNULL, timeout=2,
         ).strip().split("\n")
 
+        info = empty()
         if len(out) >= 6:
-            info["title"]       = clean_value(out[0])
-            info["artist"]      = clean_value(out[1])
-            info["album"]       = clean_value(out[2])
+            info["title"]        = clean_value(out[0])
+            info["artist"]       = clean_value(out[1])
+            info["album"]        = clean_value(out[2])
             info["track_number"] = _safe_int(out[3])
-            info["position_ms"] = int(out[4]) / 1000
-            info["duration_ms"] = int(out[5]) / 1000
+            info["position_ms"]  = int(out[4]) / 1000
+            info["duration_ms"]  = int(out[5]) / 1000
             status = subprocess.check_output(
                 ["playerctl", "-p", player, "status"],
                 encoding="utf-8", stderr=subprocess.DEVNULL, timeout=2,
             ).strip().lower()
             info["is_paused"] = (status == "paused")
             info["source"]    = source_name(player)
-    except Exception:
-        pass
 
-    return info
+        return player, is_playing, info
+    except Exception:
+        return None
+
+
+async def fetch() -> dict:
+    """Merges up to two independent candidates — whatever the OS reports
+    (SMTC on Windows / MPRIS on Linux) and, separately, Spotify's own Web
+    API if connected in Settings -> Media -> Spotify — through the exact
+    same playing > last-active-paused > priority-order selection used
+    before this existed, so a connected Spotify account competes fairly
+    against everything else on _PRIORITY_ORDER rather than always winning
+    or being ignored."""
+    global _LAST_PLAYING_SOURCE
+
+    candidates: list[tuple[str, bool, dict]] = []
+
+    if sys.platform == "win32":
+        c = await _windows_candidate()
+    else:
+        c = _linux_candidate()
+    if c is not None:
+        candidates.append(c)
+
+    spotify_info = _spotify_candidate()
+    if spotify_info is not None:
+        candidates.append(("spotify", not spotify_info.get("is_paused", False), spotify_info))
+
+    if not candidates:
+        return empty()
+
+    playing = [c for c in candidates if c[1]]
+    paused  = [c for c in candidates if not c[1]]
+
+    target = None
+    if playing:
+        playing.sort(key=lambda item: _get_priority_score(item[0]))
+        target = playing[0]
+        _LAST_PLAYING_SOURCE = target[0]
+    elif paused:
+        for c in paused:
+            if c[0] == _LAST_PLAYING_SOURCE:
+                target = c
+                break
+        if target is None:
+            paused.sort(key=lambda item: _get_priority_score(item[0]))
+            target = paused[0]
+
+    if target is None:
+        return empty()
+
+    return target[2]
 
 
 def _safe_int(v) -> Optional[int]:

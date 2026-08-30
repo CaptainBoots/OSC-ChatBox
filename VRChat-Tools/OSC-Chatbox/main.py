@@ -2,12 +2,12 @@ import os
 import subprocess
 import sys
 
-VERSION = "8.5.6"
+VERSION = "8.5.7"
 
 # ── Dependency bootstrap ──────────────────────────────────────────────────────
 
 REQUIRED = [
-    "pythonosc",
+    "python-osc",
     "psutil",
     "requests",
     "Pillow",
@@ -32,7 +32,7 @@ def _install(pkg: str):
 def _ensure_deps():
     import importlib
     mappings = {
-        "pythonosc":                          "pythonosc",
+        "python-osc":                         "pythonosc",
         "psutil":                             "psutil",
         "requests":                           "requests",
         "Pillow":                             "PIL",
@@ -356,7 +356,8 @@ if __name__ == "__main__":
     qt_app = QApplication(sys.argv)
     qt_app.setStyleSheet(theme.qss())
 
-    _handle_lhm_startup(cfg, save_config)
+    if sys.platform == "win32":
+        _handle_lhm_startup(cfg, save_config)
 
     from monitors import steamvr, vrchat, channels
     steamvr.start()

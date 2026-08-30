@@ -19,6 +19,7 @@ SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR  = os.path.dirname(SCRIPT_DIR)
 CONFIG_DIR  = os.path.join(PARENT_DIR, "configs")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "chatbox_config.json")
+SPOTIFY_BLOB_FILE = os.path.join(CONFIG_DIR, "spotify_session.blob")
 
 
 DEFAULT_PAGES = [
@@ -173,6 +174,16 @@ def get_defaults() -> dict:
         "theme_mode":      "new",
         "lhm_prompt":      "ask",
         "pages":           DEFAULT_PAGES,
+
+        # Media priority list (Settings -> Media) — None means "use the
+        # built-in default order from core/media_registry.py". Once the
+        # person drags anything, this becomes their saved list of keys.
+        "media_priority_order": None,
+
+        # Spotify (Settings -> Media -> Spotify)
+        "secure_storage_mode":  "keyring",   # "keyring" | "master_password" | "none"
+        "spotify_client_id":    "",
+        "pw_manager_item_name": "OSC-Chatbox Spotify",
     }
 
 

@@ -1,5 +1,5 @@
 """monitors/vrchat.py — tails VRChat output log + listens for OSC feedback."""
-import threading, time, os, re, glob, json
+import threading, time, os, re, glob, json, sys
 
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import BlockingOSCUDPServer
@@ -52,13 +52,71 @@ def _parse_stats(line: str):
     except Exception:
         return None, None
 
+def _log_search_bases() -> list[str]:
+    """
+    Candidate VRChat LocalLow directories to search, in priority order.
+
+    Windows: the real AppData\\LocalLow path.
+    Linux:   VRChat normally runs under Proton, so the log lives inside a
+             Steam compatdata prefix instead. We don't know the exact
+             library location or appid folder ahead of time, so glob
+             across every discoverable Steam library for the standard
+             compatdata layout. Falls back to a native-Linux path too,
+             in case someone's running a non-Proton client under Wine
+             directly or a future native build.
+    """
+    if sys.platform == "win32":
+        return [os.path.expandvars(r"%APPDATA%\..\LocalLow\VRChat\VRChat")]
+
+    bases = []
+
+    # VRChat's Steam appid is 438100 — check the common compatdata locations
+    # directly first (fast path, no globbing needed).
+    home = os.path.expanduser("~")
+    steam_roots = [
+        os.path.join(home, ".steam", "steam"),
+        os.path.join(home, ".local", "share", "Steam"),
+        os.path.join(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam"),  # Flatpak
+    ]
+    for root in steam_roots:
+        bases.append(os.path.join(
+            root, "steamapps", "compatdata", "438100", "pfx",
+            "drive_c", "users", "steamuser", "AppData", "LocalLow", "VRChat", "VRChat",
+        ))
+
+    # Broader fallback: search all Steam library folders (handles custom
+    # library locations on other drives/mounts) for the same relative path.
+    for root in steam_roots:
+        pattern = os.path.join(
+            root, "steamapps", "libraryfolders.vdf",
+        )
+        if os.path.isfile(pattern):
+            try:
+                with open(pattern, "r", encoding="utf-8", errors="ignore") as f:
+                    for m in re.finditer(r'"path"\s+"([^"]+)"', f.read()):
+                        lib_path = m.group(1).replace("\\\\", "/")
+                        bases.append(os.path.join(
+                            lib_path, "steamapps", "compatdata", "438100", "pfx",
+                            "drive_c", "users", "steamuser", "AppData", "LocalLow", "VRChat", "VRChat",
+                        ))
+            except OSError:
+                pass
+
+    # Non-Proton fallback (native Wine prefix, or a future native client).
+    bases.append(os.path.join(home, ".wine", "drive_c", "users", os.environ.get("USER", "steamuser"),
+                              "AppData", "LocalLow", "VRChat", "VRChat"))
+
+    return bases
+
+
 def _find_log() -> str | None:
-    base = os.path.expandvars(r"%APPDATA%\..\LocalLow\VRChat\VRChat")
-    logs = sorted(
-        glob.glob(os.path.join(base, "output_log_*.txt")),
-        key=os.path.getmtime,
-    )
-    return logs[-1] if logs else None
+    all_logs = []
+    for base in _log_search_bases():
+        all_logs.extend(glob.glob(os.path.join(base, "output_log_*.txt")))
+    if not all_logs:
+        return None
+    all_logs.sort(key=os.path.getmtime)
+    return all_logs[-1]
 
 def _poll():
     global _players

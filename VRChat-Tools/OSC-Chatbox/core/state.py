@@ -63,6 +63,12 @@ class AppState:
     media_title_trim:       bool = True
     cat_mode:               bool = False
 
+    # Dev Menu toggle. Deliberately NOT synced to/from cfg (same as
+    # `testing`) — it's a session-only tool, not a persisted preference, so
+    # nobody ends up broadcasting fake VRChat/media data after forgetting
+    # they turned it on last time.
+    fake_data:               bool = False
+
     # ── Progress bar chars ────────────────────────────────────────────────────
     progress_filled: str = DEFAULT_PROGRESS_FILLED
     progress_border: str = DEFAULT_PROGRESS_BORDER
