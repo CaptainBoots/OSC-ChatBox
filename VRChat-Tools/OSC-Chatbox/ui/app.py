@@ -21,9 +21,12 @@ from PySide6.QtWidgets import (
     QApplication,
 )
 
-from config import load_config, save_config, get_defaults
+from config import load_config, save_config, get_defaults, SPOTIFY_BLOB_FILE
 from core.osc_loop import start_loop, stop_loop
+from core.secure_store import SecureStore
 from core.state import AppState
+from core import spotify_api
+from monitors import media as media_mod
 from ui.builder import BuilderTab
 from ui.chatbox_tab import ChatboxTab
 from ui.help_dialog import open_help
@@ -43,6 +46,25 @@ class _LoopBridge(QObject):
     preview_signal = Signal(str)
 
 
+class _SpotifyCtx:
+    """Owns the live Spotify session across Settings dialog open/close —
+    the dialog itself is rebuilt from scratch every time it's opened
+    (see ui/settings_dialog.py), so anything that needs to survive that
+    (the actual connected session) has to live up here in App instead."""
+    def __init__(self, secure_store: SecureStore):
+        self.secure_store = secure_store
+        self._session: spotify_api.SpotifySession | None = None
+
+    def get_session(self):
+        return self._session
+
+    def set_session(self, session):
+        self._session = session
+
+    def status_text(self) -> str:
+        return "Spotify: connected" if self._session is not None else "Spotify: not connected"
+
+
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -57,6 +79,26 @@ class App(QMainWindow):
         self._state.progress_filled  = self._cfg.get("progress_filled", self._state.progress_filled)
         self._state.progress_border  = self._cfg.get("progress_border", self._state.progress_border)
         self._state.progress_empty   = self._cfg.get("progress_empty",  self._state.progress_empty)
+
+        # ── Spotify (Settings -> Media -> Spotify) ──────────────────────────
+        self._spotify_ctx = _SpotifyCtx(SecureStore(SPOTIFY_BLOB_FILE))
+
+        # Only "keyring" mode can restore a saved login silently at launch
+        # with no prompt at all. "master_password" mode unlocks lazily the
+        # first time Settings is opened instead (ui/spotify_section.py) —
+        # popping a password prompt before the person has even opened
+        # Settings would just be a different unwanted popup.
+        if self._cfg.get("secure_storage_mode", "keyring") == "keyring":
+            saved_tokens = self._spotify_ctx.secure_store.load_keyring()
+            if saved_tokens:
+                self._spotify_ctx.set_session(spotify_api.SpotifySession(
+                    self._cfg.get("spotify_client_id", ""),
+                    saved_tokens,
+                    on_tokens_changed=self._spotify_ctx.secure_store.save_keyring,
+                ))
+
+        media_mod.set_priority_order(self._cfg.get("media_priority_order"))
+        media_mod.set_spotify_session_provider(self._spotify_ctx.get_session)
 
         self._bridge = _LoopBridge()
         self._last_status  = "Stopped"
@@ -234,6 +276,7 @@ class App(QMainWindow):
             reset_cb      = self._reset_to_defaults,
             theme_cb      = self._set_theme,
             opacity_cb    = self._set_opacity,
+            spotify_ctx   = self._spotify_ctx,
         )
 
     def _open_help(self):

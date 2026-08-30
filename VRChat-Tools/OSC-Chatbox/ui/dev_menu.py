@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from core.state import AppState
 from ui import theme
+from ui.circle_toggle import CircleToggle
 from ui.theme import qt_font, accent_button_qss
 
 
@@ -76,9 +77,50 @@ def open_dev_menu(parent, state: AppState, cfg: dict, save_cb):
     # Dev sections go here
     # ══════════════════════════════════════════════════════════════════════════
 
+    section("Fake Data Mode")
+
+    fake_frame = QWidget()
+    fake_frame.setStyleSheet(f"background-color: {theme.PANEL}; border: none;")
+    fake_layout = QHBoxLayout(fake_frame)
+    fake_layout.setContentsMargins(24, 4, 24, 4)
+
+    fake_label = QLabel("Broadcast fake hardware/VR/VRChat/media data")
+    fake_label.setStyleSheet(f"color: {theme.TEXT}; background: transparent; border: none;")
+    fake_label.setFont(qt_font(9))
+    fake_layout.addWidget(fake_label)
+    fake_layout.addStretch(1)
+
+    fake_toggle = CircleToggle(enabled=bool(getattr(state, "fake_data", False)), color=theme.ACCENT2)
+
+    def _fake_data_changed(checked):
+        state.fake_data = bool(checked)
+        # Deliberately no save_cb() here — this is session-only, same as
+        # Testing Mode, so it can't accidentally stay on for a real session
+        # after the app restarts.
+
+    fake_toggle.toggled.connect(_fake_data_changed)
+    fake_layout.addWidget(fake_toggle)
+    inner_layout.addWidget(fake_frame)
+
+    fake_hint = QLabel(
+        "Replaces every live reading — CPU/GPU temps, load, power, VRAM, "
+        "SteamVR telemetry, VRChat world/player/avatar, media track, "
+        "weather, and network throughput — with smoothly oscillating fake "
+        "values. Useful for testing pages/layouts without real hardware, a "
+        "headset, or VRChat running.\n\n"
+        "Takes effect on the very next tick while the loop is already "
+        "running. CPU/GPU names only refresh on Stop \u2192 Start, same as "
+        "real detection normally would."
+    )
+    fake_hint.setWordWrap(True)
+    fake_hint.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
+    fake_hint.setFont(qt_font(8))
+    fake_hint.setContentsMargins(24, 0, 24, 8)
+    inner_layout.addWidget(fake_hint)
+
     section("Developer Tools")
 
-    placeholder = QLabel("Dev tools and diagnostics will appear here.")
+    placeholder = QLabel("More dev tools and diagnostics will appear here.")
     placeholder.setStyleSheet(f"color: {theme.SUBTEXT}; background: transparent; border: none;")
     placeholder.setFont(qt_font(9))
     placeholder.setContentsMargins(24, 0, 24, 8)

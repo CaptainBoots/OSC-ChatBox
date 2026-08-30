@@ -95,8 +95,9 @@ HELP_PAGES = [
             "     (default port 8085)\n\n"
             "LHM URL in the config should be:\n"
             "  http://localhost:8085/data.json\n\n"
-            "Without LHM, CPU/GPU stat modules will show N/A\n"
-            "but everything else continues working normally."
+            "LHM is Windows-only. On Linux, CPU/GPU stat modules\n"
+            "read sensors directly from /sys instead and don't\n"
+            "need LHM running at all."
         ),
     },
     {

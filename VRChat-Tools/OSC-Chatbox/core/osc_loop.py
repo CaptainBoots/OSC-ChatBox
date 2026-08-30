@@ -61,6 +61,8 @@ from monitors.weather import fetch as weather_fetch
 from monitors import steamvr, vrchat
 from monitors import channels
 
+from core import fake_data as fake
+
 from core.state import (
     AppState,
     CHATBOX_MAX_CHARS,
@@ -122,7 +124,7 @@ def _run(
         pernic=True
     )
 
-    if interface not in all_stats:
+    if not state.fake_data and interface not in all_stats:
         status_cb(
             f"Error: interface '{interface}' not found"
         )
@@ -141,16 +143,26 @@ def _run(
 
 
     # ── One-time hardware detection ───────────────────────────────────────────
+    #
+    # Fake Data Mode (Dev Menu) is only read here at Start time — CPU/GPU
+    # *names* lock in for the life of this loop run either way, same as
+    # real detection normally would. Toggling the flag later still updates
+    # every per-tick reading (temps/load/power/VRAM/media/VR/VRChat/weather/
+    # network) live, every loop iteration re-checks it — just Stop/Start
+    # again if you also want fake names.
 
-    state.cpu_name = detect_cpu(
-        testing=getattr(
-            state,
-            "testing",
-            False,
+    if state.fake_data:
+        state.cpu_name = fake.cpu_name()
+    else:
+        state.cpu_name = detect_cpu(
+            testing=getattr(
+                state,
+                "testing",
+                False,
+            )
         )
-    )
 
-    state.dram_type = detect_dram_type()
+    state.dram_type = fake.dram_type() if state.fake_data else detect_dram_type()
 
 
     # Get LHM before building the GPU list.
@@ -159,9 +171,9 @@ def _run(
     # that the sensor readers use. If LHM does not contain GPU nodes,
     # detect_gpus() falls back to PowerShell/lspci/nvidia-smi.
 
-    init_lhm = get_lhm_data()
+    init_lhm = None if state.fake_data else get_lhm_data()
 
-    gpu_names = detect_gpus(
+    gpu_names = fake.gpu_names() if state.fake_data else detect_gpus(
         init_lhm
     )
 
@@ -187,15 +199,18 @@ def _run(
                 "temp": 0,
                 "power": 0,
 
-                "vram_type": detect_vram_type(
-                    name
+                "vram_type": (
+                    fake.vram_type(name)
+                    if state.fake_data
+                    else detect_vram_type(name)
                 ),
 
                 "vram_used": 0.0,
 
-                "vram_total": get_vram_total(
-                    init_lhm,
-                    index,
+                "vram_total": (
+                    fake.vram_total(index)
+                    if state.fake_data
+                    else get_vram_total(init_lhm, index)
                 ),
             }
         )
@@ -223,7 +238,7 @@ def _run(
         state.vram_total = "?"
 
 
-    state.dram_total = get_dram_total(
+    state.dram_total = fake.dram_total() if state.fake_data else get_dram_total(
         init_lhm
     )
 
@@ -251,11 +266,12 @@ def _run(
 
     def _poll_lhm():
         while state.running:
-            data = get_lhm_data()
+            if not state.fake_data:
+                data = get_lhm_data()
 
-            if data:
-                with lhm_cache["lock"]:
-                    lhm_cache["data"] = data
+                if data:
+                    with lhm_cache["lock"]:
+                        lhm_cache["data"] = data
 
             time.sleep(
                 _LHM_INTERVAL
@@ -279,7 +295,11 @@ def _run(
     def _poll_media():
         async def _loop():
             while state.running:
-                info = await media_mod.fetch()
+                info = await (
+                    fake.media_fetch()
+                    if state.fake_data
+                    else media_mod.fetch()
+                )
 
                 with media_cache["lock"]:
                     media_cache["info"] = (
@@ -319,19 +339,15 @@ def _run(
 
     # ── Network baseline ──────────────────────────────────────────────────────
 
-    prev_net = all_stats[interface]
+    prev_net = all_stats.get(interface)
     prev_time = time.time()
 
 
     # ── Weather ───────────────────────────────────────────────────────────────
 
     def _do_weather():
-        t, h, d = weather_fetch(
-            cfg.get(
-                "location",
-                "0,0",
-            )
-        )
+        loc = cfg.get("location", "0,0")
+        t, h, d = fake.weather_fetch(loc) if state.fake_data else weather_fetch(loc)
 
         state.update_weather(
             t,
@@ -383,7 +399,7 @@ def _run(
                 lhm_data = lhm_cache["data"]
 
 
-            if lhm_data:
+            if state.fake_data or lhm_data:
 
                 # Read every GPU independently.
                 #
@@ -397,25 +413,31 @@ def _run(
                 ):
                     gpu_copy = dict(gpu)
 
-                    gpu_copy["load"] = get_gpu_load(
-                        lhm_data,
-                        index,
-                    )
+                    if state.fake_data:
+                        gpu_copy["load"]  = fake.gpu_load(index)
+                        gpu_copy["temp"]  = fake.gpu_temp(index)
+                        gpu_copy["power"] = fake.gpu_power(index)
+                        gpu_copy["vram_used"] = fake.vram_used(index)
+                    else:
+                        gpu_copy["load"] = get_gpu_load(
+                            lhm_data,
+                            index,
+                        )
 
-                    gpu_copy["temp"] = get_gpu_temp(
-                        lhm_data,
-                        index,
-                    )
+                        gpu_copy["temp"] = get_gpu_temp(
+                            lhm_data,
+                            index,
+                        )
 
-                    gpu_copy["power"] = get_gpu_power(
-                        lhm_data,
-                        index,
-                    )
+                        gpu_copy["power"] = get_gpu_power(
+                            lhm_data,
+                            index,
+                        )
 
-                    gpu_copy["vram_used"] = get_vram_used(
-                        lhm_data,
-                        index,
-                    )
+                        gpu_copy["vram_used"] = get_vram_used(
+                            lhm_data,
+                            index,
+                        )
 
 
                     if (
@@ -425,9 +447,10 @@ def _run(
                             )
                             == "?"
                     ):
-                        gpu_copy["vram_total"] = get_vram_total(
-                            lhm_data,
-                            index,
+                        gpu_copy["vram_total"] = (
+                            fake.vram_total(index)
+                            if state.fake_data
+                            else get_vram_total(lhm_data, index)
                         )
 
 
@@ -441,16 +464,19 @@ def _run(
                 # to work.
 
                 state.update_hardware(
-                    cpu_temp=get_cpu_temp(
-                        lhm_data
+                    cpu_temp=(
+                        fake.cpu_temp() if state.fake_data
+                        else get_cpu_temp(lhm_data)
                     ),
 
-                    cpu_power=get_cpu_power(
-                        lhm_data
+                    cpu_power=(
+                        fake.cpu_power() if state.fake_data
+                        else get_cpu_power(lhm_data)
                     ),
 
-                    cpu_load=get_cpu_load(
-                        lhm_data
+                    cpu_load=(
+                        fake.cpu_load() if state.fake_data
+                        else get_cpu_load(lhm_data)
                     ),
 
                     gpu_temp=(
@@ -473,8 +499,9 @@ def _run(
 
                     gpus=gpu_stats,
 
-                    dram_used=get_dram_used(
-                        lhm_data
+                    dram_used=(
+                        fake.dram_used() if state.fake_data
+                        else get_dram_used(lhm_data)
                     ),
 
                     vram_used=(
@@ -495,8 +522,9 @@ def _run(
 
 
                 if state.dram_total == "?":
-                    state.dram_total = get_dram_total(
-                        lhm_data
+                    state.dram_total = (
+                        fake.dram_total() if state.fake_data
+                        else get_dram_total(lhm_data)
                     )
 
 
@@ -507,7 +535,7 @@ def _run(
                 up,
                 down,
                 prev_time,
-            ) = net_sample(
+            ) = (fake.network_sample if state.fake_data else net_sample)(
                 prev_net,
                 prev_time,
                 interface,
@@ -558,15 +586,15 @@ def _run(
             # Merge SteamVR and VRChat monitor data.
 
             snap.update(
-                steamvr.snapshot()
+                fake.steamvr_snapshot() if state.fake_data else steamvr.snapshot()
             )
 
             snap.update(
-                vrchat.snapshot()
+                fake.vrchat_snapshot() if state.fake_data else vrchat.snapshot()
             )
 
             snap.update(
-                channels.snapshot()
+                fake.channels_snapshot() if state.fake_data else channels.snapshot()
             )
 
 
