@@ -11,3 +11,8 @@ __pycache__/
 # IDE configurations
 .idea/
 .vscode/
+/CLAUDE.md
+/GEMINI.md
+/VRChat-Tools/configs/
+/VRChat-Tools/LibreHardwareMonitor/
+/VRChat-Tools/VRChat-Toolbox/
