@@ -31,6 +31,7 @@ import time
 import zipfile
 import webbrowser
 import threading
+import ctypes
 
 
 def install_if_missing(package, import_name=None):
@@ -73,7 +74,7 @@ install_if_missing("PySide6", "PySide6")
 import requests
 
 from PySide6.QtCore import Qt, QObject, Signal, Slot, QPointF, QTimer
-from PySide6.QtGui import QPainter, QColor, QPolygonF, QFont, QFontDatabase
+from PySide6.QtGui import QPainter, QColor, QPolygonF, QFont, QFontDatabase, QIcon
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QDialog, QWidget, QLabel, QPushButton,
     QLineEdit, QComboBox, QScrollArea, QVBoxLayout, QHBoxLayout, QGridLayout,
@@ -99,6 +100,10 @@ if getattr(sys, 'frozen', False):
 else:
     SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+CENTRAL_CONFIG_DIR = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+CENTRAL_CONFIG_FILE = os.path.join(CENTRAL_CONFIG_DIR, "toolbox_config.json")
+
+# These will be updated dynamically during bootstrap:
 TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "VRChat-Tools")
 TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "configs")
 TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
@@ -108,6 +113,18 @@ LEGACY_TOOLBOX_CONFIG_FILES = [
     os.path.join(TOOLS_ROOT_DIR, "chatbox_config.json"),
     os.path.join(TOOLS_ROOT_DIR, "toolbox_config.json"),
 ]
+
+def update_layout_paths(tools_root):
+    global TOOLS_ROOT_DIR, TOOLBOX_CONFIG_DIR, TOOLBOX_CONFIG_FILE, BACKUP_DIR, LEGACY_TOOLBOX_CONFIG_FILES
+    TOOLS_ROOT_DIR = os.path.abspath(tools_root)
+    TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "configs")
+    TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
+    BACKUP_DIR = os.path.join(TOOLBOX_CONFIG_DIR, "ToolBox Backup")
+    LEGACY_TOOLBOX_CONFIG_FILES = [
+        os.path.join(TOOLS_ROOT_DIR, "osc_config.json"),
+        os.path.join(TOOLS_ROOT_DIR, "chatbox_config.json"),
+        os.path.join(TOOLS_ROOT_DIR, "toolbox_config.json"),
+    ]
 
 # Legacy per-script folder map, used only to migrate old flat-layout installs
 # (script sitting directly in VRChat-Tools/ instead of its own subfolder).
@@ -648,96 +665,158 @@ def _migrate_legacy_config_folder() -> None:
         print(f"[Layout] Could not migrate legacy config folder: {e}")
 
 
-os.makedirs(TOOLS_ROOT_DIR, exist_ok=True)
 _migrate_legacy_config_folder()
-os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
-
-print(f"[Config] Script directory: {SCRIPT_DIR}")
-print(f"[Config] Config directory: {TOOLBOX_CONFIG_DIR}")
-print(f"[Config] Config file: {TOOLBOX_CONFIG_FILE}")
-
-if UPDATE_BRANCH == "beta":
-    if os.path.exists(TOOLBOX_CONFIG_FILE):
-        try:
-            os.remove(TOOLBOX_CONFIG_FILE)
-            print(f"[Config] Version config change detected. Forced clean reset of: {TOOLBOX_CONFIG_FILE}")
-        except OSError as e:
-            print(f"[Config] Failed to force-delete config: {e}")
-
 
 def load_managed_scripts():
-    global UPDATE_BRANCH, BETA_POPUP_SHOWN, PYTHON_INTERPRETER, colour_mode
+    global UPDATE_BRANCH, BETA_POPUP_SHOWN, PYTHON_INTERPRETER, colour_mode, MANAGED_SCRIPTS, TOOLS_ROOT_DIR
+    
     appdata_toolbox_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
     os.makedirs(appdata_toolbox_dir, exist_ok=True)
     status_file = os.path.join(appdata_toolbox_dir, "run_status.txt")
 
-    if os.path.exists(TOOLBOX_CONFIG_FILE):
+    config_loaded = False
+    config = {}
+
+    # 1. Attempt to load config from central location (AppData\Local\VRChat-ToolBox\toolbox_config.json)
+    if os.path.exists(CENTRAL_CONFIG_FILE):
+        try:
+            with open(CENTRAL_CONFIG_FILE, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            config_loaded = True
+            print(f"[Config] Loaded central configuration from {CENTRAL_CONFIG_FILE}")
+        except Exception as e:
+            print(f"[Config] Error loading central config: {e}")
+            
+    # 2. Fallback / Migration: If no central config exists, check if legacy config exists
+    elif os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
                 config = json.load(f)
-
-            UPDATE_BRANCH = config.get("update_branch", "main")
-            BETA_POPUP_SHOWN = config.get("beta_popup_shown", False)
-            PYTHON_INTERPRETER = config.get("python_interpreter", "")
-            set_theme(config.get("theme_mode", "rich_purple"))
-
-            # Verify the configuration version matches the current app version
-            config_version = config.get("version")
-            if config_version == VERSION:
-                try:
-                    with open(status_file, "w", encoding="utf-8") as f_status:
-                        f_status.write(f"New executable v{VERSION} ran successfully.\n")
-                except Exception as ex:
-                    print(f"[Config] Error writing status file: {ex}")
-                return config.get("managed_scripts", DEFAULT_MANAGED_SCRIPTS)
-            else:
-                print(
-                    f"[Config] Version mismatch (Config: {config_version}, App: {VERSION}). Wiping and regenerating config...")
-                try:
-                    if os.path.isdir(appdata_toolbox_dir):
-                        shutil.rmtree(appdata_toolbox_dir, ignore_errors=True)
-                    os.makedirs(appdata_toolbox_dir, exist_ok=True)
-                    with open(status_file, "w", encoding="utf-8") as f_status:
-                        f_status.write(f"An old executable (v{config_version}) was run previously. Performing clean installation of tools...\n")
-                    print(f"[Config] Wiped and re-created AppData\\\\Local\\\\VRChat-ToolBox directory: {appdata_toolbox_dir}")
-                except Exception as ex:
-                    print(f"[Config] Error during AppData clean installation process: {ex}")
-                
-                QTimer.singleShot(1000, force_update_all_scripts)
+            config_loaded = True
+            print(f"[Config] Migrated legacy configuration from {TOOLBOX_CONFIG_FILE}")
         except Exception as e:
-            print(f"[Config] Error loading config: {e}")
+            print(f"[Config] Error loading legacy config: {e}")
 
-    # First run or failed load
+    # 3. If no config was loaded, this is a first-time run! Ask the user where to install VRChat-Tools
+    if not config_loaded:
+        default_install = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+        
+        # Show setup introduction popup
+        QMessageBox.information(
+            None, "VRChat ToolBox Setup",
+            f"Welcome to VRChat ToolBox!\n\n"
+            f"Please choose where you would like to install your modular VRChat-Tools.\n\n"
+            f"We recommend the default location:\n{default_install}"
+        )
+        
+        chosen_dir = QFileDialog.getExistingDirectory(
+            None, "Select VRChat-Tools Installation Folder",
+            default_install
+        )
+        if not chosen_dir:
+            chosen_dir = default_install
+            
+        print(f"[Config] First run setup. Selected tools installation directory: {chosen_dir}")
+        config = {
+            "version": VERSION,
+            "update_branch": "main",
+            "beta_popup_shown": False,
+            "python_interpreter": "",
+            "theme_mode": "rich_purple",
+            "tools_root_dir": chosen_dir,
+            "managed_scripts": DEFAULT_MANAGED_SCRIPTS
+        }
+        
+    # Read/apply values from the config
+    UPDATE_BRANCH = config.get("update_branch", "main")
+    BETA_POPUP_SHOWN = config.get("beta_popup_shown", False)
+    PYTHON_INTERPRETER = config.get("python_interpreter", "")
+    set_theme(config.get("theme_mode", "rich_purple"))
+    
+    # Dynamically update global tools path and sub-paths!
+    tools_root = config.get("tools_root_dir", os.path.join(SCRIPT_DIR, "VRChat-Tools"))
+    update_layout_paths(tools_root)
+
+    # Verify version matches for upgrade/downgrade detection
+    config_version = config.get("version")
+    if config_version == VERSION:
+        try:
+            with open(status_file, "w", encoding="utf-8") as f_status:
+                f_status.write(f"New executable v{VERSION} ran successfully.\n")
+        except Exception as ex:
+            print(f"[Config] Error writing status file: {ex}")
+    else:
+        # Avoid cleaning AppData on first run (when config_version is None because no config existed)
+        if config_version is not None:
+            print(f"[Config] Version mismatch (Config: {config_version}, App: {VERSION}). Wiping and regenerating config...")
+            try:
+                # Wipe old AppData/Local/VRChat-ToolBox cache (except our config file itself!)
+                for item in os.listdir(appdata_toolbox_dir):
+                    item_path = os.path.join(appdata_toolbox_dir, item)
+                    if item_path == CENTRAL_CONFIG_FILE:
+                        continue
+                    if os.path.isdir(item_path):
+                        shutil.rmtree(item_path, ignore_errors=True)
+                    else:
+                        os.remove(item_path)
+                        
+                with open(status_file, "w", encoding="utf-8") as f_status:
+                    f_status.write(f"An old executable (v{config_version}) was run previously. Performing clean installation of tools...\n")
+                print(f"[Config] Cleaned old AppData cached files in: {appdata_toolbox_dir}")
+            except Exception as ex:
+                print(f"[Config] Error during AppData clean installation process: {ex}")
+            
+            QTimer.singleShot(1000, force_update_all_scripts)
+
+    # Save central config
+    config["version"] = VERSION
+    config["tools_root_dir"] = TOOLS_ROOT_DIR
     try:
-        with open(status_file, "w", encoding="utf-8") as f_status:
-            f_status.write(f"New executable v{VERSION} ran successfully (first run).\n")
-    except Exception as ex:
-        print(f"[Config] Error writing status file: {ex}")
+        os.makedirs(CENTRAL_CONFIG_DIR, exist_ok=True)
+        with open(CENTRAL_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2)
+    except Exception as e:
+        print(f"[Config] Error saving central config at bootstrap: {e}")
 
-    save_managed_scripts(DEFAULT_MANAGED_SCRIPTS)
-    return DEFAULT_MANAGED_SCRIPTS
+    # Enforce beta cleanup
+    if UPDATE_BRANCH == "beta":
+        if os.path.exists(TOOLBOX_CONFIG_FILE):
+            try:
+                os.remove(TOOLBOX_CONFIG_FILE)
+            except OSError:
+                pass
+
+    return config.get("managed_scripts", DEFAULT_MANAGED_SCRIPTS)
 
 
 def save_managed_scripts(scripts):
     try:
-        os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
+        os.makedirs(CENTRAL_CONFIG_DIR, exist_ok=True)
         config = {
             "version": VERSION,
             "update_branch": UPDATE_BRANCH,
             "beta_popup_shown": BETA_POPUP_SHOWN,
             "python_interpreter": PYTHON_INTERPRETER,
             "theme_mode": colour_mode,
+            "tools_root_dir": TOOLS_ROOT_DIR,
             "managed_scripts": scripts
         }
-        with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
+        with open(CENTRAL_CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
-        print(f"[Config] Saved {len(scripts)} managed scripts (v{VERSION}) to {TOOLBOX_CONFIG_FILE}")
+        print(f"[Config] Saved {len(scripts)} managed scripts (v{VERSION}) to {CENTRAL_CONFIG_FILE}")
+        
+        # Also mirror to the local tools root directory for compatibility
+        try:
+            os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
+            with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+        except Exception:
+            pass
     except Exception as e:
         print(f"[Config] Error saving config: {e}")
-        print(f"[Config] Attempted path: {TOOLBOX_CONFIG_FILE}")
 
 
-MANAGED_SCRIPTS = load_managed_scripts()
+MANAGED_SCRIPTS = []
 
 print("Boot's ToolBox")
 print("Made By Boots")
@@ -1196,10 +1275,6 @@ def launch_script(filename: str) -> None:
         print(f"[Launcher] Failed to execute {filename}: {e}")
         main_window.footer_label.setText("Error launching script")
         QMessageBox.critical(main_window, "Launch Error", f"Failed to start {filename}.\n\nTechnical details:\n{e}")
-
-
-_ensure_layout_dirs()
-_migrate_legacy_layout()
 
 
 def _parse_version(v_str: str) -> tuple[int, ...]:
@@ -1842,6 +1917,77 @@ def open_settings():
 
     body_layout.addLayout(python_row)
 
+    # ── Tools Installation Folder ───────────────────────────────────────
+    tools_row = QHBoxLayout()
+    tools_lbl = QLabel("Tools Folder:")
+    tools_lbl.setStyleSheet(f"color: {TEXT}; background: transparent; border: none;")
+    tools_lbl.setFont(qt_font(9, bold=True))
+    tools_row.addWidget(tools_lbl)
+
+    tools_entry = QLineEdit(TOOLS_ROOT_DIR)
+    tools_entry.setReadOnly(True)
+    tools_entry.setFont(qt_font(8))
+    tools_entry.setStyleSheet(line_edit_qss())
+    tools_row.addWidget(tools_entry, 1)
+
+    def change_tools_folder():
+        global TOOLS_ROOT_DIR
+        chosen = QFileDialog.getExistingDirectory(settings_win, "Select VRChat-Tools Installation Folder", TOOLS_ROOT_DIR)
+        if not chosen or chosen == TOOLS_ROOT_DIR:
+            return
+        
+        # Confirm moving existing files if there are any
+        old_tools_dir = TOOLS_ROOT_DIR
+        new_tools_dir = chosen
+        
+        if os.path.exists(old_tools_dir) and any(os.scandir(old_tools_dir)):
+            move_confirm = QMessageBox.question(
+                settings_win, "Move Existing Tools?",
+                f"Would you like to move your existing VRChat-Tools files from:\n{old_tools_dir}\n\nto the new directory:\n{new_tools_dir}?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
+            )
+            if move_confirm == QMessageBox.Cancel:
+                return
+            elif move_confirm == QMessageBox.Yes:
+                # Move files
+                try:
+                    for item in os.listdir(old_tools_dir):
+                        src = os.path.join(old_tools_dir, item)
+                        dst = os.path.join(new_tools_dir, item)
+                        if os.path.isdir(src):
+                            if os.path.exists(dst):
+                                shutil.rmtree(dst, ignore_errors=True)
+                            shutil.copytree(src, dst)
+                        else:
+                            shutil.copy(src, dst)
+                    print(f"[Config] Successfully copied tools to new folder: {new_tools_dir}")
+                except Exception as ex:
+                    print(f"[Config] Error copying tools folder: {ex}")
+                    QMessageBox.warning(settings_win, "Move Failed", f"Could not move all tools files:\n{ex}\n\nUsing new directory anyway.")
+
+        # Update the global path variable and subpaths
+        update_layout_paths(new_tools_dir)
+        tools_entry.setText(TOOLS_ROOT_DIR)
+        
+        # Ensure directories are set up correctly
+        _ensure_layout_dirs()
+        
+        # Save config
+        save_managed_scripts(MANAGED_SCRIPTS)
+        print(f"[Config] Tools folder set to: {TOOLS_ROOT_DIR}")
+        
+        # Refresh UI buttons label in case any tools changed their download state
+        main_window.refresh_button_labels()
+
+    change_tools_btn = QPushButton("Change...")
+    change_tools_btn.setStyleSheet(subtle_button_qss())
+    change_tools_btn.setFont(qt_font(8, bold=True))
+    change_tools_btn.setCursor(Qt.PointingHandCursor)
+    change_tools_btn.clicked.connect(change_tools_folder)
+    tools_row.addWidget(change_tools_btn)
+
+    body_layout.addLayout(tools_row)
+
     # ── Themes (collapsible, collapsed by default — matches the pattern
     #    used in every other VRChat-Tools settings dialog) ────────────────
     theme_header = QWidget()
@@ -2307,9 +2453,33 @@ class ToolBoxWindow(QMainWindow):
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 qt_app = QApplication(sys.argv)
+
+# Initialize process model ID for full-size taskbar icons on Windows
+if sys.platform == 'win32':
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(f'CaptainBoots.VRChat-ToolBox.{VERSION}')
+        print(f"[Process] Successfully registered AppUserModelID: CaptainBoots.VRChat-ToolBox.{VERSION}")
+    except Exception as ex:
+        print(f"[Process] Error setting AppUserModelID: {ex}")
+
+# Set application-wide icon
+icon_path = os.path.join(SCRIPT_DIR, "Images", "Boot's-ToolBox.ico")
+if os.path.exists(icon_path):
+    qt_app.setWindowIcon(QIcon(icon_path))
+    print(f"[Process] Loaded application icon from: {icon_path}")
+
+# Bootstrap paths, configurations, and ask if first run
+MANAGED_SCRIPTS = load_managed_scripts()
+
+_ensure_layout_dirs()
+_migrate_legacy_layout()
+
 qt_app.setStyleSheet(qss())
 
 main_window = ToolBoxWindow()
+# Also set window icon explicitly on main window
+if os.path.exists(icon_path):
+    main_window.setWindowIcon(QIcon(icon_path))
 main_window.show()
 
 # Automatically kick off startup network validation threads asynchronously
