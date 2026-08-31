@@ -667,6 +667,10 @@ if UPDATE_BRANCH == "beta":
 
 def load_managed_scripts():
     global UPDATE_BRANCH, BETA_POPUP_SHOWN, PYTHON_INTERPRETER, colour_mode
+    appdata_toolbox_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+    os.makedirs(appdata_toolbox_dir, exist_ok=True)
+    status_file = os.path.join(appdata_toolbox_dir, "run_status.txt")
+
     if os.path.exists(TOOLBOX_CONFIG_FILE):
         try:
             with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -680,12 +684,35 @@ def load_managed_scripts():
             # Verify the configuration version matches the current app version
             config_version = config.get("version")
             if config_version == VERSION:
+                try:
+                    with open(status_file, "w", encoding="utf-8") as f_status:
+                        f_status.write(f"New executable v{VERSION} ran successfully.\n")
+                except Exception as ex:
+                    print(f"[Config] Error writing status file: {ex}")
                 return config.get("managed_scripts", DEFAULT_MANAGED_SCRIPTS)
             else:
                 print(
                     f"[Config] Version mismatch (Config: {config_version}, App: {VERSION}). Wiping and regenerating config...")
+                try:
+                    if os.path.isdir(appdata_toolbox_dir):
+                        shutil.rmtree(appdata_toolbox_dir, ignore_errors=True)
+                    os.makedirs(appdata_toolbox_dir, exist_ok=True)
+                    with open(status_file, "w", encoding="utf-8") as f_status:
+                        f_status.write(f"An old executable (v{config_version}) was run previously. Performing clean installation of tools...\n")
+                    print(f"[Config] Wiped and re-created AppData\\\\Local\\\\VRChat-ToolBox directory: {appdata_toolbox_dir}")
+                except Exception as ex:
+                    print(f"[Config] Error during AppData clean installation process: {ex}")
+                
+                QTimer.singleShot(1000, force_update_all_scripts)
         except Exception as e:
             print(f"[Config] Error loading config: {e}")
+
+    # First run or failed load
+    try:
+        with open(status_file, "w", encoding="utf-8") as f_status:
+            f_status.write(f"New executable v{VERSION} ran successfully (first run).\n")
+    except Exception as ex:
+        print(f"[Config] Error writing status file: {ex}")
 
     save_managed_scripts(DEFAULT_MANAGED_SCRIPTS)
     return DEFAULT_MANAGED_SCRIPTS
