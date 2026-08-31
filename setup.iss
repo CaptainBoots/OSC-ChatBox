@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define ToolName "VRChat ToolBox"
-#define ToolVersion "9.7.2"
+#define ToolVersion "9.8.0"
 #define ToolPublisher "Boots"
 #define ToolExeName "ToolBox.exe"
 
