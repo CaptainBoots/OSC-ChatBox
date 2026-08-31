@@ -32,7 +32,17 @@ python -m PyInstaller --noconsole --onefile --icon="Images/Boot's-ToolBox.ico" -
 
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR] Compilation failed!
+    echo [ERROR] ToolBox Compilation failed!
+    pause
+    exit /b 1
+)
+
+echo [INFO] Compiling Uninstaller.py with PyInstaller...
+python -m PyInstaller --onefile --name="Uninstaller" Uninstaller.py
+
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] Uninstaller Compilation failed!
     pause
     exit /b 1
 )
@@ -40,7 +50,7 @@ if %errorlevel% neq 0 (
 echo.
 echo =======================================================
 echo [SUCCESS] Compilation completed!
-echo Executable is located at: dist\ToolBox.exe
+echo Executables are located in: dist\
 echo =======================================================
 echo.
 pause

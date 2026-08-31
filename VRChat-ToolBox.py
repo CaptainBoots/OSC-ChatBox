@@ -102,6 +102,8 @@ else:
 
 CENTRAL_CONFIG_DIR = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
 CENTRAL_CONFIG_FILE = os.path.join(CENTRAL_CONFIG_DIR, "toolbox_config.json")
+TOOLS_PATH_POINTER = os.path.join(CENTRAL_CONFIG_DIR, "tools_path.txt")
+INSTALL_PATH_POINTER = os.path.join(CENTRAL_CONFIG_DIR, "install_path.txt")
 
 # These will be updated dynamically during bootstrap:
 TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "VRChat-Tools")
@@ -674,28 +676,60 @@ def load_managed_scripts():
     os.makedirs(appdata_toolbox_dir, exist_ok=True)
     status_file = os.path.join(appdata_toolbox_dir, "run_status.txt")
 
+    # Save the current installation directory so the uninstaller can find it
+    try:
+        with open(INSTALL_PATH_POINTER, "w", encoding="utf-8") as f_inst:
+            f_inst.write(os.path.abspath(SCRIPT_DIR))
+    except Exception as ex:
+        print(f"[Config] Error saving install path pointer: {ex}")
+
+    tools_root = None
     config_loaded = False
     config = {}
 
-    # 1. Attempt to load config from central location (AppData\Local\VRChat-ToolBox\toolbox_config.json)
-    if os.path.exists(CENTRAL_CONFIG_FILE):
+    # 1. Check if the tools path pointer exists in AppData
+    if os.path.exists(TOOLS_PATH_POINTER):
         try:
-            with open(CENTRAL_CONFIG_FILE, "r", encoding="utf-8") as f:
-                config = json.load(f)
-            config_loaded = True
-            print(f"[Config] Loaded central configuration from {CENTRAL_CONFIG_FILE}")
+            with open(TOOLS_PATH_POINTER, "r", encoding="utf-8") as f_ptr:
+                tools_root = f_ptr.read().strip()
+            print(f"[Config] Found tools path pointer: {tools_root}")
         except Exception as e:
-            print(f"[Config] Error loading central config: {e}")
-            
-    # 2. Fallback / Migration: If no central config exists, check if legacy config exists
-    elif os.path.exists(TOOLBOX_CONFIG_FILE):
-        try:
-            with open(TOOLBOX_CONFIG_FILE, "r", encoding="utf-8") as f:
-                config = json.load(f)
-            config_loaded = True
-            print(f"[Config] Migrated legacy configuration from {TOOLBOX_CONFIG_FILE}")
-        except Exception as e:
-            print(f"[Config] Error loading legacy config: {e}")
+            print(f"[Config] Error reading tools path pointer: {e}")
+
+    # If we found a tools root from the pointer, resolve the config file path there
+    if tools_root and os.path.isdir(tools_root):
+        target_config_file = os.path.join(tools_root, "configs", "toolbox_config.json")
+        if os.path.exists(target_config_file):
+            try:
+                with open(target_config_file, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                config_loaded = True
+                print(f"[Config] Loaded configuration from tools directory: {target_config_file}")
+            except Exception as e:
+                print(f"[Config] Error loading config from tools: {e}")
+
+    # 2. Fallback / Migration: Check if central config exists, or check if default/legacy config file exists in SCRIPT_DIR
+    if not config_loaded:
+        if os.path.exists(CENTRAL_CONFIG_FILE):
+            try:
+                with open(CENTRAL_CONFIG_FILE, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                config_loaded = True
+                tools_root = config.get("tools_root_dir", os.path.join(SCRIPT_DIR, "VRChat-Tools"))
+                print(f"[Config] Migrated central configuration from {CENTRAL_CONFIG_FILE}")
+            except Exception as e:
+                print(f"[Config] Error loading legacy central config: {e}")
+        else:
+            default_legacy_file = os.path.join(SCRIPT_DIR, "VRChat-Tools", "configs", "toolbox_config.json")
+            if os.path.exists(default_legacy_file):
+                try:
+                    with open(default_legacy_file, "r", encoding="utf-8") as f:
+                        config = json.load(f)
+                    config_loaded = True
+                    tools_root = os.path.join(SCRIPT_DIR, "VRChat-Tools")
+                    print(f"[Config] Loaded fallback/legacy config: {default_legacy_file}")
+                except Exception as e:
+                    print(f"[Config] Error loading legacy config: {e}")
 
     # 3. If no config was loaded, this is a first-time run! Ask the user where to install VRChat-Tools
     if not config_loaded:
@@ -726,7 +760,15 @@ def load_managed_scripts():
             "tools_root_dir": chosen_dir,
             "managed_scripts": DEFAULT_MANAGED_SCRIPTS
         }
-        
+        tools_root = chosen_dir
+
+    # Write the tools path to the pointer file so it's loaded automatically next time
+    try:
+        with open(TOOLS_PATH_POINTER, "w", encoding="utf-8") as f_ptr:
+            f_ptr.write(os.path.abspath(tools_root))
+    except Exception as ex:
+        print(f"[Config] Error writing tools path pointer: {ex}")
+
     # Read/apply values from the config
     UPDATE_BRANCH = config.get("update_branch", "main")
     BETA_POPUP_SHOWN = config.get("beta_popup_shown", False)
@@ -734,7 +776,6 @@ def load_managed_scripts():
     set_theme(config.get("theme_mode", "rich_purple"))
     
     # Dynamically update global tools path and sub-paths!
-    tools_root = config.get("tools_root_dir", os.path.join(SCRIPT_DIR, "VRChat-Tools"))
     update_layout_paths(tools_root)
 
     # Verify version matches for upgrade/downgrade detection
@@ -750,10 +791,10 @@ def load_managed_scripts():
         if config_version is not None:
             print(f"[Config] Version mismatch (Config: {config_version}, App: {VERSION}). Wiping and regenerating config...")
             try:
-                # Wipe old AppData/Local/VRChat-ToolBox cache (except our config file itself!)
+                # Wipe old AppData/Local/VRChat-ToolBox cache (except our pointer and config files!)
                 for item in os.listdir(appdata_toolbox_dir):
                     item_path = os.path.join(appdata_toolbox_dir, item)
-                    if item_path == CENTRAL_CONFIG_FILE:
+                    if item_path in [CENTRAL_CONFIG_FILE, TOOLS_PATH_POINTER, INSTALL_PATH_POINTER]:
                         continue
                     if os.path.isdir(item_path):
                         shutil.rmtree(item_path, ignore_errors=True)
@@ -768,15 +809,15 @@ def load_managed_scripts():
             
             QTimer.singleShot(1000, force_update_all_scripts)
 
-    # Save central config
+    # Save config inside the tools directory
     config["version"] = VERSION
     config["tools_root_dir"] = TOOLS_ROOT_DIR
     try:
-        os.makedirs(CENTRAL_CONFIG_DIR, exist_ok=True)
-        with open(CENTRAL_CONFIG_FILE, "w", encoding="utf-8") as f:
+        os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
+        with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
     except Exception as e:
-        print(f"[Config] Error saving central config at bootstrap: {e}")
+        print(f"[Config] Error saving config inside tools directory: {e}")
 
     # Enforce beta cleanup
     if UPDATE_BRANCH == "beta":
@@ -791,7 +832,7 @@ def load_managed_scripts():
 
 def save_managed_scripts(scripts):
     try:
-        os.makedirs(CENTRAL_CONFIG_DIR, exist_ok=True)
+        os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
         config = {
             "version": VERSION,
             "update_branch": UPDATE_BRANCH,
@@ -801,15 +842,15 @@ def save_managed_scripts(scripts):
             "tools_root_dir": TOOLS_ROOT_DIR,
             "managed_scripts": scripts
         }
-        with open(CENTRAL_CONFIG_FILE, "w", encoding="utf-8") as f:
+        with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
-        print(f"[Config] Saved {len(scripts)} managed scripts (v{VERSION}) to {CENTRAL_CONFIG_FILE}")
+        print(f"[Config] Saved {len(scripts)} managed scripts (v{VERSION}) to {TOOLBOX_CONFIG_FILE}")
         
-        # Also mirror to the local tools root directory for compatibility
+        # Ensure the path pointer file matches
         try:
-            os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
-            with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(config, f, indent=2)
+            os.makedirs(CENTRAL_CONFIG_DIR, exist_ok=True)
+            with open(TOOLS_PATH_POINTER, "w", encoding="utf-8") as f_ptr:
+                f_ptr.write(os.path.abspath(TOOLS_ROOT_DIR))
         except Exception:
             pass
     except Exception as e:
