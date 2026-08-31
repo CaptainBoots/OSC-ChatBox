@@ -1,0 +1,18 @@
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Python caching
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE configurations
+.idea/
+.vscode/
+/CLAUDE.md
+/GEMINI.md
+/VRChat-Tools/configs/
+/VRChat-Tools/LibreHardwareMonitor/
+/VRChat-Tools/VRChat-Toolbox/
