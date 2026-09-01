@@ -2,30 +2,22 @@
 
 <img src="Images/Boot%27s-ToolBox.svg" alt="Boot's ToolBox" width="200" />
 
-Hello people! I hope you like my ToolBox. I spent quite a while making this to make managing and launching VRChat companion tools as easy and seamless as possible. Since this is a solo passion project, some bugs are expected—please report any issues or feedback on our Discord server!
+Hello people! I hope you like my ToolBox. I spent quite a while making this to make managing and launching VRChat companion tools as easy and seamless as possible. Since this is a solo project, some bugs are expected so please report any issues or feedback in my Discord server!
 
-✨ **The Discord Server:** [Join here!](https://discord.gg/YDXpQPF6g9)
+# [**The Discord Server**](https://discord.gg/YDXpQPF6g9)
 
----
-
-## 🚀 Key Features
-
-* **All-in-One Dashboard:** Launch and control all your VRChat OSC tools (Chatbox, Router, Gamepad, Face Tracking Controller, Parameter Browser, Script Maker, etc.) from a single beautiful Qt-based dashboard.
-* **Libre Hardware Monitor Integration:** Automatically downloads, extracts, and integrates Libre Hardware Monitor to monitor and display system performance directly.
-* **Intelligent Configurations:** Maintains localized configuration targets and automatically wipes legacy configurations on version upgrades to prevent breaking layout mismatches.
-* **Bulletproof In-Place Self-Updater:** Automatically detects updates from GitHub. If packaged as a standalone executable, it uses an advanced Windows rename-and-replace routine to update itself in-place without needing manual downloads!
-* **High-Resolution Graphics:** Features crisp, scaling vector graphics and a high-resolution 256x256 application icon for a gorgeous desktop experience.
 
 ---
 
-## 💻 Installation & Usage
+
+##  Installation & Usage
 
 ### Windows
-1. Go to the **Releases** tab on GitHub.
-2. Download the latest `VRChat-ToolBox.exe` (or run the installer `VRChat-ToolBox-Setup.exe`).
+1. Go to the **Releases** tab on GitHub
+2. Download the latest `VRChat-ToolBox.exe`
 3. Run the executable and enjoy!
 
-*(I have made this unbelievably simple, I believe in you all—you can do it! :3)*
+*(I have made this unbelievably simple, I believe you can do it! :3)*
 
 ### Linux (Tested & Supported)
 To run the ToolBox directly from source on Linux:
@@ -42,7 +34,7 @@ python3 VRChat-ToolBox.py
 
 ---
 
-## 🛠️ Advanced: The Robust Self-Updater
+## Self-Updater
 
 Under the hood, VRChat ToolBox features a custom-engineered self-update mechanism designed specifically for Windows PyInstaller packages:
 * **No-Lock Rename:** Because Windows locks active running executables, the ToolBox dynamically renames its running binary to `ToolBox.exe.bak` (supporting incrementing suffixes like `.bak.1`, `.bak.2` to resolve any local collisions).
@@ -51,7 +43,7 @@ Under the hood, VRChat ToolBox features a custom-engineered self-update mechanis
 
 ---
 
-## 📦 Troubleshooting & Development
+##  Troubleshooting 
 
 ### Antivirus False Positives
 PyInstaller executables are sometimes flagged as false positives by Windows Defender or other security scanners. If the executable is blocked or cannot be deleted/compiled, add the installation or workspace folder to your antivirus exclusion list.
@@ -61,6 +53,4 @@ If compiling with PyInstaller fails with a `PermissionError` (Access Denied), en
 
 ---
 
-I try my best so this will occasionally get updates. Sorwy if it takes ages 3:
-
-![Sorwy](Images/Sorwy.png)
+i hope you all like the priject and if you wana make a tool join the discord above.
