@@ -1,4 +1,4 @@
-('C:\\Users\\boots\\PycharmProjects\\OSC-ChatBox\\build\\Uninstaller\\PYZ-00.pyz',
+('C:\\Users\\boots\\PycharmProjects\\VRChat-ToolBox\\build\\Uninstaller\\PYZ-00.pyz',
  [('__future__',
    'C:\\Users\\boots\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\__future__.py',
    'PYMODULE'),

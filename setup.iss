@@ -19,7 +19,7 @@ LicenseFile=LICENSE
 ; Output directory and name for the compiled installer
 OutputDir=.
 OutputBaseFilename=VRChat-ToolBox-Setup
-SetupIconFile=Images\Boot's-ToolBox.ico
+SetupIconFile=Images\Boot's-ToolBox-256.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
