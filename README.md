@@ -4,7 +4,7 @@
 
 Hello people! I hope you like my ToolBox. I spent quite a while making this to make managing and launching VRChat companion tools as easy and seamless as possible. Since this is a solo project, some bugs are expected so please report any issues or feedback in my Discord server!
 
-# [**The Discord Server**](https://discord.gg/YDXpQPF6g9)
+### [**The Discord Server**](https://discord.gg/YDXpQPF6g9)
 
 
 ---
@@ -54,3 +54,6 @@ If compiling with PyInstaller fails with a `PermissionError` (Access Denied), en
 ---
 
 i hope you all like the priject and if you wana make a tool join the discord above.
+
+*Made with <3 by:*
+1. Boots @CaptainBoots
