@@ -165,7 +165,7 @@ def get_github_raw_url():
 
 
 def get_github_base_url():
-    return f"https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/{UPDATE_BRANCH}/VRChat-Tools/"
+    return f"https://raw.githubusercontent.com/CaptainBoots/VRChat-Tools/{UPDATE_BRANCH}/"
 
 
 def get_active_python() -> str:
@@ -1888,7 +1888,7 @@ def open_settings():
     branch_row.addWidget(branch_lbl)
 
     branch_combo = QComboBox()
-    branch_combo.addItems(["main", "stable", "beta"])
+    branch_combo.addItems(["main", "beta"])
     branch_combo.setCurrentText(UPDATE_BRANCH)
     branch_combo.setFont(qt_font(9))
     branch_combo.setCursor(Qt.PointingHandCursor)
