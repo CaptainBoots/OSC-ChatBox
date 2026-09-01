@@ -1,2 +1,0 @@
-python-osc==1.9.3
-PySide6

@@ -1,3 +1,0 @@
-python-osc
-PySide6
-pynput

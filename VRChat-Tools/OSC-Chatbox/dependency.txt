@@ -1,8 +1,0 @@
-python-osc
-psutil
-requests
-Pillow
-openvr
-PySide6
-winrt-runtime; sys_platform == "win32"
-winrt-Windows.Media.Control; sys_platform == "win32"
