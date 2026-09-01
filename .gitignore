@@ -16,3 +16,6 @@ __pycache__/
 /VRChat-Tools/configs/
 /VRChat-Tools/LibreHardwareMonitor/
 /VRChat-Tools/VRChat-Toolbox/
+
+# Developer automation scripts
+/dev-*.bat
