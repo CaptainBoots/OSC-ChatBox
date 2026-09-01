@@ -161,7 +161,7 @@ GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/re
 
 
 def get_github_raw_url():
-    return f"https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/main/VRChat-ToolBox.py"
+    return f"https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/{UPDATE_BRANCH}/VRChat-ToolBox.py"
 
 
 def get_github_base_url():
@@ -1384,27 +1384,100 @@ def perform_update(remote_text=None, source_url=None):
     intact for parity/future use) or via the confirm_main_update bridge
     signal's slot after the person clicks Yes."""
     try:
-        if remote_text is None:
-            info = get_remote_script_info()
-            if not info:
-                raise RuntimeError("No remote script source available")
-            remote_text = info["text"]
-            source_url = info["url"]
+        is_frozen = getattr(sys, 'frozen', False)
 
-        script_path = os.path.abspath(__file__)
-        os.makedirs(BACKUP_DIR, exist_ok=True)
-        script_name = os.path.splitext(os.path.basename(script_path))[0]
-        backup_path = os.path.join(BACKUP_DIR, f"{script_name} {VERSION}.bak")
+        if is_frozen:
+            current_exe = sys.executable
+            backup_exe = current_exe + ".bak"
 
-        with open(script_path, "r", encoding="utf-8") as f_src:
-            current_code = f_src.read()
-        with open(backup_path, "w", encoding="utf-8") as f_dst:
-            f_dst.write(current_code)
-        print(f"[Updater] Created rollback backup pointing at: {backup_path}")
+            # Ensure we can delete or find a unique name for backup_exe if it already exists
+            counter = 1
+            while os.path.exists(backup_exe):
+                try:
+                    os.remove(backup_exe)
+                    break
+                except Exception:
+                    backup_exe = f"{current_exe}.bak.{counter}"
+                    counter += 1
 
-        with open(script_path, "w", encoding="utf-8") as f_upper:
-            f_upper.write(remote_text)
-        print(f"[Updater] Main system assembly updated successfully from {source_url}.")
+            os.rename(current_exe, backup_exe)
+            print(f"[Updater] Renamed active executable to backup: {backup_exe}")
+
+            # Try to download the updated executable.
+            exe_names_to_try = [os.path.basename(current_exe)]
+            for fallback in ["VRChat-ToolBox.exe", "ToolBox.exe"]:
+                if fallback not in exe_names_to_try:
+                    exe_names_to_try.append(fallback)
+
+            downloaded = False
+            last_error = None
+
+            for exe_name in exe_names_to_try:
+                download_url = f"{GITHUB_EXE_RELEASE_BASE_URL}{exe_name}"
+                print(f"[Updater] Trying to download update from: {download_url}")
+                try:
+                    resp = requests.get(download_url, stream=True, timeout=60)
+                    if resp.status_code == 200:
+                        with open(current_exe, "wb") as f_dst:
+                            for chunk in resp.iter_content(chunk_size=8192):
+                                f_dst.write(chunk)
+                        downloaded = True
+                        print(f"[Updater] Successfully downloaded updated executable from: {download_url}")
+                        break
+                    else:
+                        err_msg = f"HTTP {resp.status_code} - File not found or release unavailable"
+                        last_error = err_msg
+                        print(f"[Updater] {err_msg} for {download_url}")
+                except Exception as ex:
+                    last_error = ex
+                    print(f"[Updater] Error trying to download from {download_url}: {ex}")
+
+            if not downloaded:
+                try:
+                    if os.path.exists(backup_exe):
+                        if os.path.exists(current_exe):
+                            try:
+                                os.remove(current_exe)
+                            except Exception:
+                                pass
+                        os.rename(backup_exe, current_exe)
+                except Exception as restore_ex:
+                    print(f"[Updater] Error restoring backup exe: {restore_ex}")
+                
+                if last_error and "HTTP 404" in str(last_error):
+                    raise RuntimeError(
+                        f"Could not download the updated executable from GitHub.\n\n"
+                        f"Technical Detail: {last_error}\n\n"
+                        "This typically means that there is no compiled release asset matching this executable name "
+                        "on the latest release on GitHub, or the repository is private.\n\n"
+                        "Please verify that the latest release on GitHub has a compiled 'ToolBox.exe' "
+                        "or 'VRChat-ToolBox.exe' uploaded as a release asset, or perform the update manually."
+                    )
+                else:
+                    raise RuntimeError(f"Could not download updated executable from GitHub. (Error: {last_error})")
+
+        else:
+            if remote_text is None:
+                info = get_remote_script_info()
+                if not info:
+                    raise RuntimeError("No remote script source available")
+                remote_text = info["text"]
+                source_url = info["url"]
+
+            script_path = os.path.abspath(__file__)
+            os.makedirs(BACKUP_DIR, exist_ok=True)
+            script_name = os.path.splitext(os.path.basename(script_path))[0]
+            backup_path = os.path.join(BACKUP_DIR, f"{script_name} {VERSION}.bak")
+
+            with open(script_path, "r", encoding="utf-8") as f_src:
+                current_code = f_src.read()
+            with open(backup_path, "w", encoding="utf-8") as f_dst:
+                f_dst.write(current_code)
+            print(f"[Updater] Created rollback backup pointing at: {backup_path}")
+
+            with open(script_path, "w", encoding="utf-8") as f_upper:
+                f_upper.write(remote_text)
+            print(f"[Updater] Main system assembly updated successfully from {source_url}.")
 
         # Wipe targeted configurations on version shift
         for tool_key, configs_to_wipe in TOOL_CONFIG_WIPE_MAP.items():
@@ -1423,7 +1496,10 @@ def perform_update(remote_text=None, source_url=None):
         )
 
         main_window.close()
-        subprocess.Popen([sys.executable, script_path], cwd=os.path.dirname(script_path))
+        if is_frozen:
+            subprocess.Popen([sys.executable], cwd=os.path.dirname(sys.executable))
+        else:
+            subprocess.Popen([sys.executable, script_path], cwd=os.path.dirname(script_path))
         sys.exit(0)
 
     except Exception as e:
@@ -1459,17 +1535,20 @@ def check_for_main_updates(silent: bool = True):
     remote_version = info["version"]
     remote_url = info["url"]
 
-    try:
-        with open(__file__, "r", encoding="utf-8", errors="ignore") as f:
-            local_text = f.read()
-    except Exception:
-        local_text = ""
-
-    local_norm = local_text.replace("\r\n", "\n")
-    remote_norm = remote_text.replace("\r\n", "\n")
-
     remote_newer = _parse_version(remote_version) > _parse_version(VERSION)
-    content_differs = remote_norm != local_norm
+
+    if getattr(sys, 'frozen', False):
+        content_differs = False
+    else:
+        try:
+            with open(__file__, "r", encoding="utf-8", errors="ignore") as f:
+                local_text = f.read()
+        except Exception:
+            local_text = ""
+        local_norm = local_text.replace("\r\n", "\n")
+        remote_norm = remote_text.replace("\r\n", "\n")
+        content_differs = remote_norm != local_norm
+
     main_update_available = remote_newer or content_differs
 
     print(f"[VRChat-Tools] Checking... (local: {VERSION} remote: {remote_version}")
@@ -2504,10 +2583,23 @@ if sys.platform == 'win32':
         print(f"[Process] Error setting AppUserModelID: {ex}")
 
 # Set application-wide icon
-icon_path = os.path.join(SCRIPT_DIR, "Images", "Boot's-ToolBox.ico")
+icon_path = os.path.join(SCRIPT_DIR, "Images", "Boot's-ToolBox-256.ico")
 if os.path.exists(icon_path):
     qt_app.setWindowIcon(QIcon(icon_path))
     print(f"[Process] Loaded application icon from: {icon_path}")
+
+# Clean up leftover update backup files if running as a frozen executable
+if getattr(sys, 'frozen', False):
+    try:
+        import glob
+        for backup_path in glob.glob(sys.executable + ".bak*"):
+            try:
+                os.remove(backup_path)
+                print(f"[Process] Cleaned up update backup: {backup_path}")
+            except Exception:
+                pass
+    except Exception as ex:
+        print(f"[Process] Could not clean up update backup: {ex}")
 
 # Bootstrap paths, configurations, and ask if first run
 MANAGED_SCRIPTS = load_managed_scripts()

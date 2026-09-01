@@ -1,4 +1,4 @@
-('C:\\Users\\boots\\PycharmProjects\\OSC-ChatBox\\build\\ToolBox\\PYZ-00.pyz',
+('C:\\Users\\boots\\PycharmProjects\\VRChat-ToolBox\\build\\ToolBox\\PYZ-00.pyz',
  [('PySide6',
    'C:\\Users\\boots\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PySide6\\__init__.py',
    'PYMODULE'),
