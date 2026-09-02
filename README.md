@@ -1,8 +1,8 @@
-# VRChat ToolBox
+# ProtoTool-Launcher
 
 <img src="Images/Boot%27s-ToolBox.svg" alt="Boot's ToolBox" width="200" />
 
-Hello people! I hope you like my ToolBox. I spent quite a while making this to make managing and launching VRChat companion tools as easy and seamless as possible. Since this is a solo project, some bugs are expected so please report any issues or feedback in my Discord server!
+Hello people! I hope you like ProtoTool-Launcher. I spent quite a while making this to make managing and launching companion tools as easy and seamless as possible. Since this is a solo project, some bugs are expected so please report any issues or feedback in my Discord server!
 
 ### [**The Discord Server**](https://discord.gg/YDXpQPF6g9)
 
@@ -14,7 +14,7 @@ Hello people! I hope you like my ToolBox. I spent quite a while making this to m
 
 ### Windows
 1. Go to the **Releases** tab on GitHub
-2. Download the latest `VRChat-ToolBox.exe`
+2. Download the latest `ProtoTool-Launcher.exe`
 3. Run the executable and enjoy!
 
 *(I have made this unbelievably simple, I believe you can do it! :3)*
@@ -23,11 +23,11 @@ Hello people! I hope you like my ToolBox. I spent quite a while making this to m
 To run the ToolBox directly from source on Linux:
 ```bash
 # Clone the repository
-git clone https://github.com/CaptainBoots/VRChat-ToolBox.git
-cd VRChat-ToolBox
+git clone https://github.com/CaptainBoots/ProtoTool-Launcher.git
+cd ProtoTool-Launcher
 
 # Run with Python
-python3 VRChat-ToolBox.py
+python3 ProtoTool-Launcher.py
 ```
 
 *(If you encounter any platform-specific issues on Linux, please let me know in the Discord server!)*
@@ -36,7 +36,7 @@ python3 VRChat-ToolBox.py
 
 ## Self-Updater
 
-Under the hood, VRChat ToolBox features a custom-engineered self-update mechanism designed specifically for Windows PyInstaller packages:
+Under the hood, ProtoTool-Launcher features a custom-engineered self-update mechanism designed specifically for Windows PyInstaller packages:
 * **No-Lock Rename:** Because Windows locks active running executables, the ToolBox dynamically renames its running binary to `ToolBox.exe.bak` (supporting incrementing suffixes like `.bak.1`, `.bak.2` to resolve any local collisions).
 * **Safe Downloading:** It streams the new compiled binary from GitHub Releases directly to the original path. If the network drops or the file is unavailable, it automatically rolls back your previous executable so you never lose your app.
 * **Automated Cleanup:** On next launch, the application uses wildcard pattern globbing to identify and cleanly purge all old `.bak` backup files from your directory.

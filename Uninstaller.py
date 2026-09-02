@@ -1,5 +1,5 @@
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
-#                                          VRChat-ToolBox Uninstaller                                                     #
+#                                          ProtoTool-Launcher Uninstaller                                                 #
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Made with <3 by Gemini CLI
 
@@ -8,13 +8,13 @@ import sys
 import shutil
 import glob
 
-CENTRAL_CONFIG_DIR = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+CENTRAL_CONFIG_DIR = os.path.join(os.getenv("LOCALAPPDATA", ""), "ProtoTool-Launcher")
 INSTALL_PATH_POINTER = os.path.join(CENTRAL_CONFIG_DIR, "install_path.txt")
 TOOLS_PATH_POINTER = os.path.join(CENTRAL_CONFIG_DIR, "tools_path.txt")
 
 def print_header():
     print("=" * 60)
-    print("              VRChat-ToolBox Uninstaller")
+    print("              ProtoTool-Launcher Uninstaller")
     print("=" * 60)
     print()
 
@@ -52,8 +52,8 @@ def uninstall_from_recorded_positions():
         # Safeguard: Never delete root C: or User Profile root
         if len(os.path.abspath(install_path)) > 15:
             try:
-                # Remove ToolBox.exe or VRChat-ToolBox files at that position
-                for item in ["ToolBox.exe", "VRChat-ToolBox.py", "ToolBox.spec"]:
+                # Remove ProtoTool-Launcher / Project-Proto / NovaCore / VRChat-ToolBox files at that position
+                for item in ["ProtoTool-Launcher.exe", "ProtoTool-Launcher.py", "ProtoTool-Launcher.spec", "Project-Proto.exe", "Project-Proto.py", "Project-Proto.spec", "NovaCore-ToolBox.exe", "NovaCore-ToolBox.py", "NovaCore-ToolBox.spec", "ToolBox.exe", "VRChat-ToolBox.py", "ToolBox.spec"]:
                     full_p = os.path.join(install_path, item)
                     if os.path.isfile(full_p):
                         os.remove(full_p)
@@ -74,7 +74,7 @@ def uninstall_from_recorded_positions():
 
     if tools_path:
         print(f" -> Found recorded tools folder: {tools_path}")
-        if len(os.path.abspath(tools_path)) > 15 and "VRChat-Tools" in os.path.abspath(tools_path):
+        if len(os.path.abspath(tools_path)) > 15 and ("VRChat-Tools" in os.path.abspath(tools_path) or "Nova-Tools" in os.path.abspath(tools_path)):
             try:
                 shutil.rmtree(tools_path, ignore_errors=True)
                 print(f"    Deleted tools directory: {tools_path}")
@@ -90,13 +90,26 @@ def uninstall_from_recorded_positions():
 
 def delete_appdata_folders():
     print("[2] Removing AppData config folders...")
-    appdata_local = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
-    appdata_roaming_tools = os.path.join(os.getenv("APPDATA", ""), "VRChat-Tools")
-    appdata_roaming_toolbox = os.path.join(os.getenv("APPDATA", ""), "VRChat-ToolBox")
+    appdata_local_legacy = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+    appdata_roaming_tools_legacy = os.path.join(os.getenv("APPDATA", ""), "VRChat-Tools")
+    appdata_roaming_toolbox_legacy = os.path.join(os.getenv("APPDATA", ""), "VRChat-ToolBox")
+    
+    appdata_local_new = os.path.join(os.getenv("LOCALAPPDATA", ""), "NovaCore-ToolBox")
+    appdata_roaming_tools_new = os.path.join(os.getenv("APPDATA", ""), "Nova-Tools")
+    appdata_roaming_toolbox_new = os.path.join(os.getenv("APPDATA", ""), "NovaCore-ToolBox")
+
+    appdata_local_proto = os.path.join(os.getenv("LOCALAPPDATA", ""), "Project-Proto")
+    appdata_roaming_proto = os.path.join(os.getenv("APPDATA", ""), "Project-Proto")
+
+    appdata_local_ptlauncher = os.path.join(os.getenv("LOCALAPPDATA", ""), "ProtoTool-Launcher")
+    appdata_roaming_ptlauncher = os.path.join(os.getenv("APPDATA", ""), "ProtoTool-Launcher")
 
     deleted_any = False
 
-    for folder in [appdata_local, appdata_roaming_tools, appdata_roaming_toolbox]:
+    for folder in [appdata_local_legacy, appdata_roaming_tools_legacy, appdata_roaming_toolbox_legacy,
+                   appdata_local_new, appdata_roaming_tools_new, appdata_roaming_toolbox_new,
+                   appdata_local_proto, appdata_roaming_proto,
+                   appdata_local_ptlauncher, appdata_roaming_ptlauncher]:
         if os.path.isdir(folder):
             print(f" -> Found AppData folder: {folder}")
             try:
@@ -129,13 +142,13 @@ def deep_search_and_clean():
             continue
         
         print(f" -> Scanning folder: {root}")
-        # Search for shortcuts or directories matching VRChat-ToolBox / VRChat-Tools
+        # Search for shortcuts or directories matching NovaCore-ToolBox / Nova-Tools / VRChat-ToolBox / VRChat-Tools
         try:
             # Safe check: limit searching to the specified directories using strict glob patterns
-            for item in glob.glob(os.path.join(root, "*ToolBox*")) + glob.glob(os.path.join(root, "*VRChat-Tools*")):
+            for item in glob.glob(os.path.join(root, "*ToolBox*")) + glob.glob(os.path.join(root, "*Tools*")) + glob.glob(os.path.join(root, "*Nova*")):
                 # Safe Guard-rails: check filename pattern
                 base = os.path.basename(item).lower()
-                if "vrchat" in base or "toolbox" in base or "tools" in base:
+                if "vrchat" in base or "toolbox" in base or "tools" in base or "nova" in base:
                     if os.path.isdir(item):
                         shutil.rmtree(item, ignore_errors=True)
                         print(f"    Deleted directory: {item}")
