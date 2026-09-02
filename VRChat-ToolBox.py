@@ -76,7 +76,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.8.0"
+VERSION = "9.8.1"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -183,20 +183,6 @@ TOOL_STATE_CURRENT = "current"
 # download/update triggered by a click.
 tool_states: dict[str, str] = {}
 
-# ─── Default managed tools list (used if no saved config exists yet) ─────────
-DEFAULT_MANAGED_SCRIPTS = [
-    {"filename": "VRChat-Launcher/main.py", "label": "VRChat Launcher"},
-    {"filename": "LibreHardwareMonitor/LibreHardwareMonitor.exe", "label": "Libre Hardware Monitor"},
-    {"filename": "OSC-Router/main.py", "label": "Router"},
-    {"filename": "OSC-Chatbox/main.py", "label": "ChatBox"},
-    {"filename": "OSC-Gamepad/main.py", "label": "Gamepad"},
-    {"filename": "OSC-FaceTrackingController/main.py", "label": "Face Tracking Controller"},
-    {"filename": "OSC-ParameterBrowser/main.py", "label": "Parameter Browser"},
-    {"filename": "OSC-ScriptMaker/main.py", "label": "Script Maker"},
-    {"filename": "VRChat-LocalFavorites/main.py", "label": "VRChat Local Favorites"},
-    {"filename": "VRChat-SocialLogger/main.py", "label": "VRChat SocialLogger"},
-]
-
 _tool_label_cache = {}
 
 def _get_cached_tool_label(filename: str) -> str | None:
@@ -265,10 +251,6 @@ def discover_managed_scripts() -> list[dict]:
 
                     detected.append({"filename": filename, "label": cached_label})
                     seen_folders.add(folder_name)
-
-    # Fallback to default if nothing discovered
-    if len(detected) <= 1:
-        return DEFAULT_MANAGED_SCRIPTS
 
     return detected
 
@@ -1188,6 +1170,10 @@ def load_managed_scripts():
             chosen_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
             chosen_theme = "rich_purple"
 
+        # Temporarily apply layout path to discover tools during setup
+        update_layout_paths(chosen_dir)
+        discovered_scripts = discover_managed_scripts()
+
         print(f"[Config] First run setup complete. Tools directory: {chosen_dir}, Theme: {chosen_theme}")
         config = {
             "version": VERSION,
@@ -1196,7 +1182,7 @@ def load_managed_scripts():
             "python_interpreter": "",
             "theme_mode": chosen_theme,
             "tools_root_dir": chosen_dir,
-            "managed_scripts": DEFAULT_MANAGED_SCRIPTS
+            "managed_scripts": discovered_scripts
         }
         tools_root = chosen_dir
 
