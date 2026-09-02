@@ -35,5 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=["Images/Boot's-ToolBox-256.ico"],
+    icon=['Images\\Boot's-ToolBox-256.ico'],
 )
