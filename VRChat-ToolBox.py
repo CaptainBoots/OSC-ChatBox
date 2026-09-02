@@ -77,7 +77,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.8.9"
+VERSION = "9.8.10"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -1942,7 +1942,17 @@ def perform_update(remote_text=None, source_url=None):
             for key in list(os.environ.keys()):
                 if "MEIPASS" in key or "PYI" in key or key in ("PYTHONHOME", "PYTHONPATH"):
                     os.environ.pop(key, None)
-            os.startfile(sys.executable)
+            
+            # Spawn a detached, silent background command that:
+            # 1. Sleeps for 2 seconds (ping 127.0.0.1 -n 3 > nul) to let this old process fully exit
+            # 2. Launches the new executable cleanly (start "" "ToolBox.exe")
+            # This completely breaks the parent process chain, letting PyInstaller boot cleanly.
+            cmd = f'ping 127.0.0.1 -n 3 > nul && start "" "{sys.executable}"'
+            subprocess.Popen(
+                cmd,
+                shell=True,
+                creationflags=subprocess.CREATE_NEW_CONSOLE | subprocess.DETACHED_PROCESS if sys.platform == "win32" else 0
+            )
         else:
             subprocess.Popen([sys.executable, script_path], cwd=os.path.dirname(script_path))
         sys.exit(0)
