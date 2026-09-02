@@ -630,7 +630,8 @@ class ConsoleRedirector(object):
         self.buffer = []
 
     def write(self, text):
-        self.original_stream.write(text)
+        if self.original_stream is not None:
+            self.original_stream.write(text)
         self.buffer.append(text)
         if len(self.buffer) > 5000:
             self.buffer = self.buffer[-3000:]
@@ -641,7 +642,8 @@ class ConsoleRedirector(object):
                 pass
 
     def flush(self):
-        self.original_stream.flush()
+        if self.original_stream is not None:
+            self.original_stream.flush()
 
     def get_logs(self):
         return "".join(self.buffer)
