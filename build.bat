@@ -27,8 +27,8 @@ if %errorlevel% neq 0 (
 
 :pyinstaller_installed
 
-echo [INFO] Compiling VRChat-ToolBox.py with PyInstaller...
-python -m PyInstaller --noconsole --onefile --icon="Images/Boot's-ToolBox-256.ico" --name="ToolBox" VRChat-ToolBox.py
+echo [INFO] Compiling ToolBox.spec with PyInstaller...
+python -m PyInstaller --noconfirm ToolBox.spec
 
 if %errorlevel% neq 0 (
     echo.
