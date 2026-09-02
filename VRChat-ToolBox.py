@@ -73,12 +73,12 @@ install_if_missing("PySide6", "PySide6")
 
 import requests
 
-from PySide6.QtCore import Qt, QObject, Signal, Slot, QPointF, QTimer
+from PySide6.QtCore import Qt, QObject, Signal, Slot, QPointF, QTimer, QThread
 from PySide6.QtGui import QPainter, QColor, QPolygonF, QFont, QFontDatabase, QIcon, QTextCursor
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QDialog, QWidget, QLabel, QPushButton,
     QLineEdit, QComboBox, QScrollArea, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QFrame, QMessageBox, QFileDialog, QSizePolicy, QTextEdit,
+    QFrame, QMessageBox, QFileDialog, QSizePolicy, QTextEdit, QStackedWidget,
 )
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -749,6 +749,269 @@ class ConsoleWindow(QDialog):
         clipboard.setText(self.text_area.toPlainText())
 
 
+class SyncWorker(QThread):
+    finished_signal = Signal(bool)
+
+    def __init__(self, filename):
+        super().__init__()
+        self.filename = filename
+
+    def run(self):
+        try:
+            # Execute the download/update on a safe background thread
+            success = ensure_tool_folder(self.filename, show_errors=False)
+            self.finished_signal.emit(success)
+        except Exception as e:
+            print(f"[Worker] Background thread error syncing {self.filename}: {e}")
+            self.finished_signal.emit(False)
+
+
+class OnboardingWizard(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("VRChat ToolBox Setup Wizard")
+        self.setFixedSize(550, 450)
+        self.setStyleSheet(f"background-color: {BG}; color: {TEXT};")
+
+        self.tools_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+        self.selected_theme = "rich_purple"
+
+        # Stacked layout for pages
+        self.stack = QStackedWidget()
+
+        # Page 1: Welcome
+        self.page1 = QWidget()
+        p1_layout = QVBoxLayout(self.page1)
+        p1_layout.setContentsMargins(30, 30, 30, 30)
+        p1_layout.setSpacing(15)
+
+        p1_logo = QLabel()
+        icon_path = os.path.join(SCRIPT_DIR, "Images", "Boot's-ToolBox-256.ico")
+        if os.path.exists(icon_path):
+            p1_logo.setPixmap(QIcon(icon_path).pixmap(96, 96))
+        p1_logo.setAlignment(Qt.AlignCenter)
+        p1_layout.addWidget(p1_logo)
+
+        p1_title = QLabel("Welcome to VRChat ToolBox! ✨")
+        p1_title.setFont(qt_font(14, bold=True))
+        p1_title.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+        p1_title.setAlignment(Qt.AlignCenter)
+        p1_layout.addWidget(p1_title)
+
+        p1_desc = QLabel(
+            "Hello! I'm Boots. I'm going to help you get your ToolBox set up in "
+            "just a few simple steps so it's not scary or confusing at all! :3\n\n"
+            "This ToolBox lets you easily download, run, and update all of your "
+            "favorite VRChat companion OSC tools from a single centralized dashboard."
+        )
+        p1_desc.setFont(qt_font(10))
+        p1_desc.setWordWrap(True)
+        p1_desc.setStyleSheet(f"color: {TEXT}; background: transparent; border: none; line-height: 140%;")
+        p1_layout.addWidget(p1_desc)
+        p1_layout.addStretch()
+
+        # Page 2: Installation Path
+        self.page2 = QWidget()
+        p2_layout = QVBoxLayout(self.page2)
+        p2_layout.setContentsMargins(30, 30, 30, 30)
+        p2_layout.setSpacing(15)
+
+        p2_title = QLabel("Choose Your Tools Folder 📁")
+        p2_title.setFont(qt_font(14, bold=True))
+        p2_title.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+        p2_layout.addWidget(p2_title)
+
+        p2_desc = QLabel(
+            "Every companion tool is lightweight and modular. We need to choose "
+            "where on your system these tools will be downloaded and kept.\n\n"
+            "We highly recommend using our safe, default local AppData folder:"
+        )
+        p2_desc.setFont(qt_font(10))
+        p2_desc.setWordWrap(True)
+        p2_desc.setStyleSheet("background: transparent; border: none;")
+        p2_layout.addWidget(p2_desc)
+
+        self.path_entry = QLineEdit(self.tools_dir)
+        self.path_entry.setReadOnly(True)
+        self.path_entry.setFont(qt_font(9))
+        self.path_entry.setStyleSheet(line_edit_qss())
+        p2_layout.addWidget(self.path_entry)
+
+        p2_btn_layout = QHBoxLayout()
+        choose_btn = QPushButton("📂 Browse / Choose Folder...")
+        choose_btn.setStyleSheet(subtle_button_qss())
+        choose_btn.setFont(qt_font(9, bold=True))
+        choose_btn.setCursor(Qt.PointingHandCursor)
+        choose_btn.clicked.connect(self.browse_folder)
+        p2_btn_layout.addWidget(choose_btn)
+
+        default_btn = QPushButton("↺ Use Default Path")
+        default_btn.setStyleSheet(subtle_button_qss())
+        default_btn.setFont(qt_font(9, bold=True))
+        default_btn.setCursor(Qt.PointingHandCursor)
+        default_btn.clicked.connect(self.use_default_path)
+        p2_btn_layout.addWidget(default_btn)
+        p2_btn_layout.addStretch()
+        p2_layout.addLayout(p2_btn_layout)
+        p2_layout.addStretch()
+
+        # Page 3: Theme Selection
+        self.page3 = QWidget()
+        p3_layout = QVBoxLayout(self.page3)
+        p3_layout.setContentsMargins(30, 30, 30, 30)
+        p3_layout.setSpacing(15)
+
+        p3_title = QLabel("Pick Your Style 🎨")
+        p3_title.setFont(qt_font(14, bold=True))
+        p3_title.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+        p3_layout.addWidget(p3_title)
+
+        p3_desc = QLabel(
+            "Pick a default color palette to style your ToolBox dashboard. "
+            "You can always customize and change this anytime in Settings!"
+        )
+        p3_desc.setFont(qt_font(10))
+        p3_desc.setWordWrap(True)
+        p3_desc.setStyleSheet("background: transparent; border: none;")
+        p3_layout.addWidget(p3_desc)
+
+        self.theme_combo = QComboBox()
+        for mode, label_text in THEME_LABELS.items():
+            self.theme_combo.addItem(label_text, mode)
+        self.theme_combo.setCurrentText(THEME_LABELS[self.selected_theme])
+        self.theme_combo.setFont(qt_font(10))
+        self.theme_combo.setCursor(Qt.PointingHandCursor)
+        self.theme_combo.currentTextChanged.connect(self.preview_theme)
+        p3_layout.addWidget(self.theme_combo)
+        p3_layout.addStretch()
+
+        # Page 4: Success / Finish
+        self.page4 = QWidget()
+        p4_layout = QVBoxLayout(self.page4)
+        p4_layout.setContentsMargins(30, 30, 30, 30)
+        p4_layout.setSpacing(15)
+
+        p4_logo = QLabel()
+        if os.path.exists(icon_path):
+            p4_logo.setPixmap(QIcon(icon_path).pixmap(80, 80))
+        p4_logo.setAlignment(Qt.AlignCenter)
+        p4_layout.addWidget(p4_logo)
+
+        p4_title = QLabel("You're All Set! 🎉")
+        p4_title.setFont(qt_font(14, bold=True))
+        p4_title.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
+        p4_title.setAlignment(Qt.AlignCenter)
+        p4_layout.addWidget(p4_title)
+
+        p4_desc = QLabel(
+            "Awesome job! Setup is completely finished.\n\n"
+            "When you proceed, the ToolBox dashboard will open. "
+            "Simply click 'Download' or 'Run' on any script to instantly deploy "
+            "and manage it in a separate, isolated virtual environment.\n\n"
+            "Enjoy your experience, and remember we're here on Discord if you ever need help! :3"
+        )
+        p4_desc.setFont(qt_font(10))
+        p4_desc.setWordWrap(True)
+        p4_desc.setAlignment(Qt.AlignCenter)
+        p4_desc.setStyleSheet("background: transparent; border: none;")
+        p4_layout.addWidget(p4_desc)
+        p4_layout.addStretch()
+
+        # Add all pages to stacked widget
+        self.stack.addWidget(self.page1)
+        self.stack.addWidget(self.page2)
+        self.stack.addWidget(self.page3)
+        self.stack.addWidget(self.page4)
+
+        # Main Layout
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        # Body area containing stacked widget
+        body_panel = QFrame()
+        body_panel.setStyleSheet(f"background-color: {PANEL}; border: none;")
+        body_panel_layout = QVBoxLayout(body_panel)
+        body_panel_layout.setContentsMargins(0, 0, 0, 0)
+        body_panel_layout.addWidget(self.stack)
+        root_layout.addWidget(body_panel, 1)
+
+        # Divider line
+        divider = QFrame()
+        divider.setFixedHeight(1)
+        divider.setStyleSheet(f"background-color: {BORDER}; border: none;")
+        root_layout.addWidget(divider)
+
+        # Action navigation buttons
+        nav_panel = QWidget()
+        nav_panel.setStyleSheet(f"background-color: {BG};")
+        nav_layout = QHBoxLayout(nav_panel)
+        nav_layout.setContentsMargins(20, 10, 20, 15)
+
+        self.back_btn = QPushButton("← Back")
+        self.back_btn.setStyleSheet(subtle_button_qss())
+        self.back_btn.setFont(qt_font(9, bold=True))
+        self.back_btn.setCursor(Qt.PointingHandCursor)
+        self.back_btn.setMinimumWidth(90)
+        self.back_btn.clicked.connect(self.go_back)
+        nav_layout.addWidget(self.back_btn)
+
+        nav_layout.addStretch(1)
+
+        self.next_btn = QPushButton("Next →")
+        self.next_btn.setStyleSheet(accent_button_qss())
+        self.next_btn.setFont(qt_font(9, bold=True))
+        self.next_btn.setCursor(Qt.PointingHandCursor)
+        self.next_btn.setMinimumWidth(100)
+        self.next_btn.clicked.connect(self.go_next)
+        nav_layout.addWidget(self.next_btn)
+
+        root_layout.addWidget(nav_panel)
+
+        self.update_nav_buttons()
+
+    def browse_folder(self):
+        chosen = QFileDialog.getExistingDirectory(self, "Choose Tools Folder", self.tools_dir)
+        if chosen:
+            self.tools_dir = chosen
+            self.path_entry.setText(self.tools_dir)
+
+    def use_default_path(self):
+        self.tools_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+        self.path_entry.setText(self.tools_dir)
+
+    def preview_theme(self, label_text):
+        for mode, name in THEME_LABELS.items():
+            if name == label_text:
+                self.selected_theme = mode
+                set_theme(mode)
+                self.setStyleSheet(f"background-color: {BG}; color: {TEXT};")
+                self.path_entry.setStyleSheet(line_edit_qss())
+                break
+
+    def update_nav_buttons(self):
+        idx = self.stack.currentIndex()
+        self.back_btn.setEnabled(idx > 0)
+        if idx == self.stack.count() - 1:
+            self.next_btn.setText("Get Started! 🎉")
+        else:
+            self.next_btn.setText("Next →")
+
+    def go_back(self):
+        idx = self.stack.currentIndex()
+        if idx > 0:
+            self.stack.setCurrentIndex(idx - 1)
+            self.update_nav_buttons()
+
+    def go_next(self):
+        idx = self.stack.currentIndex()
+        if idx < self.stack.count() - 1:
+            self.stack.setCurrentIndex(idx + 1)
+            self.update_nav_buttons()
+        else:
+            self.accept()
+
+
 class _Bridge(QObject):
     footer_text = Signal(str)
     refresh_labels = Signal()
@@ -863,32 +1126,23 @@ def load_managed_scripts():
                 except Exception as e:
                     print(f"[Config] Error loading legacy config: {e}")
 
-    # 3. If no config was loaded, this is a first-time run! Ask the user where to install VRChat-Tools
+    # 3. If no config was loaded, this is a first-time run! Run the Onboarding Wizard
     if not config_loaded:
-        default_install = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
-        
-        # Show setup introduction popup
-        QMessageBox.information(
-            None, "VRChat ToolBox Setup",
-            f"Welcome to VRChat ToolBox!\n\n"
-            f"Please choose where you would like to install your modular VRChat-Tools.\n\n"
-            f"We recommend the default location:\n{default_install}"
-        )
-        
-        chosen_dir = QFileDialog.getExistingDirectory(
-            None, "Select VRChat-Tools Installation Folder",
-            default_install
-        )
-        if not chosen_dir:
-            chosen_dir = default_install
-            
-        print(f"[Config] First run setup. Selected tools installation directory: {chosen_dir}")
+        wizard = OnboardingWizard()
+        if wizard.exec() == QDialog.Accepted:
+            chosen_dir = wizard.tools_dir
+            chosen_theme = wizard.selected_theme
+        else:
+            chosen_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+            chosen_theme = "rich_purple"
+
+        print(f"[Config] First run setup complete. Tools directory: {chosen_dir}, Theme: {chosen_theme}")
         config = {
             "version": VERSION,
             "update_branch": "main",
             "beta_popup_shown": False,
             "python_interpreter": "",
-            "theme_mode": "rich_purple",
+            "theme_mode": chosen_theme,
             "tools_root_dir": chosen_dir,
             "managed_scripts": DEFAULT_MANAGED_SCRIPTS
         }
@@ -1392,54 +1646,68 @@ def ensure_tool_folder(filename: str, show_errors: bool = False) -> bool:
 def launch_script(filename: str) -> None:
     """Downloads/updates the tool's folder if needed (based on its current
     state), then launches it in a separate process. Always called from a
-    button click (main thread) — safe to touch widgets directly here."""
+    button click (main thread). Downloads run in background SyncWorker thread."""
     # Route LHM to its dedicated launcher
     if filename == LHM_FILENAME:
         launch_lhm()
-        # launch_lhm() downloads LHM internally if missing — re-check the
-        # exe on disk afterward so the button flips from Download to Run.
         tool_states[filename] = TOOL_STATE_CURRENT if os.path.isfile(_lhm_exe_path()) else TOOL_STATE_MISSING
         main_window.refresh_button_labels()
         return
 
     state = get_tool_state(filename)
     if state == TOOL_STATE_MISSING:
-        main_window.footer_label.setText(f"Downloading {filename}...")
+        main_window.footer_label.setText(f"Downloading {filename}... (please wait)")
     elif state == TOOL_STATE_UPDATE:
-        main_window.footer_label.setText(f"Updating {filename}...")
+        main_window.footer_label.setText(f"Updating {filename}... (please wait)")
     else:
         main_window.footer_label.setText(f"Starting up {filename}...")
+
+    # Disable window to prevent double click while downloading/starting
+    main_window.setEnabled(False)
     QApplication.instance().processEvents()
 
-    # 1. Sync the tool's folder from GitHub only if it's missing or outdated —
-    #    an already-current tool launches instantly with no network call.
-    if state in (TOOL_STATE_MISSING, TOOL_STATE_UPDATE):
-        if not ensure_tool_folder(filename, show_errors=True):
+    def on_sync_finished(success: bool):
+        main_window.setEnabled(True)
+        if not success:
             main_window.footer_label.setText("Error preparing script")
+            QMessageBox.critical(
+                main_window, f"{filename} Error",
+                f"Some files for {filename} failed to download.\nCheck your internet connection and try again.",
+            )
             return
+
         tool_states[filename] = TOOL_STATE_CURRENT
         main_window.refresh_button_labels()
 
-    # 2. Resolve local execution path
-    dest_path = _tool_local_path(filename)
-    script_dir = os.path.dirname(dest_path)
+        # Resolve local execution path
+        dest_path = _tool_local_path(filename)
+        script_dir = os.path.dirname(dest_path)
 
-    try:
-        # 3. Launch script via the configured Python interpreter (falls back to
-        # the ToolBox's own interpreter if none is set) in a detached environment
-        p = subprocess.Popen(
-            [get_active_python(), os.path.basename(dest_path)],
-            cwd=script_dir,
-            creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
-        )
+        try:
+            # Launch script via the configured Python interpreter (falls back to
+            # the ToolBox's own interpreter if none is set) in a detached environment
+            p = subprocess.Popen(
+                [get_active_python(), os.path.basename(dest_path)],
+                cwd=script_dir,
+                creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
+            )
 
-        print(f"[Launcher] Successfully started {filename} (PID: {p.pid})")
-        main_window.footer_label.setText("Ready")
+            print(f"[Launcher] Successfully started {filename} (PID: {p.pid})")
+            main_window.footer_label.setText("Ready")
 
-    except Exception as e:
-        print(f"[Launcher] Failed to execute {filename}: {e}")
-        main_window.footer_label.setText("Error launching script")
-        QMessageBox.critical(main_window, "Launch Error", f"Failed to start {filename}.\n\nTechnical details:\n{e}")
+        except Exception as e:
+            print(f"[Launcher] Failed to execute {filename}: {e}")
+            main_window.footer_label.setText("Error launching script")
+            QMessageBox.critical(main_window, "Launch Error", f"Failed to start {filename}.\n\nTechnical details:\n{e}")
+
+    # Async download in SyncWorker thread
+    if state in (TOOL_STATE_MISSING, TOOL_STATE_UPDATE):
+        main_window.sync_worker = SyncWorker(filename)
+        main_window.sync_worker.finished_signal.connect(on_sync_finished)
+        main_window.sync_worker.start()
+    else:
+        # Already current, run launch immediately
+        on_sync_finished(True)
 
 
 def _parse_version(v_str: str) -> tuple[int, ...]:
@@ -2491,8 +2759,9 @@ def open_settings():
     nav_layout.addStretch(1)
 
     def show_console():
-        console_dialog = ConsoleWindow(settings_win)
-        console_dialog.exec()
+        settings_win.console_dialog = ConsoleWindow(settings_win)
+        settings_win.console_dialog.setWindowModality(Qt.NonModal)
+        settings_win.console_dialog.show()
 
     console_btn = QPushButton("Console Log")
     console_btn.setStyleSheet(subtle_button_qss())
