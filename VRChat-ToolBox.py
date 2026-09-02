@@ -171,11 +171,22 @@ def get_github_base_url():
 def get_active_python() -> str:
     """Returns the interpreter path to use for launching tool scripts.
 
-    Falls back to sys.executable if no custom interpreter is configured,
+    Falls back to a discovered system Python interpreter if no custom interpreter is configured,
     or if the configured one no longer exists on disk.
     """
     if PYTHON_INTERPRETER and os.path.isfile(PYTHON_INTERPRETER):
         return PYTHON_INTERPRETER
+
+    # If frozen, sys.executable is the compiled .exe itself, which cannot run .py scripts!
+    if getattr(sys, 'frozen', False):
+        # Let's search for python on the system PATH
+        for py_cmd in ["pythonw", "python", "python3"]:
+            py_path = shutil.which(py_cmd)
+            if py_path:
+                return py_path
+        # If no python is found in PATH, fallback to 'pythonw' and let OS resolve it
+        return "pythonw"
+
     return sys.executable
 
 
