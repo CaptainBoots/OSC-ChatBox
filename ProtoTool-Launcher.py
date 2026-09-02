@@ -103,13 +103,13 @@ if getattr(sys, 'frozen', False):
 else:
     SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CENTRAL_CONFIG_DIR = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+CENTRAL_CONFIG_DIR = os.path.join(os.getenv("LOCALAPPDATA", ""), "ProtoTool-Launcher")
 CENTRAL_CONFIG_FILE = os.path.join(CENTRAL_CONFIG_DIR, "toolbox_config.json")
 TOOLS_PATH_POINTER = os.path.join(CENTRAL_CONFIG_DIR, "tools_path.txt")
 INSTALL_PATH_POINTER = os.path.join(CENTRAL_CONFIG_DIR, "install_path.txt")
 
 # These will be updated dynamically during bootstrap:
-TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "VRChat-Tools")
+TOOLS_ROOT_DIR = os.path.join(SCRIPT_DIR, "Nova-Tools")
 TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "configs")
 TOOLBOX_CONFIG_FILE = os.path.join(TOOLBOX_CONFIG_DIR, "toolbox_config.json")
 BACKUP_DIR = os.path.join(TOOLBOX_CONFIG_DIR, "ToolBox Backup")
@@ -147,15 +147,15 @@ TOOL_CONFIG_WIPE_MAP: dict[str, list[str]] = {
 # on GitHub "just works" without ever having to touch this file.
 
 # ─── GitHub URLs ─────────────────────────────────────────────────────────────
-GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/VRChat-ToolBox/releases/latest/download/"
+GITHUB_EXE_RELEASE_BASE_URL = "https://github.com/CaptainBoots/ProtoTool-Launcher/releases/latest/download/"
 
 
 def get_github_raw_url():
-    return f"https://raw.githubusercontent.com/CaptainBoots/VRChat-ToolBox/{UPDATE_BRANCH}/VRChat-ToolBox.py"
+    return f"https://raw.githubusercontent.com/CaptainBoots/ProtoTool-Launcher/{UPDATE_BRANCH}/ProtoTool-Launcher.py"
 
 
 def get_github_base_url():
-    return f"https://raw.githubusercontent.com/CaptainBoots/VRChat-Tools/{UPDATE_BRANCH}/"
+    return f"https://raw.githubusercontent.com/CaptainBoots/Nova-Tools/{UPDATE_BRANCH}/"
 
 
 def get_active_python() -> str:
@@ -207,7 +207,7 @@ def _cache_tool_label(filename: str, label: str):
     save_managed_scripts(MANAGED_SCRIPTS)
 
 def discover_managed_scripts() -> list[dict]:
-    """Dynamically auto-detects all tools inside the VRChat-Tools folder and GitHub.
+    """Dynamically auto-detects all tools inside the Nova-Tools folder and GitHub.
 
     Looks for subdirectories containing 'main.py'. Parsed tool names are extracted
     from the 'NAME' variable right under the 'VERSION' variable inside each main.py.
@@ -270,7 +270,7 @@ def discover_managed_scripts() -> list[dict]:
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # THEME SYSTEM (embedded — same palette/stripe engine used across the rest of
-# VRChat-Tools, normally split into ui/theme.py, kept inline here since this
+# Nova-Tools, normally split into ui/theme.py, kept inline here since this
 # tool has to stay a single file). Colours are plain module globals exactly
 # like the tool already used (BG, PANEL, ACCENT, ...) — set_theme() just
 # reassigns them, and every widget is rebuilt from scratch on a theme change
@@ -814,11 +814,11 @@ class SyncWorker(QThread):
 class OnboardingWizard(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("VRChat ToolBox Setup Wizard")
+        self.setWindowTitle("ProtoTool-Launcher Setup Wizard")
         self.setFixedSize(550, 450)
         self.setStyleSheet(f"background-color: {BG}; color: {TEXT};")
 
-        self.tools_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+        self.tools_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "ProtoTool-Launcher")
         self.selected_theme = "rich_purple"
 
         # Stacked layout for pages
@@ -837,7 +837,7 @@ class OnboardingWizard(QDialog):
         p1_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         p1_layout.addWidget(p1_logo)
 
-        p1_title = QLabel("Welcome to VRChat ToolBox! ✨")
+        p1_title = QLabel("Welcome to ProtoTool-Launcher! ✨")
         p1_title.setFont(qt_font(14, bold=True))
         p1_title.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
         p1_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -846,8 +846,8 @@ class OnboardingWizard(QDialog):
         p1_desc = QLabel(
             "Hello! I'm Boots. I'm going to help you get your ToolBox set up in "
             "just a few simple steps so it's not scary or confusing at all! :3\n\n"
-            "This ToolBox lets you easily download, run, and update all of your "
-            "favorite VRChat companion OSC tools from a single centralized dashboard."
+            "ProtoTool-Launcher lets you easily download, run, and update all of your "
+            "favorite companion tools from a single centralized dashboard."
         )
         p1_desc.setFont(qt_font(10))
         p1_desc.setWordWrap(True)
@@ -1022,7 +1022,7 @@ class OnboardingWizard(QDialog):
             self.path_entry.setText(self.tools_dir)
 
     def use_default_path(self):
-        self.tools_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+        self.tools_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "ProtoTool-Launcher")
         self.path_entry.setText(self.tools_dir)
 
     def preview_theme(self, label_text):
@@ -1086,25 +1086,28 @@ main_window = None
 
 def _migrate_legacy_config_folder() -> None:
     """One-time migration: older builds stored the ToolBox's own config under
-    VRChat-Tools/VRChat-Toolbox/. Newer builds use VRChat-Tools/configs/
+    Nova-Tools/NovaCore-Toolbox/. Newer builds use Nova-Tools/configs/
     instead — move any existing files over so settings (branch, python
     interpreter, managed scripts list) aren't silently lost."""
-    legacy_config_dir = os.path.join(TOOLS_ROOT_DIR, "VRChat-Toolbox")
-    if not os.path.isdir(legacy_config_dir) or os.path.abspath(legacy_config_dir) == os.path.abspath(TOOLBOX_CONFIG_DIR):
-        return
-    try:
-        os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
-        for name in os.listdir(legacy_config_dir):
-            src = os.path.join(legacy_config_dir, name)
-            dst = os.path.join(TOOLBOX_CONFIG_DIR, name)
-            if os.path.exists(dst):
-                continue
-            os.replace(src, dst)
-            print(f"[Layout] Moved config item '{name}' from VRChat-Toolbox/ -> configs/")
-        if not os.listdir(legacy_config_dir):
-            os.rmdir(legacy_config_dir)
-    except OSError as e:
-        print(f"[Layout] Could not migrate legacy config folder: {e}")
+    legacy_config_dir = os.path.join(TOOLS_ROOT_DIR, "NovaCore-Toolbox")
+    # Support migration from legacy "VRChat-Toolbox" name too
+    legacy_vrchat_dir = os.path.join(TOOLS_ROOT_DIR, "VRChat-Toolbox")
+    for legacy_dir in [legacy_config_dir, legacy_vrchat_dir]:
+        if not os.path.isdir(legacy_dir) or os.path.abspath(legacy_dir) == os.path.abspath(TOOLBOX_CONFIG_DIR):
+            continue
+        try:
+            os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
+            for name in os.listdir(legacy_dir):
+                src = os.path.join(legacy_dir, name)
+                dst = os.path.join(TOOLBOX_CONFIG_DIR, name)
+                if os.path.exists(dst):
+                    continue
+                os.replace(src, dst)
+                print(f"[Layout] Moved config item '{name}' from {os.path.basename(legacy_dir)}/ -> configs/")
+            if not os.listdir(legacy_dir):
+                os.rmdir(legacy_dir)
+        except OSError as e:
+            print(f"[Layout] Could not migrate legacy config folder: {e}")
 
 
 _migrate_legacy_config_folder()
@@ -1112,7 +1115,7 @@ _migrate_legacy_config_folder()
 def load_managed_scripts():
     global UPDATE_BRANCH, BETA_POPUP_SHOWN, PYTHON_INTERPRETER, colour_mode, MANAGED_SCRIPTS, TOOLS_ROOT_DIR
     
-    appdata_toolbox_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+    appdata_toolbox_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "ProtoTool-Launcher")
     os.makedirs(appdata_toolbox_dir, exist_ok=True)
     status_file = os.path.join(appdata_toolbox_dir, "run_status.txt")
 
@@ -1155,18 +1158,18 @@ def load_managed_scripts():
                 with open(CENTRAL_CONFIG_FILE, "r", encoding="utf-8") as f:
                     config = json.load(f)
                 config_loaded = True
-                tools_root = config.get("tools_root_dir", os.path.join(SCRIPT_DIR, "VRChat-Tools"))
+                tools_root = config.get("tools_root_dir", os.path.join(SCRIPT_DIR, "Nova-Tools"))
                 print(f"[Config] Migrated central configuration from {CENTRAL_CONFIG_FILE}")
             except Exception as e:
                 print(f"[Config] Error loading legacy central config: {e}")
         else:
-            default_legacy_file = os.path.join(SCRIPT_DIR, "VRChat-Tools", "configs", "toolbox_config.json")
+            default_legacy_file = os.path.join(SCRIPT_DIR, "Nova-Tools", "configs", "toolbox_config.json")
             if os.path.exists(default_legacy_file):
                 try:
                     with open(default_legacy_file, "r", encoding="utf-8") as f:
                         config = json.load(f)
                     config_loaded = True
-                    tools_root = os.path.join(SCRIPT_DIR, "VRChat-Tools")
+                    tools_root = os.path.join(SCRIPT_DIR, "Nova-Tools")
                     print(f"[Config] Loaded fallback/legacy config: {default_legacy_file}")
                 except Exception as e:
                     print(f"[Config] Error loading legacy config: {e}")
@@ -1178,7 +1181,7 @@ def load_managed_scripts():
             chosen_dir = wizard.tools_dir
             chosen_theme = wizard.selected_theme
         else:
-            chosen_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "VRChat-ToolBox")
+            chosen_dir = os.path.join(os.getenv("LOCALAPPDATA", ""), "ProtoTool-Launcher")
             chosen_theme = "rich_purple"
 
         # Temporarily apply layout path to discover tools during setup
@@ -1226,7 +1229,7 @@ def load_managed_scripts():
         if config_version is not None:
             print(f"[Config] Version mismatch (Config: {config_version}, App: {VERSION}). Wiping and regenerating config...")
             try:
-                # Wipe old AppData/Local/VRChat-ToolBox cache (except our pointer and config files!)
+                # Wipe old AppData/Local/Project-Proto cache (except our pointer and config files!)
                 for item in os.listdir(appdata_toolbox_dir):
                     item_path = os.path.join(appdata_toolbox_dir, item)
                     if item_path in [CENTRAL_CONFIG_FILE, TOOLS_PATH_POINTER, INSTALL_PATH_POINTER]:
@@ -1606,7 +1609,7 @@ def get_repo_tree(force: bool = False) -> list[str] | None:
     if not force and _repo_tree_cache["branch"] == UPDATE_BRANCH and _repo_tree_cache["paths"] is not None:
         return _repo_tree_cache["paths"]
 
-    url = f"https://api.github.com/repos/CaptainBoots/VRChat-Tools/git/trees/{UPDATE_BRANCH}?recursive=1"
+    url = f"https://api.github.com/repos/CaptainBoots/Nova-Tools/git/trees/{UPDATE_BRANCH}?recursive=1"
     try:
         resp = requests.get(url, timeout=15, headers={"Accept": "application/vnd.github+json"})
         resp.raise_for_status()
@@ -1846,7 +1849,7 @@ def perform_update(remote_text=None, source_url=None):
 
             # Try to download the updated executable.
             exe_names_to_try = [os.path.basename(current_exe)]
-            for fallback in ["VRChat-ToolBox.exe", "ToolBox.exe"]:
+            for fallback in ["NovaCore-ToolBox.exe", "VRChat-ToolBox.exe", "ToolBox.exe"]:
                 if fallback not in exe_names_to_try:
                     exe_names_to_try.append(fallback)
 
@@ -1891,8 +1894,8 @@ def perform_update(remote_text=None, source_url=None):
                         f"Technical Detail: {last_error}\n\n"
                         "This typically means that there is no compiled release asset matching this executable name "
                         "on the latest release on GitHub, or the repository is private.\n\n"
-                        "Please verify that the latest release on GitHub has a compiled 'ToolBox.exe' "
-                        "or 'VRChat-ToolBox.exe' uploaded as a release asset, or perform the update manually."
+                        "Please verify that the latest release on GitHub has a compiled 'NovaCore-ToolBox.exe', "
+                        "'ToolBox.exe', or 'VRChat-ToolBox.exe' uploaded as a release asset, or perform the update manually."
                     )
                 else:
                     raise RuntimeError(f"Could not download updated executable from GitHub. (Error: {last_error})")
@@ -1968,7 +1971,7 @@ def _on_confirm_main_update(prompt: str, remote_text: str, remote_url: str):
     if QMessageBox.question(main_window, "Update Available", prompt) == QMessageBox.Yes:
         perform_update(remote_text=remote_text, source_url=remote_url)
     else:
-        print(f"[VRChat-Tools] Update skipped by user")
+        print(f"[Nova-Tools] Update skipped by user")
 
 
 def check_for_main_updates(silent: bool = True):
@@ -2006,12 +2009,12 @@ def check_for_main_updates(silent: bool = True):
 
     main_update_available = remote_newer or content_differs
 
-    print(f"[VRChat-Tools] Checking... (local: {VERSION} remote: {remote_version}")
-    print(f"[VRChat-Tools] Tools Branch: {UPDATE_BRANCH})")
+    print(f"[Nova-Tools] Checking... (local: {VERSION} remote: {remote_version}")
+    print(f"[Nova-Tools] Tools Branch: {UPDATE_BRANCH})")
 
     if main_update_available:
         if remote_newer:
-            print(f"[VRChat-Tools] Update available: {VERSION} -> {remote_version}")
+            print(f"[Nova-Tools] Update available: {VERSION} -> {remote_version}")
             if os.path.exists(TOOLBOX_CONFIG_FILE):
                 try:
                     os.remove(TOOLBOX_CONFIG_FILE)
@@ -2022,7 +2025,7 @@ def check_for_main_updates(silent: bool = True):
                 "Update and restart now?"
             )
         else:
-            print(f"[VRChat-Tools] Remote content differs (version string unchanged at {VERSION})")
+            print(f"[Nova-Tools] Remote content differs (version string unchanged at {VERSION})")
             prompt = (
                 f"A remote script update is available (content changed,\n"
                 "but version string may not have been bumped).\n\n"
@@ -2031,7 +2034,7 @@ def check_for_main_updates(silent: bool = True):
 
         bridge.confirm_main_update.emit(prompt, remote_text, remote_url)
     else:
-        print(f"[VRChat-Tools] Up to date ({VERSION})")
+        print(f"[Nova-Tools] Up to date ({VERSION})")
 
     # Tool downloads/updates no longer happen at boot — just re-run the
     # lightweight version scan so button labels stay accurate.
@@ -2194,7 +2197,7 @@ HELP_PAGES = [
         "title": "Welcome to ToolBox",
         "content": (
             "This control center manages and runs various modular optimization tools "
-            "tailored for VRChat OSC network tracking.\n\n"
+            "tailored for companion OSC network tracking.\n\n"
             "Features include:\n"
             "• Automated system update patches on initialization cycles.\n"
             "• Sandbox virtual execution container environments.\n"
@@ -2217,11 +2220,11 @@ HELP_PAGES = [
             "▶ Router — Manages OSC routing\n"
             " Forwards OSC messages between sources\n"
             " and destinations.\n\n"
-            "▶ ChatBox — Sends data to VRChat over OSC\n"
+            "▶ ChatBox — Sends data over OSC\n"
             " Displays system info, weather, music,\n"
             " and custom messages.\n\n"
             "▶ Face Tracking Controller — Control\n"
-            " face tracking features in VRChat ."
+            " face tracking features."
         ),
     },
     {
@@ -2507,7 +2510,7 @@ def open_settings():
 
     def change_tools_folder():
         global TOOLS_ROOT_DIR
-        chosen = QFileDialog.getExistingDirectory(settings_win, "Select VRChat-Tools Installation Folder", TOOLS_ROOT_DIR)
+        chosen = QFileDialog.getExistingDirectory(settings_win, "Select Nova-Tools Installation Folder", TOOLS_ROOT_DIR)
         if not chosen or chosen == TOOLS_ROOT_DIR:
             return
         
@@ -2518,7 +2521,7 @@ def open_settings():
         if os.path.exists(old_tools_dir) and any(os.scandir(old_tools_dir)):
             move_confirm = QMessageBox.question(
                 settings_win, "Move Existing Tools?",
-                f"Would you like to move your existing VRChat-Tools files from:\n{old_tools_dir}\n\nto the new directory:\n{new_tools_dir}?",
+                f"Would you like to move your existing Nova-Tools files from:\n{old_tools_dir}\n\nto the new directory:\n{new_tools_dir}?",
                 QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
             )
             if move_confirm == QMessageBox.Cancel:
@@ -2564,7 +2567,7 @@ def open_settings():
     body_layout.addLayout(tools_row)
 
     # ── Themes (collapsible, collapsed by default — matches the pattern
-    #    used in every other VRChat-Tools settings dialog) ────────────────
+    #    used in every other Nova-Tools settings dialog) ────────────────
     theme_header = QWidget()
     theme_header.setCursor(Qt.CursorShape.PointingHandCursor)
     theme_header_layout = QHBoxLayout(theme_header)
@@ -2883,7 +2886,7 @@ class ToolBoxWindow(QMainWindow):
     # ── Root window ───────────────────────────────────────────────────────
 
     def _build_root(self):
-        self.setWindowTitle("VRChat-ToolBox")
+        self.setWindowTitle("ProtoTool-Launcher")
         self.resize(580, 600)
         self.setMinimumSize(480, 380)
 
@@ -2898,7 +2901,7 @@ class ToolBoxWindow(QMainWindow):
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(20, 12, 20, 12)
 
-        title_lbl = QLabel(f"{TITLE_PREFIX} VRChat-ToolBox")
+        title_lbl = QLabel(f"{TITLE_PREFIX} ProtoTool-Launcher")
         title_lbl.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
         title_lbl.setFont(qt_font(16, bold=True))
         header_layout.addWidget(title_lbl)
@@ -3050,8 +3053,8 @@ qt_app = QApplication(sys.argv)
 # Initialize process model ID for full-size taskbar icons on Windows
 if sys.platform == 'win32':
     try:
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(f'CaptainBoots.VRChat-ToolBox.{VERSION}')
-        print(f"[Process] Successfully registered AppUserModelID: CaptainBoots.VRChat-ToolBox.{VERSION}")
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(f'CaptainBoots.ProtoTool-Launcher.{VERSION}')
+        print(f"[Process] Successfully registered AppUserModelID: CaptainBoots.ProtoTool-Launcher.{VERSION}")
     except Exception as ex:
         print(f"[Process] Error setting AppUserModelID: {ex}")
 

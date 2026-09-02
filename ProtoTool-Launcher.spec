@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['VRChat-ToolBox.py'],
+    ['ProtoTool-Launcher.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='ToolBox',
+    name='ProtoTool-Launcher',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

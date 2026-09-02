@@ -16,9 +16,9 @@ __pycache__/
 /AGENTS.md
 
 # None Tools
-/VRChat-Tools/configs/
-/VRChat-Tools/LibreHardwareMonitor/
-/VRChat-Tools/VRChat-Toolbox/
+/Nova-Tools/configs/
+/Nova-Tools/LibreHardwareMonitor/
+/Nova-Tools/ProtoTool-Launcher/
 
 # PyInstaller build artifacts & compiled binaries
 

@@ -1,6 +1,6 @@
 @echo off
 echo =======================================================
-echo              VRChat ToolBox Build Script
+echo              ProtoTool-Launcher Build Script
 echo =======================================================
 echo.
 
@@ -27,12 +27,12 @@ if %errorlevel% neq 0 (
 
 :pyinstaller_installed
 
-echo [INFO] Compiling ToolBox.spec with PyInstaller...
-python -m PyInstaller --noconfirm ToolBox.spec
+echo [INFO] Compiling ProtoTool-Launcher.spec with PyInstaller...
+python -m PyInstaller --noconfirm ProtoTool-Launcher.spec
 
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR] ToolBox Compilation failed!
+    echo [ERROR] ProtoTool-Launcher Compilation failed!
     pause
     exit /b 1
 )

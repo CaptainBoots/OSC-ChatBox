@@ -1,3 +1,3 @@
-[submodule "VRChat-Tools"]
-	path = VRChat-Tools
-	url = git@github.com:CaptainBoots/VRChat-Tools.git
+[submodule "Nova-Tools"]
+	path = Nova-Tools
+	url = git@github.com:CaptainBoots/Nova-Tools.git
