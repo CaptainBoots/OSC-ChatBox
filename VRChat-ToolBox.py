@@ -77,7 +77,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.8.10"
+VERSION = "9.8.11"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
