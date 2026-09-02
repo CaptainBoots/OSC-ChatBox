@@ -29,7 +29,7 @@ jobs:
       - name: Extract Version
         id: get_version
         run: |
-          $version = python -c "import re; content=open('VRChat-ToolBox.py', 'r', encoding='utf-8').read(); print(re.search(r'VERSION\s*=\s*[\x22\x27]([^\x22\x27]+)[\x22\x27]', content).group(1))"
+          $version = python -c "import re; content=open('ProtoTool-Launcher.py', 'r', encoding='utf-8').read(); print(re.search(r'VERSION\s*=\s*[\x22\x27]([^\x22\x27]+)[\x22\x27]', content).group(1))"
           Add-Content -Path $env:GITHUB_ENV -Value "VERSION=$version"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version"
           Write-Host "Extracted version: $version"
@@ -63,7 +63,7 @@ jobs:
       - name: Build Executable
         if: env.RELEASE_EXISTS != 'true'
         run: |
-          python -m PyInstaller --noconfirm ToolBox.spec
+          python -m PyInstaller --noconfirm ProtoTool-Launcher.spec
           python -m PyInstaller --onefile --name="Uninstaller" Uninstaller.py
 
       - name: Create GitHub Release
@@ -75,7 +75,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            dist/ToolBox.exe
+            dist/ProtoTool-Launcher.exe
             dist/Uninstaller.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
