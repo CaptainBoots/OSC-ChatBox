@@ -3,16 +3,6 @@
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Hi :3
 # Welcome to my code
-#
-# Qt port note: this file's *logic* (config I/O, GitHub tree sync,
-# self-update, tool state tracking, LHM download/patch/launch) is
-# unchanged from the Tkinter version — only the UI layer was rewritten,
-# plus a couple of spots that touch widgets from a background thread
-# were adapted to route through Qt-safe signals (see "_Bridge" below);
-# Tkinter tolerated that, Qt does not. Kept as one file per request,
-# with the shared multi-theme/flag-stripe system embedded directly
-# (see "THEME SYSTEM" section) instead of split into ui/theme.py like
-# the other tools.
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 # Imports
@@ -128,19 +118,6 @@ def update_layout_paths(tools_root):
         os.path.join(TOOLS_ROOT_DIR, "toolbox_config.json"),
     ]
 
-# Legacy per-script folder map, used only to migrate old flat-layout installs
-# (script sitting directly in VRChat-Tools/ instead of its own subfolder).
-SCRIPT_FOLDER_MAP = {
-    "OSC-Router.py": "OSC-Router",
-    "OSC-FaceTrackingController.py": "OSC-FaceTrackingController",
-    "OSC-Gamepad.py": "OSC-Gamepad",
-    "OSC-ScriptMaker.py": "OSC-ScriptMaker",
-    "OSC-ParameterBrowser.py": "OSC-ParameterBrowser",
-    "VRChat-Launcher.py": "VRChat-Launcher",
-    "VRChat-LocalFavorites.py": "VRChat-LocalFavorites",
-    "VRChat-SocialLogger.py": "VRChat-SocialLogger",
-}
-
 # Per-tool config files to wipe on update (paths relative to TOOLS_ROOT_DIR).
 # This ensures users always get a clean config after a breaking update.
 TOOL_CONFIG_WIPE_MAP: dict[str, list[str]] = {
@@ -219,6 +196,81 @@ DEFAULT_MANAGED_SCRIPTS = [
     {"filename": "VRChat-LocalFavorites/main.py", "label": "VRChat Local Favorites"},
     {"filename": "VRChat-SocialLogger/main.py", "label": "VRChat SocialLogger"},
 ]
+
+_tool_label_cache = {}
+
+def _get_cached_tool_label(filename: str) -> str | None:
+    return _tool_label_cache.get(filename)
+
+def _cache_tool_label(filename: str, label: str):
+    _tool_label_cache[filename] = label
+    # Save cache to config file
+    save_managed_scripts(MANAGED_SCRIPTS)
+
+def discover_managed_scripts() -> list[dict]:
+    """Dynamically auto-detects all tools inside the VRChat-Tools folder and GitHub.
+
+    Looks for subdirectories containing 'main.py'. Parsed tool names are extracted
+    from the 'NAME' variable right under the 'VERSION' variable inside each main.py.
+    """
+    detected = []
+
+    # 1. Always include LibreHardwareMonitor as a static default helper tool
+    detected.append({
+        "filename": "LibreHardwareMonitor/LibreHardwareMonitor.exe",
+        "label": "Libre Hardware Monitor"
+    })
+
+    # Keep track of folders we have already discovered
+    seen_folders = set()
+
+    # 2. Local Discovery: Scan the local TOOLS_ROOT_DIR subfolders
+    if os.path.isdir(TOOLS_ROOT_DIR):
+        try:
+            for item in os.listdir(TOOLS_ROOT_DIR):
+                folder_path = os.path.join(TOOLS_ROOT_DIR, item)
+                if os.path.isdir(folder_path) and item != "LibreHardwareMonitor" and item != "configs" and item != "ToolBox Backup":
+                    main_py_path = os.path.join(folder_path, "main.py")
+                    if os.path.isfile(main_py_path):
+                        # Read and parse NAME
+                        try:
+                            with open(main_py_path, "r", encoding="utf-8", errors="ignore") as f:
+                                content = f.read()
+                        except Exception:
+                            content = ""
+                        
+                        label = _extract_name_from_source(content) or item
+                        filename = f"{item}/main.py"
+                        detected.append({"filename": filename, "label": label})
+                        seen_folders.add(item)
+        except Exception as e:
+            print(f"[Discovery] Local tools scan failed: {e}")
+
+    # 3. Remote Discovery: Find missing folders that have main.py on GitHub
+    paths = get_repo_tree()
+    if paths:
+        for p in paths:
+            # We look for paths like '<FolderName>/main.py'
+            parts = p.split("/")
+            if len(parts) == 2 and parts[1] == "main.py":
+                folder_name = parts[0]
+                if folder_name != "LibreHardwareMonitor" and folder_name not in seen_folders:
+                    filename = f"{folder_name}/main.py"
+                    cached_label = _get_cached_tool_label(filename)
+                    if not cached_label:
+                        # Fetch the raw main.py content and parse NAME
+                        remote_text, _, _ = _fetch_remote_script(f"{get_github_base_url()}{filename}", timeout=5)
+                        cached_label = _extract_name_from_source(remote_text or "") or folder_name
+                        _cache_tool_label(filename, cached_label)
+
+                    detected.append({"filename": filename, "label": cached_label})
+                    seen_folders.add(folder_name)
+
+    # Fallback to default if nothing discovered
+    if len(detected) <= 1:
+        return DEFAULT_MANAGED_SCRIPTS
+
+    return detected
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -1195,9 +1247,18 @@ def load_managed_scripts():
             
             QTimer.singleShot(1000, force_update_all_scripts)
 
+    # Load the tool name labels cache
+    global _tool_label_cache
+    _tool_label_cache = config.get("cached_labels", {})
+
+    # Dynamically discover all tools instead of relying on a static hardcoded config list!
+    discovered_scripts = discover_managed_scripts()
+
     # Save config inside the tools directory
     config["version"] = VERSION
     config["tools_root_dir"] = TOOLS_ROOT_DIR
+    config["managed_scripts"] = discovered_scripts
+    config["cached_labels"] = _tool_label_cache
     try:
         os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
         with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -1213,7 +1274,7 @@ def load_managed_scripts():
             except OSError:
                 pass
 
-    return config.get("managed_scripts", DEFAULT_MANAGED_SCRIPTS)
+    return discovered_scripts
 
 
 def save_managed_scripts(scripts):
@@ -1226,7 +1287,8 @@ def save_managed_scripts(scripts):
             "python_interpreter": PYTHON_INTERPRETER,
             "theme_mode": colour_mode,
             "tools_root_dir": TOOLS_ROOT_DIR,
-            "managed_scripts": scripts
+            "managed_scripts": scripts,
+            "cached_labels": _tool_label_cache
         }
         with open(TOOLBOX_CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
@@ -1453,36 +1515,10 @@ def _ensure_layout_dirs() -> None:
     os.makedirs(TOOLS_ROOT_DIR, exist_ok=True)
     os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
     os.makedirs(BACKUP_DIR, exist_ok=True)
-    for folder in SCRIPT_FOLDER_MAP.values():
-        os.makedirs(os.path.join(TOOLS_ROOT_DIR, folder), exist_ok=True)
 
 
 def _migrate_legacy_layout() -> None:
-    for script_name, folder in SCRIPT_FOLDER_MAP.items():
-        legacy_script = os.path.join(TOOLS_ROOT_DIR, script_name)
-        target_script = os.path.join(TOOLS_ROOT_DIR, folder, script_name)
-        if not os.path.isfile(legacy_script) or os.path.isfile(target_script):
-            continue
-        try:
-            os.makedirs(os.path.dirname(target_script), exist_ok=True)
-            os.replace(legacy_script, target_script)
-            print(f"[Layout] Moved {script_name} -> {folder}\\")
-        except OSError as e:
-            print(f"[Layout] Could not move {script_name}: {e}")
-
-    legacy_backup_dir = os.path.join(TOOLS_ROOT_DIR, "ToolBox Backup")
-    if os.path.isdir(legacy_backup_dir) and os.path.abspath(legacy_backup_dir) != os.path.abspath(BACKUP_DIR):
-        try:
-            os.makedirs(BACKUP_DIR, exist_ok=True)
-            for backup_name in os.listdir(legacy_backup_dir):
-                src = os.path.join(legacy_backup_dir, backup_name)
-                dst = os.path.join(BACKUP_DIR, backup_name)
-                if os.path.isfile(src) and not os.path.exists(dst):
-                    os.replace(src, dst)
-            if not os.listdir(legacy_backup_dir):
-                os.rmdir(legacy_backup_dir)
-        except OSError as e:
-            print(f"[Layout] Could not migrate legacy backups: {e}")
+    pass
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -1720,6 +1756,15 @@ def _parse_version(v_str: str) -> tuple[int, ...]:
 def _extract_version_from_source(source_text: str) -> str | None:
     for line in source_text.splitlines():
         if line.strip().startswith("VERSION"):
+            match = re.search(r'["\']([^"\']+)["\']', line)
+            if match:
+                return match.group(1)
+    return None
+
+
+def _extract_name_from_source(source_text: str) -> str | None:
+    for line in source_text.splitlines():
+        if line.strip().startswith("NAME"):
             match = re.search(r'["\']([^"\']+)["\']', line)
             if match:
                 return match.group(1)
