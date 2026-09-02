@@ -77,7 +77,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.8.6"
+VERSION = "9.8.7"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -638,22 +638,22 @@ class CircleToggle(QWidget):
         self._size = size
         self._pad = pad
         self.setFixedSize(size, size)
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def paintEvent(self, _event):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         rect = QRectF(self._pad, self._pad, self._size - 2 * self._pad, self._size - 2 * self._pad)
         if self._enabled:
             painter.setBrush(self._color)
-            painter.setPen(Qt.NoPen)
+            painter.setPen(Qt.PenStyle.NoPen)
         else:
-            painter.setBrush(Qt.NoBrush)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.setPen(QPen(self._color, 2))
         painter.drawEllipse(rect)
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self._enabled = not self._enabled
             self.update()
             self.toggled.emit(self._enabled)
@@ -740,7 +740,7 @@ class ConsoleWindow(QDialog):
         btn_layout.setSpacing(10)
 
         clear_btn = QPushButton("Clear")
-        clear_btn.setCursor(Qt.PointingHandCursor)
+        clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         clear_btn.setStyleSheet(
             f"QPushButton {{ background-color: {PANEL}; color: {SUBTEXT}; "
             f"border: 1px solid {BORDER}; border-radius: 3px; padding: 5px 15px; }}"
@@ -750,7 +750,7 @@ class ConsoleWindow(QDialog):
         btn_layout.addWidget(clear_btn)
 
         copy_btn = QPushButton("Copy to Clipboard")
-        copy_btn.setCursor(Qt.PointingHandCursor)
+        copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         copy_btn.setStyleSheet(
             f"QPushButton {{ background-color: {PANEL}; color: {SUBTEXT}; "
             f"border: 1px solid {BORDER}; border-radius: 3px; padding: 5px 15px; }}"
@@ -762,7 +762,7 @@ class ConsoleWindow(QDialog):
         btn_layout.addStretch()
 
         close_btn = QPushButton("Close")
-        close_btn.setCursor(Qt.PointingHandCursor)
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.setStyleSheet(
             f"QPushButton {{ background-color: {ACCENT}; color: {BG}; "
             f"border: none; border-radius: 3px; padding: 5px 20px; font-weight: bold; }}"
@@ -775,14 +775,14 @@ class ConsoleWindow(QDialog):
 
         # Populate with existing logs
         self.text_area.setPlainText(stdout_redirector.get_logs())
-        self.text_area.moveCursor(QTextCursor.End)
+        self.text_area.moveCursor(QTextCursor.MoveOperation.End)
 
         # Connect to stream signal for real-time updates
         bridge.console_log.connect(self.append_log)
 
     def append_log(self, text):
         self.text_area.insertPlainText(text)
-        self.text_area.moveCursor(QTextCursor.End)
+        self.text_area.moveCursor(QTextCursor.MoveOperation.End)
 
     def clear_logs(self):
         stdout_redirector.buffer.clear()
@@ -834,13 +834,13 @@ class OnboardingWizard(QDialog):
         icon_path = os.path.join(SCRIPT_DIR, "Images", "Boot's-ToolBox-256.ico")
         if os.path.exists(icon_path):
             p1_logo.setPixmap(QIcon(icon_path).pixmap(96, 96))
-        p1_logo.setAlignment(Qt.AlignCenter)
+        p1_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         p1_layout.addWidget(p1_logo)
 
         p1_title = QLabel("Welcome to VRChat ToolBox! ✨")
         p1_title.setFont(qt_font(14, bold=True))
         p1_title.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
-        p1_title.setAlignment(Qt.AlignCenter)
+        p1_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         p1_layout.addWidget(p1_title)
 
         p1_desc = QLabel(
@@ -886,14 +886,14 @@ class OnboardingWizard(QDialog):
         choose_btn = QPushButton("📂 Browse / Choose Folder...")
         choose_btn.setStyleSheet(subtle_button_qss())
         choose_btn.setFont(qt_font(9, bold=True))
-        choose_btn.setCursor(Qt.PointingHandCursor)
+        choose_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         choose_btn.clicked.connect(self.browse_folder)
         p2_btn_layout.addWidget(choose_btn)
 
         default_btn = QPushButton("↺ Use Default Path")
         default_btn.setStyleSheet(subtle_button_qss())
         default_btn.setFont(qt_font(9, bold=True))
-        default_btn.setCursor(Qt.PointingHandCursor)
+        default_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         default_btn.clicked.connect(self.use_default_path)
         p2_btn_layout.addWidget(default_btn)
         p2_btn_layout.addStretch()
@@ -925,7 +925,7 @@ class OnboardingWizard(QDialog):
             self.theme_combo.addItem(label_text, mode)
         self.theme_combo.setCurrentText(THEME_LABELS[self.selected_theme])
         self.theme_combo.setFont(qt_font(10))
-        self.theme_combo.setCursor(Qt.PointingHandCursor)
+        self.theme_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         self.theme_combo.currentTextChanged.connect(self.preview_theme)
         p3_layout.addWidget(self.theme_combo)
         p3_layout.addStretch()
@@ -939,13 +939,13 @@ class OnboardingWizard(QDialog):
         p4_logo = QLabel()
         if os.path.exists(icon_path):
             p4_logo.setPixmap(QIcon(icon_path).pixmap(80, 80))
-        p4_logo.setAlignment(Qt.AlignCenter)
+        p4_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         p4_layout.addWidget(p4_logo)
 
         p4_title = QLabel("You're All Set! 🎉")
         p4_title.setFont(qt_font(14, bold=True))
         p4_title.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
-        p4_title.setAlignment(Qt.AlignCenter)
+        p4_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         p4_layout.addWidget(p4_title)
 
         p4_desc = QLabel(
@@ -957,7 +957,7 @@ class OnboardingWizard(QDialog):
         )
         p4_desc.setFont(qt_font(10))
         p4_desc.setWordWrap(True)
-        p4_desc.setAlignment(Qt.AlignCenter)
+        p4_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         p4_desc.setStyleSheet("background: transparent; border: none;")
         p4_layout.addWidget(p4_desc)
         p4_layout.addStretch()
@@ -996,7 +996,7 @@ class OnboardingWizard(QDialog):
         self.back_btn = QPushButton("← Back")
         self.back_btn.setStyleSheet(subtle_button_qss())
         self.back_btn.setFont(qt_font(9, bold=True))
-        self.back_btn.setCursor(Qt.PointingHandCursor)
+        self.back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.back_btn.setMinimumWidth(90)
         self.back_btn.clicked.connect(self.go_back)
         nav_layout.addWidget(self.back_btn)
@@ -1006,7 +1006,7 @@ class OnboardingWizard(QDialog):
         self.next_btn = QPushButton("Next →")
         self.next_btn.setStyleSheet(accent_button_qss())
         self.next_btn.setFont(qt_font(9, bold=True))
-        self.next_btn.setCursor(Qt.PointingHandCursor)
+        self.next_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.next_btn.setMinimumWidth(100)
         self.next_btn.clicked.connect(self.go_next)
         nav_layout.addWidget(self.next_btn)
@@ -1174,7 +1174,7 @@ def load_managed_scripts():
     # 3. If no config was loaded, this is a first-time run! Run the Onboarding Wizard
     if not config_loaded:
         wizard = OnboardingWizard()
-        if wizard.exec() == QDialog.Accepted:
+        if wizard.exec() == QDialog.DialogCode.Accepted:
             chosen_dir = wizard.tools_dir
             chosen_theme = wizard.selected_theme
         else:
@@ -1200,7 +1200,7 @@ def load_managed_scripts():
     # Write the tools path to the pointer file so it's loaded automatically next time
     try:
         with open(TOOLS_PATH_POINTER, "w", encoding="utf-8") as f_ptr:
-            f_ptr.write(os.path.abspath(tools_root))
+            f_ptr.write(os.path.abspath(tools_root or ""))
     except Exception as ex:
         print(f"[Config] Error writing tools path pointer: {ex}")
 
@@ -1467,9 +1467,9 @@ def _show_lhm_started_popup() -> None:
     ok_btn = QPushButton("OK")
     ok_btn.setStyleSheet(accent_button_qss())
     ok_btn.setFont(qt_font(9, bold=True))
-    ok_btn.setCursor(Qt.PointingHandCursor)
+    ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
     ok_btn.clicked.connect(dlg.close)
-    body_layout.addWidget(ok_btn, alignment=Qt.AlignHCenter)
+    body_layout.addWidget(ok_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
 
     layout.addWidget(body)
     dlg.exec()
@@ -1491,7 +1491,9 @@ def launch_lhm() -> None:
     try:
         if sys.platform == "win32":
             import ctypes
-            ret = ctypes.windll.shell32.ShellExecuteW(
+            shell32 = getattr(ctypes.windll, "shell32")
+            ShellExecuteW = getattr(shell32, "ShellExecuteW")
+            ret = ShellExecuteW(
                 None, "runas", dest, None, os.path.dirname(dest), 1
             )
             if ret <= 32:
@@ -2096,7 +2098,7 @@ def square_button(text: str, command, base_size: int = 28) -> QPushButton:
     coverage."""
     btn = QPushButton(text)
     btn.setFixedSize(base_size, base_size)
-    btn.setCursor(Qt.PointingHandCursor)
+    btn.setCursor(Qt.CursorShape.PointingHandCursor)
     icon_font = QFont()
     icon_font.setPointSize(12)
     btn.setFont(icon_font)
@@ -2159,7 +2161,7 @@ def _show_beta_popup():
     join_btn = QPushButton("Join Discord Server")
     join_btn.setStyleSheet(accent_button_qss())
     join_btn.setFont(qt_font(9, bold=True))
-    join_btn.setCursor(Qt.PointingHandCursor)
+    join_btn.setCursor(Qt.CursorShape.PointingHandCursor)
     join_btn.clicked.connect(_join_discord)
     btn_row.addWidget(join_btn)
     btn_row.addStretch(1)
@@ -2167,7 +2169,7 @@ def _show_beta_popup():
     dismiss_btn = QPushButton("Dismiss")
     dismiss_btn.setStyleSheet(subtle_button_qss())
     dismiss_btn.setFont(qt_font(9, bold=True))
-    dismiss_btn.setCursor(Qt.PointingHandCursor)
+    dismiss_btn.setCursor(Qt.CursorShape.PointingHandCursor)
     dismiss_btn.clicked.connect(win.close)
     btn_row.addWidget(dismiss_btn)
 
@@ -2298,7 +2300,7 @@ def open_help():
     content_label.setStyleSheet(f"color: {TEXT}; background: transparent; border: none;")
     content_label.setFont(qt_font(10))
     content_label.setWordWrap(True)
-    content_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+    content_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
     content_layout.addWidget(content_label)
 
     body_wrap = QWidget()
@@ -2413,7 +2415,7 @@ def open_settings():
     branch_combo.addItems(["main", "beta"])
     branch_combo.setCurrentText(UPDATE_BRANCH)
     branch_combo.setFont(qt_font(9))
-    branch_combo.setCursor(Qt.PointingHandCursor)
+    branch_combo.setCursor(Qt.CursorShape.PointingHandCursor)
     branch_row.addWidget(branch_combo)
     branch_row.addStretch(1)
     body_layout.addLayout(branch_row)
@@ -2467,14 +2469,14 @@ def open_settings():
     browse_python_btn = QPushButton("Browse...")
     browse_python_btn.setStyleSheet(subtle_button_qss())
     browse_python_btn.setFont(qt_font(8, bold=True))
-    browse_python_btn.setCursor(Qt.PointingHandCursor)
+    browse_python_btn.setCursor(Qt.CursorShape.PointingHandCursor)
     browse_python_btn.clicked.connect(browse_python)
     python_row.addWidget(browse_python_btn)
 
     reset_python_btn = QPushButton("Reset")
     reset_python_btn.setStyleSheet(subtle_button_qss())
     reset_python_btn.setFont(qt_font(8, bold=True))
-    reset_python_btn.setCursor(Qt.PointingHandCursor)
+    reset_python_btn.setCursor(Qt.CursorShape.PointingHandCursor)
     reset_python_btn.clicked.connect(reset_python)
     python_row.addWidget(reset_python_btn)
 
@@ -2545,7 +2547,7 @@ def open_settings():
     change_tools_btn = QPushButton("Change...")
     change_tools_btn.setStyleSheet(subtle_button_qss())
     change_tools_btn.setFont(qt_font(8, bold=True))
-    change_tools_btn.setCursor(Qt.PointingHandCursor)
+    change_tools_btn.setCursor(Qt.CursorShape.PointingHandCursor)
     change_tools_btn.clicked.connect(change_tools_folder)
     tools_row.addWidget(change_tools_btn)
 
@@ -2554,7 +2556,7 @@ def open_settings():
     # ── Themes (collapsible, collapsed by default — matches the pattern
     #    used in every other VRChat-Tools settings dialog) ────────────────
     theme_header = QWidget()
-    theme_header.setCursor(Qt.PointingHandCursor)
+    theme_header.setCursor(Qt.CursorShape.PointingHandCursor)
     theme_header_layout = QHBoxLayout(theme_header)
     theme_header_layout.setContentsMargins(0, 8, 0, 0)
 
@@ -2607,7 +2609,7 @@ def open_settings():
 
     for mode, label_text in THEME_LABELS.items():
         row = QWidget()
-        row.setCursor(Qt.PointingHandCursor)
+        row.setCursor(Qt.CursorShape.PointingHandCursor)
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 3, 0, 3)
 
@@ -2672,7 +2674,7 @@ def open_settings():
 
     list_scroll = QScrollArea()
     list_scroll.setWidgetResizable(True)
-    list_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    list_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     list_scroll.setStyleSheet(f"background-color: {PANEL}; border: none;")
     list_inner = QWidget()
     list_inner.setStyleSheet(f"background-color: {PANEL};")
@@ -2705,11 +2707,11 @@ def open_settings():
 
             file_font = qt_font(8)
             file_metrics = QFontMetrics(file_font)
-            elided = file_metrics.elidedText(f"({script['filename']})", Qt.ElideMiddle, 170)
+            elided = file_metrics.elidedText(f"({script['filename']})", Qt.TextElideMode.ElideMiddle, 170)
             file_lbl = QLabel(elided)
             file_lbl.setToolTip(script["filename"])
             file_lbl.setFixedWidth(170)
-            file_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            file_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             file_lbl.setStyleSheet(f"color: {SUBTEXT}; background: transparent; border: none;")
             file_lbl.setFont(file_font)
             row_layout.addWidget(file_lbl)
@@ -2722,7 +2724,7 @@ def open_settings():
                     f"QPushButton:hover {{ background-color: {BORDER}; }}"
                 )
                 remove_btn.setFont(qt_font(8, bold=True))
-                remove_btn.setCursor(Qt.PointingHandCursor)
+                remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 remove_btn.clicked.connect(lambda _checked=False, i=idx: remove_script(i))
                 row_layout.addWidget(remove_btn)
             else:
@@ -2792,9 +2794,9 @@ def open_settings():
         submit_btn = QPushButton("Save Script")
         submit_btn.setStyleSheet(accent_button_qss())
         submit_btn.setFont(qt_font(9, bold=True))
-        submit_btn.setCursor(Qt.PointingHandCursor)
+        submit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         submit_btn.clicked.connect(save_new_script)
-        grid.addWidget(submit_btn, 2, 1, alignment=Qt.AlignRight)
+        grid.addWidget(submit_btn, 2, 1, alignment=Qt.AlignmentFlag.AlignRight)
 
         grid.setColumnStretch(1, 1)
         add_win.exec()
@@ -2808,7 +2810,7 @@ def open_settings():
     add_btn = QPushButton("+ Add Script")
     add_btn.setStyleSheet(accent_button_qss())
     add_btn.setFont(qt_font(9, bold=True))
-    add_btn.setCursor(Qt.PointingHandCursor)
+    add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
     add_btn.setMinimumWidth(120)
     add_btn.clicked.connect(add_script)
     nav_layout.addWidget(add_btn)
@@ -2822,7 +2824,7 @@ def open_settings():
     console_btn = QPushButton("Console Log")
     console_btn.setStyleSheet(subtle_button_qss())
     console_btn.setFont(qt_font(9, bold=True))
-    console_btn.setCursor(Qt.PointingHandCursor)
+    console_btn.setCursor(Qt.CursorShape.PointingHandCursor)
     console_btn.setMinimumWidth(110)
     console_btn.clicked.connect(show_console)
     nav_layout.addWidget(console_btn)
@@ -2830,7 +2832,7 @@ def open_settings():
     close_btn = QPushButton("Close")
     close_btn.setStyleSheet(subtle_button_qss())
     close_btn.setFont(qt_font(9, bold=True))
-    close_btn.setCursor(Qt.PointingHandCursor)
+    close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
     close_btn.setMinimumWidth(90)
     close_btn.clicked.connect(settings_win.close)
     nav_layout.addWidget(close_btn)
@@ -2952,7 +2954,7 @@ class ToolBoxWindow(QMainWindow):
         footer_outer.addLayout(footer_row)
 
         self.footer_label = QLabel("Checking for updates on startup...")
-        self.footer_label.setAlignment(Qt.AlignCenter)
+        self.footer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.footer_label.setStyleSheet(f"color: {SUBTEXT}; background: transparent; border: none;")
         self.footer_label.setFont(qt_font(8))
         footer_outer.addWidget(self.footer_label)
@@ -2980,7 +2982,7 @@ class ToolBoxWindow(QMainWindow):
                 f"QPushButton:hover {{ background-color: {ACCENT}; color: {TEXT2}; }}"
             )
             btn.setFont(qt_font(10, bold=True))
-            btn.setCursor(Qt.PointingHandCursor)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(lambda _checked=False, f=script["filename"]: launch_script(f))
             self._buttons_layout.insertWidget(i, btn)
             self.script_buttons[i] = btn
