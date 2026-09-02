@@ -1,8 +1,8 @@
-# ProtoTool-Launcher
+# Project Proto
 
 <img src="Images/Boot%27s-ToolBox.svg" alt="Boot's ToolBox" width="200" />
 
-Hello people! I hope you like ProtoTool-Launcher. I spent quite a while making this to make managing and launching companion tools as easy and seamless as possible. Since this is a solo project, some bugs are expected so please report any issues or feedback in my Discord server!
+Hello people! I hope you like Project. I spent quite a while making this project to make managing and launching companion tools as easy and seamless as possible. Since this is a solo project, some bugs are expected so please report any issues or feedback in my Discord server!
 
 ### [**The Discord Server**](https://discord.gg/YDXpQPF6g9)
 
