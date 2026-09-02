@@ -76,7 +76,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.8.3"
+VERSION = "9.8.4"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -2363,7 +2363,7 @@ def open_settings():
     header.setStyleSheet(f"background-color: {PANEL};")
     header_layout = QHBoxLayout(header)
     header_layout.setContentsMargins(20, 10, 20, 10)
-    title_label = QLabel("Manage Scripts & Settings")
+    title_label = QLabel(f"Manage Scripts & Settings (v{VERSION})")
     title_label.setStyleSheet(f"color: {ACCENT2}; background: transparent; border: none;")
     title_label.setFont(qt_font(12, bold=True))
     header_layout.addWidget(title_label)
