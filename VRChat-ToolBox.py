@@ -77,7 +77,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.8.11"
+VERSION = "9.8.12"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -1951,7 +1951,7 @@ def perform_update(remote_text=None, source_url=None):
             subprocess.Popen(
                 cmd,
                 shell=True,
-                creationflags=subprocess.CREATE_NEW_CONSOLE | subprocess.DETACHED_PROCESS if sys.platform == "win32" else 0
+                creationflags=subprocess.DETACHED_PROCESS if sys.platform == "win32" else 0
             )
         else:
             subprocess.Popen([sys.executable, script_path], cwd=os.path.dirname(script_path))
