@@ -1180,7 +1180,7 @@ def get_repo_tree(force: bool = False) -> list[str] | None:
     if not force and _repo_tree_cache["branch"] == UPDATE_BRANCH and _repo_tree_cache["paths"] is not None:
         return _repo_tree_cache["paths"]
 
-    url = f"https://api.github.com/repos/CaptainBoots/VRChat-ToolBox/git/trees/{UPDATE_BRANCH}?recursive=1"
+    url = f"https://api.github.com/repos/CaptainBoots/VRChat-Tools/git/trees/{UPDATE_BRANCH}?recursive=1"
     try:
         resp = requests.get(url, timeout=15, headers={"Accept": "application/vnd.github+json"})
         resp.raise_for_status()
@@ -1194,23 +1194,15 @@ def get_repo_tree(force: bool = False) -> list[str] | None:
 
 
 def _tool_remote_files(filename: str) -> list[str] | None:
-    """Every file path (relative to the repo's VRChat-Tools/ folder, e.g.
+    """Every file path (relative to the repo's folder, e.g.
     'OSC-Router/ui/app.py') that belongs to this tool's folder, or None if
     the tree couldn't be fetched at all.
-
-    NOTE: the tree API returns paths relative to the repo ROOT, e.g.
-    'VRChat-Tools/OSC-Router/main.py' — not 'OSC-Router/main.py' — because
-    the tools live inside a VRChat-Tools/ subfolder in the repo (same reason
-    get_github_base_url() below ends in '.../VRChat-Tools/'). So we filter
-    on that full prefix and strip it back off before returning, keeping the
-    returned paths in the same 'OSC-Router/...' shape used everywhere else
-    in this file (TOOLS_ROOT_DIR, get_github_base_url(), etc).
     """
-    repo_prefix = f"VRChat-Tools/{_tool_folder_name(filename)}/"
+    tool_prefix = f"{_tool_folder_name(filename)}/"
     paths = get_repo_tree()
     if paths is None:
         return None
-    return [p[len("VRChat-Tools/"):] for p in paths if p.startswith(repo_prefix)]
+    return [p for p in paths if p.startswith(tool_prefix)]
 
 
 def ensure_tool_folder(filename: str, show_errors: bool = False) -> bool:
