@@ -76,7 +76,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.8.2"
+VERSION = "9.8.3"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -1927,7 +1927,7 @@ def perform_update(remote_text=None, source_url=None):
 
         main_window.close()
         if is_frozen:
-            subprocess.Popen([sys.executable], cwd=os.path.dirname(sys.executable))
+            os.startfile(sys.executable)
         else:
             subprocess.Popen([sys.executable, script_path], cwd=os.path.dirname(script_path))
         sys.exit(0)
