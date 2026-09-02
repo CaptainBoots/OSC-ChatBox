@@ -76,7 +76,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.8.1"
+VERSION = "9.8.2"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -1237,13 +1237,20 @@ def load_managed_scripts():
     global _tool_label_cache
     _tool_label_cache = config.get("cached_labels", {})
 
+    # Extract any custom scripts the user manually added
+    saved_scripts = config.get("managed_scripts", [])
+    custom_scripts = [s for s in saved_scripts if s.get("custom", False)]
+
     # Dynamically discover all tools instead of relying on a static hardcoded config list!
     discovered_scripts = discover_managed_scripts()
+    
+    # Combine auto-detected scripts with custom ones
+    combined_scripts = discovered_scripts + custom_scripts
 
     # Save config inside the tools directory
     config["version"] = VERSION
     config["tools_root_dir"] = TOOLS_ROOT_DIR
-    config["managed_scripts"] = discovered_scripts
+    config["managed_scripts"] = combined_scripts
     config["cached_labels"] = _tool_label_cache
     try:
         os.makedirs(TOOLBOX_CONFIG_DIR, exist_ok=True)
@@ -1260,7 +1267,7 @@ def load_managed_scripts():
             except OSError:
                 pass
 
-    return discovered_scripts
+    return combined_scripts
 
 
 def save_managed_scripts(scripts):
@@ -2695,16 +2702,22 @@ def open_settings():
             file_lbl.setFont(file_font)
             row_layout.addWidget(file_lbl)
 
-            remove_btn = QPushButton("✕ Remove")
-            remove_btn.setStyleSheet(
-                f"QPushButton {{ background-color: {PANEL}; color: {RED}; border: none; "
-                f"border-radius: 3px; padding: 3px 10px; font-weight: bold; }}"
-                f"QPushButton:hover {{ background-color: {BORDER}; }}"
-            )
-            remove_btn.setFont(qt_font(8, bold=True))
-            remove_btn.setCursor(Qt.PointingHandCursor)
-            remove_btn.clicked.connect(lambda _checked=False, i=idx: remove_script(i))
-            row_layout.addWidget(remove_btn)
+            if script.get("custom", False):
+                remove_btn = QPushButton("✕ Remove")
+                remove_btn.setStyleSheet(
+                    f"QPushButton {{ background-color: {PANEL}; color: {RED}; border: none; "
+                    f"border-radius: 3px; padding: 3px 10px; font-weight: bold; }}"
+                    f"QPushButton:hover {{ background-color: {BORDER}; }}"
+                )
+                remove_btn.setFont(qt_font(8, bold=True))
+                remove_btn.setCursor(Qt.PointingHandCursor)
+                remove_btn.clicked.connect(lambda _checked=False, i=idx: remove_script(i))
+                row_layout.addWidget(remove_btn)
+            else:
+                core_lbl = QLabel("🔒 Core Tool")
+                core_lbl.setStyleSheet(f"color: {SUBTEXT}; background: transparent; border: none; padding-right: 5px;")
+                core_lbl.setFont(qt_font(8, bold=True))
+                row_layout.addWidget(core_lbl)
 
             list_inner_layout.addWidget(script_row)
 
@@ -2758,7 +2771,7 @@ def open_settings():
                 QMessageBox.warning(add_win, "Validation Error", "All entry parameters must be populated.")
                 return
 
-            MANAGED_SCRIPTS.append({"filename": flm, "label": lbl})
+            MANAGED_SCRIPTS.append({"filename": flm, "label": lbl, "custom": True})
             save_managed_scripts(MANAGED_SCRIPTS)
             refresh_script_list()
             main_window.refresh_main_buttons()
