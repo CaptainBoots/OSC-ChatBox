@@ -74,11 +74,11 @@ install_if_missing("PySide6", "PySide6")
 import requests
 
 from PySide6.QtCore import Qt, QObject, Signal, Slot, QPointF, QTimer
-from PySide6.QtGui import QPainter, QColor, QPolygonF, QFont, QFontDatabase, QIcon
+from PySide6.QtGui import QPainter, QColor, QPolygonF, QFont, QFontDatabase, QIcon, QTextCursor
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QDialog, QWidget, QLabel, QPushButton,
     QLineEdit, QComboBox, QScrollArea, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QFrame, QMessageBox, QFileDialog, QSizePolicy,
+    QFrame, QMessageBox, QFileDialog, QSizePolicy, QTextEdit,
 )
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
@@ -623,15 +623,134 @@ class CircleToggle(QWidget):
 # (what to check, what to compare, when an update is "available") are 100%
 # unchanged from the original.
 
+class ConsoleRedirector(object):
+    def __init__(self, original_stream, bridge_signal=None):
+        self.original_stream = original_stream
+        self.bridge_signal = bridge_signal
+        self.buffer = []
+
+    def write(self, text):
+        self.original_stream.write(text)
+        self.buffer.append(text)
+        if len(self.buffer) > 5000:
+            self.buffer = self.buffer[-3000:]
+        if self.bridge_signal:
+            try:
+                self.bridge_signal.emit(text)
+            except Exception:
+                pass
+
+    def flush(self):
+        self.original_stream.flush()
+
+    def get_logs(self):
+        return "".join(self.buffer)
+
+
+class ConsoleWindow(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("ToolBox Console Log")
+        self.resize(700, 450)
+        self.setStyleSheet(f"background-color: {BG}; color: {TEXT};")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
+
+        # Title/Header
+        title_label = QLabel("Real-Time Application Console Logs")
+        title_font = QFont()
+        title_font.setBold(True)
+        title_font.setPointSize(11)
+        title_label.setFont(title_font)
+        title_label.setStyleSheet(f"color: {ACCENT}; background: transparent; border: none;")
+        layout.addWidget(title_label)
+
+        # Text area
+        self.text_area = QTextEdit()
+        self.text_area.setReadOnly(True)
+        self.text_area.setFont(QFont("Consolas", 9))
+        self.text_area.setStyleSheet(
+            f"background-color: {PANEL}; color: {TEXT}; "
+            f"border: 1px solid {BORDER}; border-radius: 4px; padding: 5px;"
+        )
+        layout.addWidget(self.text_area)
+
+        # Buttons layout
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+
+        clear_btn = QPushButton("Clear")
+        clear_btn.setCursor(Qt.PointingHandCursor)
+        clear_btn.setStyleSheet(
+            f"QPushButton {{ background-color: {PANEL}; color: {SUBTEXT}; "
+            f"border: 1px solid {BORDER}; border-radius: 3px; padding: 5px 15px; }}"
+            f"QPushButton:hover {{ background-color: {BORDER}; color: {TEXT}; }}"
+        )
+        clear_btn.clicked.connect(self.clear_logs)
+        btn_layout.addWidget(clear_btn)
+
+        copy_btn = QPushButton("Copy to Clipboard")
+        copy_btn.setCursor(Qt.PointingHandCursor)
+        copy_btn.setStyleSheet(
+            f"QPushButton {{ background-color: {PANEL}; color: {SUBTEXT}; "
+            f"border: 1px solid {BORDER}; border-radius: 3px; padding: 5px 15px; }}"
+            f"QPushButton:hover {{ background-color: {BORDER}; color: {TEXT}; }}"
+        )
+        copy_btn.clicked.connect(self.copy_to_clipboard)
+        btn_layout.addWidget(copy_btn)
+
+        btn_layout.addStretch()
+
+        close_btn = QPushButton("Close")
+        close_btn.setCursor(Qt.PointingHandCursor)
+        close_btn.setStyleSheet(
+            f"QPushButton {{ background-color: {ACCENT}; color: {BG}; "
+            f"border: none; border-radius: 3px; padding: 5px 20px; font-weight: bold; }}"
+            f"QPushButton:hover {{ background-color: {TEXT}; }}"
+        )
+        close_btn.clicked.connect(self.close)
+        btn_layout.addWidget(close_btn)
+
+        layout.addLayout(btn_layout)
+
+        # Populate with existing logs
+        self.text_area.setPlainText(stdout_redirector.get_logs())
+        self.text_area.moveCursor(QTextCursor.End)
+
+        # Connect to stream signal for real-time updates
+        bridge.console_log.connect(self.append_log)
+
+    def append_log(self, text):
+        self.text_area.insertPlainText(text)
+        self.text_area.moveCursor(QTextCursor.End)
+
+    def clear_logs(self):
+        stdout_redirector.buffer.clear()
+        stderr_redirector.buffer.clear()
+        self.text_area.clear()
+
+    def copy_to_clipboard(self):
+        clipboard = QApplication.clipboard()
+        clipboard.setText(self.text_area.toPlainText())
+
+
 class _Bridge(QObject):
     footer_text = Signal(str)
     refresh_labels = Signal()
     confirm_main_update = Signal(str, str, str)   # prompt, remote_text, remote_url
     show_info = Signal(str, str)
     show_error = Signal(str, str)
+    console_log = Signal(str)
 
 
 bridge = _Bridge()
+
+stdout_redirector = ConsoleRedirector(sys.stdout, bridge.console_log)
+stderr_redirector = ConsoleRedirector(sys.stderr, bridge.console_log)
+sys.stdout = stdout_redirector
+sys.stderr = stderr_redirector
 
 # Set once the main window is constructed (see entry point at the bottom).
 # Business-logic functions below reference this by name, resolved at call
@@ -2357,6 +2476,18 @@ def open_settings():
     add_btn.clicked.connect(add_script)
     nav_layout.addWidget(add_btn)
     nav_layout.addStretch(1)
+
+    def show_console():
+        console_dialog = ConsoleWindow(settings_win)
+        console_dialog.exec()
+
+    console_btn = QPushButton("Console Log")
+    console_btn.setStyleSheet(subtle_button_qss())
+    console_btn.setFont(qt_font(9, bold=True))
+    console_btn.setCursor(Qt.PointingHandCursor)
+    console_btn.setMinimumWidth(110)
+    console_btn.clicked.connect(show_console)
+    nav_layout.addWidget(console_btn)
 
     close_btn = QPushButton("Close")
     close_btn.setStyleSheet(subtle_button_qss())
