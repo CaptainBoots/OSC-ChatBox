@@ -18,6 +18,7 @@ import site
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ET
 import zipfile
 import webbrowser
 import threading
@@ -63,8 +64,8 @@ install_if_missing("PySide6", "PySide6")
 
 import requests
 
-from PySide6.QtCore import Qt, QObject, Signal, Slot, QPointF, QTimer, QThread
-from PySide6.QtGui import QPainter, QColor, QPolygonF, QFont, QFontDatabase, QIcon, QTextCursor
+from PySide6.QtCore import Qt, QObject, Signal, Slot, QPointF, QTimer, QThread, QRectF
+from PySide6.QtGui import QPainter, QColor, QPolygonF, QFont, QFontDatabase, QIcon, QTextCursor, QPen, QFontMetrics
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QDialog, QWidget, QLabel, QPushButton,
     QLineEdit, QComboBox, QScrollArea, QVBoxLayout, QHBoxLayout, QGridLayout,
@@ -76,13 +77,25 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.8.4"
+VERSION = "9.8.5"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
 # Python interpreter used to launch tool scripts. Empty string = use the same
 # interpreter the ToolBox itself is running on (sys.executable).
 PYTHON_INTERPRETER = ""
+
+# ─── Statically declared theme variables to satisfy code analysis / IDE inspectors ───
+BG = ""
+PANEL = ""
+BORDER = ""
+ACCENT = ""
+ACCENT2 = ""
+TEXT = ""
+TEXT2 = ""
+SUBTEXT = ""
+RED = ""
+STRIPE_COLOURS = []
 
 # ─── Filesystem layout ──────────────────────────────────────────────────────
 if getattr(sys, 'frozen', False):
@@ -628,8 +641,6 @@ class CircleToggle(QWidget):
         self.setCursor(Qt.PointingHandCursor)
 
     def paintEvent(self, _event):
-        from PySide6.QtCore import QRectF
-        from PySide6.QtGui import QPen
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
         rect = QRectF(self._pad, self._pad, self._size - 2 * self._pad, self._size - 2 * self._pad)
@@ -1369,8 +1380,6 @@ def _patch_lhm_config() -> None:
       startMinMenuItem     = true   (starts minimised to tray)
     Creates the config from scratch if it doesn't exist yet.
     """
-    import xml.etree.ElementTree as ET
-
     lhm_dir = os.path.dirname(_lhm_exe_path())
     cfg_path = os.path.join(lhm_dir, "LibreHardwareMonitor.config")
 
@@ -2690,7 +2699,6 @@ def open_settings():
             row_layout.addWidget(name_lbl)
             row_layout.addStretch(1)
 
-            from PySide6.QtGui import QFontMetrics
             file_font = qt_font(8)
             file_metrics = QFontMetrics(file_font)
             elided = file_metrics.elidedText(f"({script['filename']})", Qt.ElideMiddle, 170)
