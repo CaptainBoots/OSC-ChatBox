@@ -77,7 +77,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "9.8.7"
+VERSION = "9.8.8"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -1940,7 +1940,7 @@ def perform_update(remote_text=None, source_url=None):
         if is_frozen:
             # Clean PyInstaller environment variables so the new process doesn't think it is a child
             for key in list(os.environ.keys()):
-                if "MEIPASS" in key or key in ("PYTHONHOME", "PYTHONPATH"):
+                if "MEIPASS" in key or "PYI" in key or key in ("PYTHONHOME", "PYTHONPATH"):
                     os.environ.pop(key, None)
             os.startfile(sys.executable)
         else:
