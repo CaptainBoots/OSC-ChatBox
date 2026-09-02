@@ -21,8 +21,7 @@ __pycache__/
 /VRChat-Tools/VRChat-Toolbox/
 
 # PyInstaller build artifacts & compiled binaries
-/build/
-/dist/
+
 *.pkg
 *.bak
 *.bak.*
