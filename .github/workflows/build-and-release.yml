@@ -64,6 +64,7 @@ jobs:
         if: env.RELEASE_EXISTS != 'true'
         run: |
           python -m PyInstaller --noconfirm ToolBox.spec
+          python -m PyInstaller --onefile --name="Uninstaller" Uninstaller.py
 
       - name: Create GitHub Release
         if: env.RELEASE_EXISTS != 'true'
@@ -75,5 +76,6 @@ jobs:
           prerelease: false
           files: |
             dist/ToolBox.exe
+            dist/Uninstaller.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
