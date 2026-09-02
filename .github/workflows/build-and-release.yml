@@ -20,7 +20,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Install Dependencies
         run: |
@@ -29,38 +28,37 @@ jobs:
 
       - name: Extract Version
         id: get_version
-        shell: bash
         run: |
-          VERSION=$(python -c "
-          import re
-          with open('VRChat-ToolBox.py', 'r', encoding='utf-8') as f:
-              for line in f:
-                  if line.strip().startswith('VERSION ='):
-                      match = re.search(r'[\"\\\']([^\"\\\']+)[\"\\\']', line)
-                      if match:
-                          print(match.group(1))
-                          break
-          ")
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Extracted version: $VERSION"
+          $version = python -c "import re; content=open('VRChat-ToolBox.py', 'r', encoding='utf-8').read(); print(re.search(r'VERSION\s*=\s*[\x22\x27]([^\x22\x27]+)[\x22\x27]', content).group(1))"
+          Add-Content -Path $env:GITHUB_ENV -Value "VERSION=$version"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version"
+          Write-Host "Extracted version: $version"
 
       - name: Check if Release Exists
         id: check_release
-        shell: bash
         run: |
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -I \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ env.VERSION }}")
-          if [ "$HTTP_STATUS" = "200" ]; then
-            echo "RELEASE_EXISTS=true" >> $GITHUB_ENV
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Release v${{ env.VERSION }} already exists. Skipping build."
-          else
-            echo "RELEASE_EXISTS=false" >> $GITHUB_ENV
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Release v${{ env.VERSION }} does not exist. Proceeding with build."
-          fi
+          $headers = @{ "Authorization" = "Bearer ${{ secrets.GITHUB_TOKEN }}" }
+          $url = "https://api.github.com/repos/${{ github.repository }}/releases/tags/v$env:VERSION"
+          try {
+              $response = Invoke-WebRequest -Uri $url -Headers $headers -Method Head -UseBasicParsing
+              $status = $response.StatusCode
+          } catch {
+              # If the request fails (e.g. 404), extract status code from exception
+              if ($_.Exception.Response) {
+                  $status = $_.Exception.Response.StatusCode.value__
+              } else {
+                  $status = 0
+              }
+          }
+          if ($status -eq 200) {
+              Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_EXISTS=true"
+              Add-Content -Path $env:GITHUB_OUTPUT -Value "exists=true"
+              Write-Host "Release v$env:VERSION already exists. Skipping build."
+          } else {
+              Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_EXISTS=false"
+              Add-Content -Path $env:GITHUB_OUTPUT -Value "exists=false"
+              Write-Host "Release v$env:VERSION does not exist. Proceeding with build."
+          }
 
       - name: Build Executable
         if: env.RELEASE_EXISTS != 'true'
