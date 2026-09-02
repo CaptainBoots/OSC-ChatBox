@@ -77,7 +77,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -2051,9 +2051,36 @@ def force_update_all_scripts():
     explicit user action in Settings rather than something happening at boot."""
 
     def _update_task():
+        global MANAGED_SCRIPTS
         bridge.footer_text.emit(f"Switching branch to '{UPDATE_BRANCH}' & updating...")
 
-        get_repo_tree(force=True)  # branch changed — the cached file listing is stale
+        # 1. Fetch remote repository tree for the new branch
+        remote_paths = get_repo_tree(force=True)  # branch changed — the cached file listing is stale
+
+        # 2. Identify all valid tool folders belonging to the remote target branch
+        valid_remote_tool_folders = set()
+        if remote_paths:
+            for p in remote_paths:
+                parts = p.split("/")
+                if len(parts) == 2 and parts[1] == "main.py":
+                    valid_remote_tool_folders.add(parts[0])
+
+        # 3. Clean up older local tool folders that do not exist on the target branch
+        # (This cleanly gets rid of beta-only tools when switching back to main!)
+        if os.path.isdir(TOOLS_ROOT_DIR):
+            try:
+                for item in os.listdir(TOOLS_ROOT_DIR):
+                    folder_path = os.path.join(TOOLS_ROOT_DIR, item)
+                    if os.path.isdir(folder_path) and item not in ("LibreHardwareMonitor", "configs", "ToolBox Backup"):
+                        if item not in valid_remote_tool_folders:
+                            print(f"[Branch Sync] Removing branch-specific tool folder: {item}")
+                            shutil.rmtree(folder_path, ignore_errors=True)
+            except Exception as e:
+                print(f"[Branch Sync] Error cleaning up branch-specific folders: {e}")
+
+        # 4. Dynamically re-discover and update MANAGED_SCRIPTS for the target branch
+        # This checks for any newly added/available tools on the chosen branch!
+        MANAGED_SCRIPTS = load_managed_scripts()
 
         success = True
         for script in MANAGED_SCRIPTS:
@@ -2061,7 +2088,12 @@ def force_update_all_scripts():
             if filename == LHM_FILENAME:
                 continue
 
-            folder_path = os.path.join(TOOLS_ROOT_DIR, _tool_folder_name(filename))
+            # Skip syncing any custom added tools or files not matching the remote tree
+            tool_folder = _tool_folder_name(filename)
+            if remote_paths and not any(p.startswith(f"{tool_folder}/") for p in remote_paths):
+                continue
+
+            folder_path = os.path.join(TOOLS_ROOT_DIR, tool_folder)
             if os.path.isdir(folder_path):
                 try:
                     shutil.rmtree(folder_path)
@@ -2075,6 +2107,10 @@ def force_update_all_scripts():
                 success = False
 
         bridge.refresh_labels.emit()
+
+        # Safely trigger a main window button reload on the main thread to reflect any newly discovered scripts!
+        if main_window:
+            QTimer.singleShot(0, main_window.refresh_main_buttons)
 
         if success:
             bridge.footer_text.emit(f"Successfully switched to branch '{UPDATE_BRANCH}'!")
