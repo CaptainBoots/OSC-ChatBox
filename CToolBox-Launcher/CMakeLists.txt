@@ -1,21 +1,21 @@
 cmake_minimum_required(VERSION 3.16)
 
-# 1. Dynamically read version from the Python ProtoTool-Launcher.py as single-source-of-truth
+# 1. Dynamically read version from the Python PyToolBox-Launcher.py as single-source-of-truth
 set(LAUNCHER_VERSION "1.0.1") # Fallback default
-set(PY_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../ProtoTool-Launcher/ProtoTool-Launcher.py")
+set(PY_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../PyToolBox-Launcher/PyToolBox-Launcher.py")
 
 if(EXISTS "${PY_FILE}")
     file(READ "${PY_FILE}" PY_CONTENT)
     if(PY_CONTENT MATCHES "VERSION\\s*=\\s*\"([^\"]+)\"")
         set(LAUNCHER_VERSION "${CMAKE_MATCH_1}")
-        message(STATUS "Auto-detected ProtoTool-Launcher version: ${LAUNCHER_VERSION}")
+        message(STATUS "Auto-detected PyToolBox-Launcher version: ${LAUNCHER_VERSION}")
     elseif(PY_CONTENT MATCHES "VERSION\\s*=\\s*'([^']+)'")
         set(LAUNCHER_VERSION "${CMAKE_MATCH_1}")
-        message(STATUS "Auto-detected ProtoTool-Launcher version: ${LAUNCHER_VERSION}")
+        message(STATUS "Auto-detected PyToolBox-Launcher version: ${LAUNCHER_VERSION}")
     endif()
 endif()
 
-project(SynthTool-Launcher VERSION ${LAUNCHER_VERSION} LANGUAGES CXX)
+project(CToolBox-Launcher VERSION ${LAUNCHER_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,7 +30,7 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 # Pass the dynamic version to the C++ compiler as a preprocessor definition with escaped quotes
 add_compile_definitions(APP_VERSION=\"${PROJECT_VERSION}\")
 
-add_executable(SynthTool-Launcher
+add_executable(CToolBox-Launcher
     src/main.cpp
     src/mainwindow.h
     src/mainwindow.cpp
@@ -48,7 +48,7 @@ add_executable(SynthTool-Launcher
     src/theme.cpp
 )
 
-target_link_libraries(SynthTool-Launcher PRIVATE
+target_link_libraries(CToolBox-Launcher PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
@@ -56,11 +56,11 @@ target_link_libraries(SynthTool-Launcher PRIVATE
 )
 
 # Add Uninstaller executable
-add_executable(SynthTool-Uninstaller
+add_executable(CToolBox-Uninstaller
     src/uninstaller.cpp
 )
 
-target_link_libraries(SynthTool-Uninstaller PRIVATE
+target_link_libraries(CToolBox-Uninstaller PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
@@ -68,6 +68,6 @@ target_link_libraries(SynthTool-Uninstaller PRIVATE
 
 # On Windows, build as a windowed application (hides the console window)
 if(WIN32)
-    set_target_properties(SynthTool-Launcher PROPERTIES WIN32_EXECUTABLE TRUE)
-    set_target_properties(SynthTool-Uninstaller PROPERTIES WIN32_EXECUTABLE TRUE)
+    set_target_properties(CToolBox-Launcher PROPERTIES WIN32_EXECUTABLE TRUE)
+    set_target_properties(CToolBox-Uninstaller PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
