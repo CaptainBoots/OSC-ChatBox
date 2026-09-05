@@ -566,6 +566,69 @@ void MainWindow::scanToolsVersions() {
         connect(reply, &QNetworkReply::finished, context->self, [context, reply, s, scanNext]() {
             if (reply->error() == QNetworkReply::NoError) {
                 QString remoteContent = reply->readAll();
+                
+                // Extract remote TOOL_ID or ID
+                QString remoteId = "000000";
+                QRegularExpression reId("(TOOL_ID|ID)\\s*=\\s*['\"]([^'\"]+)['\"]");
+                QRegularExpressionMatch matchId = reId.match(remoteContent);
+                if (matchId.hasMatch()) {
+                    remoteId = matchId.captured(2);
+                } else {
+                    QRegularExpression reIdNum("(TOOL_ID|ID)\\s*=\\s*(\\d+)");
+                    QRegularExpressionMatch matchIdNum = reIdNum.match(remoteContent);
+                    if (matchIdNum.hasMatch()) {
+                        remoteId = matchIdNum.captured(2);
+                    }
+                }
+                remoteId = QString("%1").arg(remoteId.toInt(), 6, 10, QChar('0'));
+
+                // SELF-HEALING RENAME CHECK:
+                // Check if this remote ID matches an already discovered local tool, but the folder name has changed!
+                if (remoteId != "000000") {
+                    QVector<ManagedScript> currentScripts = ConfigManager::instance().managedScripts();
+                    bool renamed = false;
+                    for (int idx = 0; idx < currentScripts.size(); ++idx) {
+                        ManagedScript& localScript = currentScripts[idx];
+                        if (localScript.id == remoteId && localScript.filename != s.filename) {
+                            // Folder renamed on GitHub!
+                            QString oldFolder = localScript.filename.split("/")[0];
+                            QString newFolder = s.filename.split("/")[0];
+                            
+                            QDir toolsDir(ConfigManager::instance().toolsRootDir());
+                            QString oldPath = toolsDir.filePath(oldFolder);
+                            QString newPath = toolsDir.filePath(newFolder);
+                            
+                            if (QDir(oldPath).exists()) {
+                                if (QDir(newPath).exists()) {
+                                    QDir(newPath).removeRecursively();
+                                }
+                                if (QDir().rename(oldPath, newPath)) {
+                                    ConsoleWindow::appendLog(QString("[Self-Healing] Renamed local folder from '%1' to '%2'\n").arg(oldFolder).arg(newFolder));
+                                }
+                            }
+                            
+                            // Update the local script info in memory
+                            localScript.filename = s.filename;
+                            
+                            // Extract pretty remote name if present
+                            QRegularExpression reName("NAME\\s*=\\s*['\"]([^'\"]+)['\"]");
+                            QRegularExpressionMatch matchName = reName.match(remoteContent);
+                            if (matchName.hasMatch()) {
+                                localScript.label = matchName.captured(1);
+                            }
+                            
+                            renamed = true;
+                        }
+                    }
+                    
+                    if (renamed) {
+                        ConfigManager::instance().setManagedScripts(currentScripts);
+                        ConfigManager::instance().save();
+                        // Rebuild main window buttons to match renames
+                        QMetaObject::invokeMethod(context->self, "refreshMainButtons", Qt::QueuedConnection);
+                    }
+                }
+
                 QRegularExpression re("VERSION\\s*=\\s*['\"]([^'\"]+)['\"]");
                 QRegularExpressionMatch match = re.match(remoteContent);
                 if (match.hasMatch()) {

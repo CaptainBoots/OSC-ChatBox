@@ -6,6 +6,7 @@
 struct ManagedScript {
     QString filename;
     QString label;
+    QString id = "000000";
     bool custom = false;
 };
 

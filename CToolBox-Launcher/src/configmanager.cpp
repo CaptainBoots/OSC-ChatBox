@@ -185,6 +185,7 @@ void ConfigManager::load() {
             ManagedScript s;
             s.filename = sObj["filename"].toString();
             s.label = sObj["label"].toString();
+            s.id = sObj["id"].toString("000000");
             s.custom = sObj["custom"].toBool(false);
             m_managedScripts.append(s);
         }
@@ -219,6 +220,7 @@ void ConfigManager::save() {
         QJsonObject sObj;
         sObj["filename"] = s.filename;
         sObj["label"] = s.label;
+        sObj["id"] = s.id;
         sObj["custom"] = s.custom;
         scriptsArr.append(sObj);
     }
@@ -240,6 +242,7 @@ QVector<ManagedScript> ConfigManager::discoverManagedScripts() {
     ManagedScript lhm;
     lhm.filename = "LibreHardwareMonitor/LibreHardwareMonitor.exe";
     lhm.label = "Libre Hardware Monitor";
+    lhm.id = "999801";
     lhm.custom = false;
     detected.append(lhm);
 
@@ -270,9 +273,26 @@ QVector<ManagedScript> ConfigManager::discoverManagedScripts() {
                     label = match.captured(1);
                 }
 
+                // Extract TOOL_ID or ID
+                QString idStr = "000000";
+                QRegularExpression reId("(TOOL_ID|ID)\\s*=\\s*['\"]([^'\"]+)['\"]");
+                QRegularExpressionMatch matchId = reId.match(content);
+                if (matchId.hasMatch()) {
+                    idStr = matchId.captured(2);
+                } else {
+                    QRegularExpression reIdNum("(TOOL_ID|ID)\\s*=\\s*(\\d+)");
+                    QRegularExpressionMatch matchIdNum = reIdNum.match(content);
+                    if (matchIdNum.hasMatch()) {
+                        idStr = matchIdNum.captured(2);
+                    }
+                }
+                // Zero-pad to 6 digits
+                idStr = QString("%1").arg(idStr.toInt(), 6, 10, QChar('0'));
+
                 ManagedScript s;
                 s.filename = item + "/main.py";
                 s.label = label;
+                s.id = idStr;
                 s.custom = false;
                 detected.append(s);
                 seenFolders.append(item);
