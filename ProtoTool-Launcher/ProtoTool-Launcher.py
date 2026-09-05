@@ -24,7 +24,6 @@ import webbrowser
 import threading
 import ctypes
 
-
 def install_if_missing(package, import_name=None):
     if import_name is None:
         import_name = package.split("==")[0].replace("-", "_")
