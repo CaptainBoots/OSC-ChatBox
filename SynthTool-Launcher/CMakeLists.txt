@@ -27,8 +27,8 @@ set(CMAKE_AUTOUIC ON)
 # Find Qt6 modules
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 
-# Pass the dynamic version to the C++ compiler as a preprocessor definition
-add_compile_definitions(APP_VERSION="${PROJECT_VERSION}")
+# Pass the dynamic version to the C++ compiler as a preprocessor definition with escaped quotes
+add_compile_definitions(APP_VERSION=\"${PROJECT_VERSION}\")
 
 add_executable(SynthTool-Launcher
     src/main.cpp
