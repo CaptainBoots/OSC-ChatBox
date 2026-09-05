@@ -73,12 +73,16 @@ jobs:
           python -m pip install aqtinstall
           python -m aqt install-qt windows desktop 6.8.0 win64_msvc2022_64 --outputdir C:/Qt
 
+      - name: Set up MSVC Developer Command Prompt
+        if: env.RELEASE_EXISTS != 'true'
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Build C++ Executables
         if: env.RELEASE_EXISTS != 'true'
         run: |
-          cd SynthTool-Launcher
-          mkdir build
-          cd build
+          if (Test-Path SynthTool-Launcher/build) { Remove-Item -Path SynthTool-Launcher/build -Recurse -Force }
+          New-Item -ItemType Directory -Force -Path SynthTool-Launcher/build
+          cd SynthTool-Launcher/build
           cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="C:/Qt/6.8.0/msvc2022_64" ..
           cmake --build . --config Release
 
