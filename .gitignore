@@ -18,7 +18,8 @@ __pycache__/
 # None Tools
 /Nova-Tools/configs/
 /Nova-Tools/LibreHardwareMonitor/
-/Nova-Tools/ProtoTool-Launcher/
+/Nova-Tools/PyToolBox-Launcher/
+/Nova-Tools/CToolBox-Launcher/
 
 # PyInstaller build artifacts & compiled binaries
 build/
