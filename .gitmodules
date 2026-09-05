@@ -8,5 +8,5 @@
 	path = Synth-Tools
 	url = https://github.com/CaptainBoots/Synth-Tools.git
 [submodule "Proto-Games"]
-	path = Proto-Games
+	path = Proto-Games-Launcher
 	url = https://github.com/CaptainBoots/Proto-Games.git
