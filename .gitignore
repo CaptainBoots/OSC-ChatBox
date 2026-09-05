@@ -21,7 +21,10 @@ __pycache__/
 /Nova-Tools/ProtoTool-Launcher/
 
 # PyInstaller build artifacts & compiled binaries
-
+build/
+dist/
+.exe
+.dll
 *.pkg
 *.bak
 *.bak.*

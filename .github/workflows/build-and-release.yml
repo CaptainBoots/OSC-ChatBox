@@ -29,7 +29,7 @@ jobs:
       - name: Extract Version
         id: get_version
         run: |
-          $version = python -c "import re; content=open('ProtoTool-Launcher.py', 'r', encoding='utf-8').read(); print(re.search(r'VERSION\s*=\s*[\x22\x27]([^\x22\x27]+)[\x22\x27]', content).group(1))"
+          $version = python -c "import re; content=open('ProtoTool-Launcher/ProtoTool-Launcher.py', 'r', encoding='utf-8').read(); print(re.search(r'VERSION\s*=\s*[\x22\x27]([^\x22\x27]+)[\x22\x27]', content).group(1))"
           Add-Content -Path $env:GITHUB_ENV -Value "VERSION=$version"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version"
           Write-Host "Extracted version: $version"
@@ -63,8 +63,41 @@ jobs:
       - name: Build Executable
         if: env.RELEASE_EXISTS != 'true'
         run: |
+          cd ProtoTool-Launcher
           python -m PyInstaller --noconfirm ProtoTool-Launcher.spec
-          python -m PyInstaller --onefile --name="Uninstaller" Uninstaller.py
+          python -m PyInstaller --noconfirm ProtoTool-Uninstaller.spec
+
+      - name: Install Qt6 SDK
+        if: env.RELEASE_EXISTS != 'true'
+        run: |
+          python -m pip install aqtinstall
+          python -m aqt install-qt windows desktop 6.8.0 win64_msvc2022_64 --outputdir C:/Qt
+
+      - name: Build C++ Executables
+        if: env.RELEASE_EXISTS != 'true'
+        run: |
+          cd SynthTool-Launcher
+          mkdir build
+          cd build
+          cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="C:/Qt/6.8.0/msvc2022_64" ..
+          cmake --build . --config Release
+
+      - name: Package C++ Executables
+        if: env.RELEASE_EXISTS != 'true'
+        run: |
+          & "C:/Qt/6.8.0/msvc2022_64/bin/windeployqt.exe" --no-compiler-runtime SynthTool-Launcher/build/Release/SynthTool-Launcher.exe
+          & "C:/Qt/6.8.0/msvc2022_64/bin/windeployqt.exe" --no-compiler-runtime SynthTool-Launcher/build/Release/SynthTool-Uninstaller.exe
+          
+          # Create a temporary directory to package only the launcher and its deployed DLLs
+          New-Item -ItemType Directory -Force -Path temp_package
+          Copy-Item -Path SynthTool-Launcher/build/Release/* -Destination temp_package -Recurse
+          
+          # Exclude the uninstaller from the portable zip folder
+          Remove-Item -Path temp_package/SynthTool-Uninstaller.exe -Force
+          
+          # Compress the package and clean up
+          Compress-Archive -Path temp_package/* -DestinationPath SynthTool-Launcher-Portable.zip
+          Remove-Item -Path temp_package -Recurse -Force
 
       - name: Create GitHub Release
         if: env.RELEASE_EXISTS != 'true'
@@ -75,7 +108,9 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            dist/ProtoTool-Launcher.exe
-            dist/Uninstaller.exe
+            ProtoTool-Launcher/dist/ProtoTool-Launcher.exe
+            ProtoTool-Launcher/dist/ProtoTool-Uninstaller.exe
+            SynthTool-Launcher-Portable.zip
+            SynthTool-Launcher/build/Release/SynthTool-Uninstaller.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
