@@ -76,7 +76,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -209,18 +209,20 @@ def discover_managed_scripts() -> list[dict]:
     """Dynamically auto-detects all tools inside the Nova-Tools folder and GitHub.
 
     Looks for subdirectories containing 'main.py'. Parsed tool names are extracted
-    from the 'NAME' variable right under the 'VERSION' variable inside each main.py.
+    from the 'NAME' variable, and unique 6-digit IDs are parsed from 'TOOL_ID'.
     """
     detected = []
 
     # 1. Always include LibreHardwareMonitor as a static default helper tool
     detected.append({
         "filename": "LibreHardwareMonitor/LibreHardwareMonitor.exe",
-        "label": "Libre Hardware Monitor"
+        "label": "Libre Hardware Monitor",
+        "id": "999801"
     })
 
     # Keep track of folders we have already discovered
     seen_folders = set()
+    local_tools_by_id = {}
 
     # 2. Local Discovery: Scan the local TOOLS_ROOT_DIR subfolders
     if os.path.isdir(TOOLS_ROOT_DIR):
@@ -230,7 +232,7 @@ def discover_managed_scripts() -> list[dict]:
                 if os.path.isdir(folder_path) and item != "LibreHardwareMonitor" and item != "configs" and item != "ToolBox Backup":
                     main_py_path = os.path.join(folder_path, "main.py")
                     if os.path.isfile(main_py_path):
-                        # Read and parse NAME
+                        # Read and parse NAME and TOOL_ID
                         try:
                             with open(main_py_path, "r", encoding="utf-8", errors="ignore") as f:
                                 content = f.read()
@@ -238,13 +240,18 @@ def discover_managed_scripts() -> list[dict]:
                             content = ""
                         
                         label = _extract_name_from_source(content) or item
+                        tool_id = _extract_id_from_source(content) or "000000"
                         filename = f"{item}/main.py"
-                        detected.append({"filename": filename, "label": label})
+                        
+                        tool_entry = {"filename": filename, "label": label, "id": tool_id}
+                        detected.append(tool_entry)
                         seen_folders.add(item)
+                        if tool_id != "000000":
+                            local_tools_by_id[tool_id] = tool_entry
         except Exception as e:
             print(f"[Discovery] Local tools scan failed: {e}")
 
-    # 3. Remote Discovery: Find missing folders that have main.py on GitHub
+    # 3. Remote Discovery: Find missing folders that have main.py on GitHub and handle renames
     paths = get_repo_tree()
     if paths:
         for p in paths:
@@ -252,17 +259,47 @@ def discover_managed_scripts() -> list[dict]:
             parts = p.split("/")
             if len(parts) == 2 and parts[1] == "main.py":
                 folder_name = parts[0]
-                if folder_name != "LibreHardwareMonitor" and folder_name not in seen_folders:
+                if folder_name != "LibreHardwareMonitor":
                     filename = f"{folder_name}/main.py"
-                    cached_label = _get_cached_tool_label(filename)
-                    if not cached_label:
-                        # Fetch the raw main.py content and parse NAME
-                        remote_text, _, _ = _fetch_remote_script(f"{get_github_base_url()}{filename}", timeout=5)
-                        cached_label = _extract_name_from_source(remote_text or "") or folder_name
-                        _cache_tool_label(filename, cached_label)
+                    
+                    # Fetch raw main.py content and parse NAME and TOOL_ID
+                    remote_text, _, _ = _fetch_remote_script(f"{get_github_base_url()}{filename}", timeout=5)
+                    remote_text = remote_text or ""
+                    
+                    remote_id = _extract_id_from_source(remote_text) or "000000"
+                    remote_label = _extract_name_from_source(remote_text) or folder_name
 
-                    detected.append({"filename": filename, "label": cached_label})
-                    seen_folders.add(folder_name)
+                    # SELF-HEALING RENAME CHECK:
+                    # If this remote ID matches an already discovered local tool, but the folder name has changed!
+                    if remote_id != "000000" and remote_id in local_tools_by_id:
+                        local_entry = local_tools_by_id[remote_id]
+                        old_filename = local_entry["filename"]
+                        if old_filename != filename:
+                            # Folder renamed on GitHub! Let's rename locally
+                            old_folder = old_filename.split("/")[0]
+                            old_folder_path = os.path.join(TOOLS_ROOT_DIR, old_folder)
+                            new_folder_path = os.path.join(TOOLS_ROOT_DIR, folder_name)
+                            if os.path.isdir(old_folder_path):
+                                try:
+                                    if os.path.isdir(new_folder_path):
+                                        shutil.rmtree(new_folder_path, ignore_errors=True)
+                                    os.rename(old_folder_path, new_folder_path)
+                                    print(f"[Self-Healing] Renamed local directory '{old_folder}' -> '{folder_name}' to match remote rename!")
+                                except Exception as ex:
+                                    print(f"[Self-Healing] Failed to rename directory: {ex}")
+                            
+                            # Update local entry with the new folder path
+                            local_entry["filename"] = filename
+                            local_entry["label"] = remote_label
+                            seen_folders.add(folder_name)
+                            if old_folder in seen_folders:
+                                seen_folders.remove(old_folder)
+                    else:
+                        # Standard discovery of a new tool
+                        if folder_name not in seen_folders:
+                            _cache_tool_label(filename, remote_label)
+                            detected.append({"filename": filename, "label": remote_label, "id": remote_id})
+                            seen_folders.add(folder_name)
 
     return detected
 
@@ -1774,6 +1811,21 @@ def _extract_name_from_source(source_text: str) -> str | None:
             match = re.search(r'["\']([^"\']+)["\']', line)
             if match:
                 return match.group(1)
+    return None
+
+
+def _extract_id_from_source(source_text: str) -> str | None:
+    for line in source_text.splitlines():
+        strip_line = line.strip()
+        if strip_line.startswith("TOOL_ID") or strip_line.startswith("ID"):
+            # Match quoted string ID like TOOL_ID = "000101"
+            match = re.search(r'["\']([^"\']+)["\']', strip_line)
+            if match:
+                return match.group(1).zfill(6)
+            # Match integer ID like TOOL_ID = 101
+            match_num = re.search(r'=\s*(\d+)', strip_line)
+            if match_num:
+                return match_num.group(1).zfill(6)
     return None
 
 
