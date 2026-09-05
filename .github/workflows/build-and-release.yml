@@ -83,23 +83,29 @@ jobs:
           if (Test-Path SynthTool-Launcher/build) { Remove-Item -Path SynthTool-Launcher/build -Recurse -Force }
           New-Item -ItemType Directory -Force -Path SynthTool-Launcher/build
           cd SynthTool-Launcher/build
-          cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="C:/Qt/6.8.0/msvc2022_64" ..
-          cmake --build . --config Release
+          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="C:/Qt/6.8.0/msvc2022_64" ..
+          cmake --build .
 
       - name: Package C++ Executables
         if: env.RELEASE_EXISTS != 'true'
         run: |
-          & "C:/Qt/6.8.0/msvc2022_64/bin/windeployqt.exe" --no-compiler-runtime SynthTool-Launcher/build/Release/SynthTool-Launcher.exe
-          & "C:/Qt/6.8.0/msvc2022_64/bin/windeployqt.exe" --no-compiler-runtime SynthTool-Launcher/build/Release/SynthTool-Uninstaller.exe
+          # Create a clean release distribution folder
+          New-Item -ItemType Directory -Force -Path dist_cpp
           
-          # Create a temporary directory to package only the launcher and its deployed DLLs
+          # Copy only the compiled binaries
+          Copy-Item -Path SynthTool-Launcher/build/SynthTool-Launcher.exe -Destination dist_cpp/
+          Copy-Item -Path SynthTool-Launcher/build/SynthTool-Uninstaller.exe -Destination dist_cpp/
+          
+          # Run windeployqt on the binaries inside the clean folder
+          & "C:/Qt/6.8.0/msvc2022_64/bin/windeployqt.exe" --no-compiler-runtime dist_cpp/SynthTool-Launcher.exe
+          & "C:/Qt/6.8.0/msvc2022_64/bin/windeployqt.exe" --no-compiler-runtime dist_cpp/SynthTool-Uninstaller.exe
+          
+          # Create a temporary directory for the portable ZIP (uninstaller-free)
           New-Item -ItemType Directory -Force -Path temp_package
-          Copy-Item -Path SynthTool-Launcher/build/Release/* -Destination temp_package -Recurse
-          
-          # Exclude the uninstaller from the portable zip folder
+          Copy-Item -Path dist_cpp/* -Destination temp_package -Recurse
           Remove-Item -Path temp_package/SynthTool-Uninstaller.exe -Force
           
-          # Compress the package and clean up
+          # Compress and clean up
           Compress-Archive -Path temp_package/* -DestinationPath SynthTool-Launcher-Portable.zip
           Remove-Item -Path temp_package -Recurse -Force
 
@@ -115,6 +121,6 @@ jobs:
             ProtoTool-Launcher/dist/ProtoTool-Launcher.exe
             ProtoTool-Launcher/dist/ProtoTool-Uninstaller.exe
             SynthTool-Launcher-Portable.zip
-            SynthTool-Launcher/build/Release/SynthTool-Uninstaller.exe
+            dist_cpp/SynthTool-Uninstaller.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
