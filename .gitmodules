@@ -7,6 +7,6 @@
 [submodule "Synth-Tools"]
 	path = Synth-Tools
 	url = https://github.com/CaptainBoots/Synth-Tools.git
-[submodule "Proto-Games"]
+[submodule "Proto-Games-Launcher"]
 	path = Proto-Games
-	url = https://github.com/CaptainBoots/Proto-Games-Laucher.git
+	url = https://github.com/CaptainBoots/Proto-Games-Launcher.git
