@@ -76,7 +76,7 @@ from PySide6.QtWidgets import (
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════#
 
 # ─── App metadata / runtime state ──────────────────────────────────────────
-VERSION = "1.0.5"
+VERSION = "1.0.6"
 UPDATE_BRANCH = "main"           # Default selected update branch
 BETA_POPUP_SHOWN = False
 
@@ -118,7 +118,7 @@ LEGACY_TOOLBOX_CONFIG_FILES = [
     os.path.join(TOOLS_ROOT_DIR, "toolbox_config.json"),
 ]
 
-def update_layout_paths(tools_root):
+def update_layout_paths(tools_root: str):
     global TOOLS_ROOT_DIR, TOOLBOX_CONFIG_DIR, TOOLBOX_CONFIG_FILE, BACKUP_DIR, LEGACY_TOOLBOX_CONFIG_FILES
     TOOLS_ROOT_DIR = os.path.abspath(tools_root)
     TOOLBOX_CONFIG_DIR = os.path.join(TOOLS_ROOT_DIR, "configs")
@@ -667,7 +667,7 @@ class CircleToggle(QWidget):
 
     toggled = Signal(bool)
 
-    def __init__(self, parent=None, *, enabled: bool = True, color: str = None, size: int = 20, pad: int = 3):
+    def __init__(self, parent=None, *, enabled: bool = True, color=None, size: int = 20, pad: int = 3):
         super().__init__(parent)
         self._enabled = enabled
         self._color = QColor(color or ACCENT)
@@ -1880,6 +1880,7 @@ def perform_update(remote_text=None, source_url=None):
     signal's slot after the person clicks Yes."""
     try:
         is_frozen = getattr(sys, 'frozen', False)
+        script_path: str = os.path.abspath(__file__)
 
         if is_frozen:
             current_exe = sys.executable
