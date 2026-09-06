@@ -41,6 +41,7 @@ private:
     void patchLHMConfig();
     bool ensureLHM();
     void runDetached(const QString& filename);
+    void startAutoUpdate(const QString& remoteVer);
     
     QNetworkAccessManager* m_networkManager;
     QScrollArea* m_buttonsScroll;

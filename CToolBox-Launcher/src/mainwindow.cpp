@@ -20,6 +20,7 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QSet>
+#include <QProgressDialog>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -420,10 +421,22 @@ void MainWindow::checkForUpdates() {
 
                 if (newer) {
                     m_footerLabel->setText("Update available!");
-                    auto btn = QMessageBox::question(this, "Update Available",
-                        QString("A new version of CToolBox-Launcher (v%1) is available.\n\nWould you like to open the GitHub releases page to download it?")
-                        .arg(remoteVer), QMessageBox::Yes | QMessageBox::No);
-                    if (btn == QMessageBox::Yes) {
+                    
+                    QMessageBox msgBox(this);
+                    msgBox.setWindowTitle("Update Available");
+                    msgBox.setText(QString("A new version of CToolBox-Launcher (v%1) is available.").arg(remoteVer));
+                    msgBox.setInformativeText("Would you like to update automatically now, or open the GitHub releases page to download manually?");
+                    
+                    QPushButton* autoBtn = msgBox.addButton("Auto-Update", QMessageBox::AcceptRole);
+                    QPushButton* manualBtn = msgBox.addButton("Manual (GitHub)", QMessageBox::ActionRole);
+                    QPushButton* cancelBtn = msgBox.addButton("Cancel", QMessageBox::RejectRole);
+                    
+                    msgBox.setDefaultButton(autoBtn);
+                    msgBox.exec();
+                    
+                    if (msgBox.clickedButton() == autoBtn) {
+                        startAutoUpdate(remoteVer);
+                    } else if (msgBox.clickedButton() == manualBtn) {
                         QDesktopServices::openUrl(QUrl("https://github.com/CaptainBoots/Project-Proto/releases"));
                     }
                 } else {
@@ -435,6 +448,79 @@ void MainWindow::checkForUpdates() {
         
         // Next, load repository tree to scan script versions
         fetchRepoTree();
+    });
+}
+
+void MainWindow::startAutoUpdate(const QString& remoteVer) {
+    QString url = QString("https://github.com/CaptainBoots/Project-Proto/releases/download/v%1/CToolBox-Launcher-Portable.zip").arg(remoteVer);
+    
+    QNetworkRequest request((QUrl(url)));
+    // Follow redirects since GitHub releases URLs redirect to AWS S3
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    
+    QNetworkReply* reply = m_networkManager->get(request);
+    
+    QProgressDialog* progress = new QProgressDialog("Downloading update...", "Cancel", 0, 100, this);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setWindowTitle("Updating CToolBox");
+    progress->setAutoClose(true);
+    progress->setMinimumDuration(0); // show immediately
+    
+    connect(reply, &QNetworkReply::downloadProgress, this, [progress](qint64 bytesReceived, qint64 bytesTotal) {
+        if (bytesTotal > 0) {
+            progress->setMaximum(bytesTotal);
+            progress->setValue(bytesReceived);
+        }
+    });
+    
+    connect(progress, &QProgressDialog::canceled, this, [reply]() {
+        reply->abort();
+    });
+    
+    connect(reply, &QNetworkReply::finished, this, [this, reply, progress]() {
+        progress->close();
+        progress->deleteLater();
+        
+        if (reply->error() == QNetworkReply::NoError) {
+            QString appDir = QCoreApplication::applicationDirPath();
+            QString zipPath = QDir(appDir).filePath("update.zip");
+            
+            QFile file(zipPath);
+            if (file.open(QIODevice::WriteOnly)) {
+                file.write(reply->readAll());
+                file.close();
+                
+                m_footerLabel->setText("Applying update...");
+                ConsoleWindow::appendLog("[Auto-Update] Download completed. Launching update script.\n");
+                
+                #ifdef Q_OS_WIN
+                // Escape single quotes in path if present (e.g. "Boot's-ToolBox")
+                QString appDirNative = QDir::toNativeSeparators(appDir).replace("'", "''");
+                
+                QString psCmd = QString(
+                    "Start-Sleep -Seconds 1; "
+                    "Expand-Archive -Path '%1\\update.zip' -DestinationPath '%1' -Force; "
+                    "Remove-Item '%1\\update.zip' -Force; "
+                    "Start-Process '%1\\CToolBox-Launcher.exe'"
+                ).arg(appDirNative);
+                
+                bool ok = QProcess::startDetached("powershell.exe", {"-NoProfile", "-Command", psCmd});
+                if (ok) {
+                    qApp->quit();
+                } else {
+                    QMessageBox::critical(this, "Update Error", "Failed to start updater helper process.");
+                }
+                #else
+                QMessageBox::information(this, "Update Downloaded", "The update.zip has been downloaded to your application folder. Please extract it manually on your platform.");
+                #endif
+            } else {
+                QMessageBox::critical(this, "Update Error", "Could not write the update file to disk. Check permissions.");
+            }
+        } else if (reply->error() != QNetworkReply::OperationCanceledError) {
+            QMessageBox::critical(this, "Update Error", "Failed to download update: " + reply->errorString());
+        }
+        
+        reply->deleteLater();
     });
 }
 

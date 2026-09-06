@@ -100,10 +100,9 @@ jobs:
           & "C:/Qt/6.8.0/msvc2022_64/bin/windeployqt.exe" --no-compiler-runtime dist_cpp/CToolBox-Launcher.exe
           & "C:/Qt/6.8.0/msvc2022_64/bin/windeployqt.exe" --no-compiler-runtime dist_cpp/CToolBox-Uninstaller.exe
           
-          # Create a temporary directory for the portable ZIP (uninstaller-free)
+          # Create a temporary directory for the portable ZIP (including uninstaller)
           New-Item -ItemType Directory -Force -Path temp_package
           Copy-Item -Path dist_cpp/* -Destination temp_package -Recurse
-          Remove-Item -Path temp_package/CToolBox-Uninstaller.exe -Force
           
           # Compress and clean up
           Compress-Archive -Path temp_package/* -DestinationPath CToolBox-Launcher-Portable.zip
